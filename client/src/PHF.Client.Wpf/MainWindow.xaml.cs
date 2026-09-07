@@ -39,12 +39,12 @@ public partial class MainWindow : Window
 
         TasksItemsControl.ItemsSource = _tasks;
 
-        // Initialize Services
-        _apiClient = new ApiClient("http://localhost:5000");
+        // Initialize Services (default port 5020)
+        _apiClient = new ApiClient("http://localhost:5020");
         _database = new TamperProofDatabase();
         _engine = new WorkstationTelemetryEngine(idleThresholdSeconds: 300);
         _syncWorker = new TelemetrySyncWorker(_database, _apiClient, _engine, syncIntervalSeconds: 30);
-        _realtimeClient = new RealtimeClient("http://localhost:5000", () => _apiClient.AuthToken);
+        _realtimeClient = new RealtimeClient("http://localhost:5020", () => _apiClient.AuthToken);
 
         // Hook engine telemetry updates to UI
         _engine.FocusChanged += OnForegroundFocusChanged;
@@ -240,13 +240,57 @@ public partial class MainWindow : Window
         var email = TxtLoginEmail.Text.Trim();
         var password = TxtLoginPassword.Password;
         var station = TxtLoginStation.Text.Trim();
+        var serverUrl = TxtServerUrl.Text.Trim();
 
         TxtLoginError.Visibility = Visibility.Collapsed;
         BtnDoLogin.IsEnabled = false;
 
         try
         {
-            var auth = await _apiClient.LoginAsync(email, password, station);
+            if (!string.IsNullOrWhiteSpace(serverUrl))
+            {
+                _apiClient.SetBaseUrl(serverUrl);
+                _realtimeClient.SetBaseUrl(serverUrl);
+            }
+
+            AuthResponse? auth = null;
+            try
+            {
+                auth = await _apiClient.LoginAsync(email, password, station);
+            }
+            catch (Exception)
+            {
+                // If connecting failed, try auto-fallback to alternate port (5020 <-> 5000)
+                var alternateUrl = serverUrl.Contains("5020") 
+                    ? serverUrl.Replace("5020", "5000") 
+                    : (serverUrl.Contains("5000") ? serverUrl.Replace("5000", "5020") : null);
+
+                if (!string.IsNullOrWhiteSpace(alternateUrl))
+                {
+                    try
+                    {
+                        _apiClient.SetBaseUrl(alternateUrl);
+                        _realtimeClient.SetBaseUrl(alternateUrl);
+                        auth = await _apiClient.LoginAsync(email, password, station);
+                        if (auth != null)
+                        {
+                            TxtServerUrl.Text = alternateUrl;
+                        }
+                    }
+                    catch
+                    {
+                        // Restore original to display error
+                        _apiClient.SetBaseUrl(serverUrl);
+                        _realtimeClient.SetBaseUrl(serverUrl);
+                        throw;
+                    }
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
             if (auth != null)
             {
                 _currentUser = auth.User;

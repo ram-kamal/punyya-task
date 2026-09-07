@@ -135,15 +135,15 @@ export default function AdminDashboardPage() {
 
     setIsDispatching(false);
 
-    if (result) {
-      setDispatchMessage(`✓ ${result.taskCode} successfully dispatched!`);
+    if (result.success && result.data) {
+      setDispatchMessage(`✓ ${result.data.taskCode} successfully dispatched!`);
       setDispatchTitle('');
       setDispatchDesc('');
       fetchTasks().then(setTasks);
       fetchTimesheetSummary().then(setTimesheet);
       setTimeout(() => setDispatchMessage(null), 4000);
     } else {
-      setDispatchMessage('Failed to dispatch task. Central API check required.');
+      setDispatchMessage(result.error || 'Failed to dispatch task. Central API check required.');
     }
   };
 
@@ -608,7 +608,7 @@ export default function AdminDashboardPage() {
                                   <span className="truncate">{task.deliverableFileName || 'Deliverable attached'}</span>
                                 </div>
                                 <a
-                                  href={`http://localhost:5000/api/v1/tasks/${task.id}/deliverable`}
+                                  href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5020'}/api/v1/tasks/${task.id}/deliverable`}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="text-blue-400 hover:text-blue-300 shrink-0 ml-2"

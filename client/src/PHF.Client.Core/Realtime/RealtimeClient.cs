@@ -6,7 +6,7 @@ namespace PHF.Client.Core.Realtime;
 public class RealtimeClient : IAsyncDisposable
 {
     private HubConnection? _hubConnection;
-    private readonly string _hubUrl;
+    private string _hubUrl;
     private Func<string?>? _tokenProvider;
 
     public event Action<TaskResponseDto>? OnTaskAssigned;
@@ -16,10 +16,15 @@ public class RealtimeClient : IAsyncDisposable
 
     public bool IsConnected => _hubConnection?.State == HubConnectionState.Connected;
 
-    public RealtimeClient(string baseUrl = "http://localhost:5000", Func<string?>? tokenProvider = null)
+    public RealtimeClient(string baseUrl = "http://localhost:5020", Func<string?>? tokenProvider = null)
     {
         _hubUrl = $"{baseUrl.TrimEnd('/')}/hubs/workstation";
         _tokenProvider = tokenProvider;
+    }
+
+    public void SetBaseUrl(string baseUrl)
+    {
+        _hubUrl = $"{baseUrl.TrimEnd('/')}/hubs/workstation";
     }
 
     public void SetTokenProvider(Func<string?> tokenProvider)

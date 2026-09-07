@@ -1,7 +1,7 @@
 import * as signalR from '@microsoft/signalr';
 import { LiveWorkstationEvent, WorkstationStatus } from './types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5020';
 
 class SignalRManager {
   private connection: signalR.HubConnection | null = null;

@@ -278,7 +278,10 @@
                                  Background="#0F172A" Foreground="{StaticResource TextPrimary}" Padding="10,8" FontSize="13" />
 
                     <TextBlock Text="Station Identifier" FontSize="12" Foreground="{StaticResource TextSecondary}" />
-                    <TextBox x:Name="TxtLoginStation" Text="ST-101" Margin="0,4,0,20" />
+                    <TextBox x:Name="TxtLoginStation" Text="ST-101" Margin="0,4,0,12" />
+
+                    <TextBlock Text="Server API URL" FontSize="12" Foreground="{StaticResource TextSecondary}" />
+                    <TextBox x:Name="TxtServerUrl" Text="http://localhost:5020" Margin="0,4,0,16" />
 
                     <TextBlock x:Name="TxtLoginError" Text="" FontSize="12" Foreground="{StaticResource AccentRed}" Margin="0,0,0,10" Visibility="Collapsed" />
 

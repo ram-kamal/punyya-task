@@ -11,11 +11,11 @@ public class ApiClient
     private string? _authToken;
     private readonly JsonSerializerOptions _jsonOptions;
 
-    public string BaseUrl { get; }
+    public string BaseUrl { get; private set; }
     public bool IsAuthenticated => !string.IsNullOrWhiteSpace(_authToken);
     public string? AuthToken => _authToken;
 
-    public ApiClient(string baseUrl = "http://localhost:5000")
+    public ApiClient(string baseUrl = "http://localhost:5020")
     {
         BaseUrl = baseUrl.TrimEnd('/');
         _httpClient = new HttpClient
@@ -28,6 +28,12 @@ public class ApiClient
         {
             PropertyNameCaseInsensitive = true
         };
+    }
+
+    public void SetBaseUrl(string baseUrl)
+    {
+        BaseUrl = baseUrl.TrimEnd('/');
+        _httpClient.BaseAddress = new Uri(BaseUrl);
     }
 
     public void SetAuthToken(string token)
