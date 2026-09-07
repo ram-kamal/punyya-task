@@ -10,7 +10,7 @@ export async function getAuthHeader(): Promise<Record<string, string>> {
       const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'manager@punnyaheart.org', password: 'Password@123' }),
+        body: JSON.stringify({ email: 'dhyanidhvaj@gmail.com', password: 'Admin0246' }),
       });
       if (res.ok) {
         const data = await res.json();
