@@ -88,6 +88,9 @@ public partial class MainWindow : Window
 
     private void UpdateStationIdentifierFromWorkMode()
     {
+        if (ChkWorkFromHome == null || TxtLoginStation == null || TxtDevicePreview == null)
+            return;
+
         var machine = Environment.MachineName.ToUpper();
         if (ChkWorkFromHome.IsChecked == true)
         {
@@ -102,6 +105,7 @@ public partial class MainWindow : Window
             TxtDevicePreview.Text = $"Office Station: ST-{cleanMachine}";
         }
     }
+
 
     private void LoadSavedServerConfig()
     {
