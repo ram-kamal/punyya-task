@@ -129,3 +129,15 @@ export interface CreateStaffPayload {
   password?: string;
 }
 
+export interface UpdateStaffPayload {
+  fullName: string;
+  username?: string;
+  email: string;
+  role: string;
+  workMode: string;
+  stationId?: string;
+  isActive: boolean;
+  newPassword?: string;
+}
+
+

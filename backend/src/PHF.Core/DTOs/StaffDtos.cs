@@ -35,3 +35,15 @@ public record UpdateWorkModeRequest
 {
     public string WorkMode { get; init; } = "IN_OFFICE"; // "IN_OFFICE" or "REMOTE_WFH"
 }
+
+public record UpdateStaffRequest
+{
+    public string FullName { get; init; } = string.Empty;
+    public string? Username { get; init; }
+    public string Email { get; init; } = string.Empty;
+    public string Role { get; init; } = "EMPLOYEE";
+    public string WorkMode { get; init; } = "IN_OFFICE";
+    public string? StationId { get; init; }
+    public bool IsActive { get; init; } = true;
+    public string? NewPassword { get; init; }
+}

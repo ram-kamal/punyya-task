@@ -171,4 +171,52 @@ public class StaffService : IStaffService
         await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }
+
+    public async Task<StaffMemberDto?> UpdateStaffAsync(Guid userId, UpdateStaffRequest request, CancellationToken cancellationToken = default)
+    {
+        var user = await _dbContext.Users.FindAsync(new object[] { userId }, cancellationToken);
+        if (user == null) return null;
+
+        var cleanEmail = request.Email.Trim().ToLower();
+        var cleanUsername = string.IsNullOrWhiteSpace(request.Username)
+            ? cleanEmail.Split('@')[0]
+            : request.Username.Trim().ToLower();
+
+        // Ensure email and username uniqueness against other existing accounts
+        var conflict = await _dbContext.Users.AnyAsync(u =>
+            u.Id != userId && (u.Email.ToLower() == cleanEmail || (u.Username != null && u.Username.ToLower() == cleanUsername)),
+            cancellationToken);
+
+        if (conflict)
+        {
+            throw new InvalidOperationException($"Another user with email '{cleanEmail}' or username '{cleanUsername}' already exists.");
+        }
+
+        user.FullName = request.FullName.Trim();
+        user.Email = cleanEmail;
+        user.Username = cleanUsername;
+        user.Role = string.IsNullOrWhiteSpace(request.Role) ? "EMPLOYEE" : request.Role.Trim().ToUpper();
+        user.WorkMode = string.IsNullOrWhiteSpace(request.WorkMode) ? "IN_OFFICE" : request.WorkMode.Trim().ToUpper();
+
+        if (!string.IsNullOrWhiteSpace(request.StationId))
+        {
+            user.StationId = request.StationId.Trim().ToUpper();
+        }
+        else if (user.WorkMode == "REMOTE_WFH")
+        {
+            user.StationId = $"WFH-{cleanUsername.ToUpper()}";
+        }
+
+        user.IsActive = request.IsActive;
+
+        if (!string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword.Trim());
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return await GetStaffByIdAsync(userId, cancellationToken);
+    }
 }
+

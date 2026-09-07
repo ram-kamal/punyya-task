@@ -162,4 +162,134 @@ public class StaffServiceTests
         Assert.Equal("REMOTE_WFH", userAfterUpdate!.WorkMode);
         Assert.StartsWith("WFH-", userAfterUpdate.StationId);
     }
+
+    [Fact]
+    public async Task UpdateStaffAsync_ValidRequest_UpdatesAllFields()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var staffService = new StaffService(context);
+
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            FullName = "Original Name",
+            Email = "original@gmail.com",
+            Username = "original_user",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("OldPass@123"),
+            Role = "EMPLOYEE",
+            WorkMode = "IN_OFFICE",
+            StationId = "ST-OLD",
+            IsActive = true
+        };
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+
+        var updateRequest = new UpdateStaffRequest
+        {
+            FullName = "Updated Name",
+            Username = "updated_user",
+            Email = "updated@gmail.com",
+            Role = "MANAGER",
+            WorkMode = "REMOTE_WFH",
+            StationId = "WFH-UPDATED-DESK",
+            IsActive = true
+        };
+
+        // Act
+        var result = await staffService.UpdateStaffAsync(user.Id, updateRequest);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("Updated Name", result.FullName);
+        Assert.Equal("updated@gmail.com", result.Email);
+        Assert.Equal("updated_user", result.Username);
+        Assert.Equal("MANAGER", result.Role);
+        Assert.Equal("REMOTE_WFH", result.WorkMode);
+        Assert.Equal("WFH-UPDATED-DESK", result.StationId);
+    }
+
+    [Fact]
+    public async Task UpdateStaffAsync_WithNewPassword_UpdatesPasswordHash()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var staffService = new StaffService(context);
+
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            FullName = "Alice Smith",
+            Email = "alice@gmail.com",
+            Username = "alice",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("OldAlice@123"),
+            Role = "EMPLOYEE",
+            IsActive = true
+        };
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+
+        var updateRequest = new UpdateStaffRequest
+        {
+            FullName = "Alice Smith",
+            Username = "alice",
+            Email = "alice@gmail.com",
+            Role = "EMPLOYEE",
+            WorkMode = "IN_OFFICE",
+            IsActive = true,
+            NewPassword = "NewSecretAlice@2026"
+        };
+
+        // Act
+        await staffService.UpdateStaffAsync(user.Id, updateRequest);
+        var updatedUser = await context.Users.FindAsync(user.Id);
+
+        // Assert
+        Assert.NotNull(updatedUser);
+        Assert.True(BCrypt.Net.BCrypt.Verify("NewSecretAlice@2026", updatedUser.PasswordHash));
+    }
+
+    [Fact]
+    public async Task UpdateStaffAsync_DuplicateEmailOrUsername_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var staffService = new StaffService(context);
+
+        var user1 = new User
+        {
+            Id = Guid.NewGuid(),
+            FullName = "User One",
+            Email = "user1@gmail.com",
+            Username = "user1",
+            PasswordHash = "hash1",
+            IsActive = true
+        };
+        var user2 = new User
+        {
+            Id = Guid.NewGuid(),
+            FullName = "User Two",
+            Email = "user2@gmail.com",
+            Username = "user2",
+            PasswordHash = "hash2",
+            IsActive = true
+        };
+        context.Users.AddRange(user1, user2);
+        await context.SaveChangesAsync();
+
+        // Act & Assert: try to change user2 email to user1's email
+        var request = new UpdateStaffRequest
+        {
+            FullName = "User Two Edited",
+            Email = "user1@gmail.com",
+            Username = "user2",
+            Role = "EMPLOYEE",
+            WorkMode = "IN_OFFICE",
+            IsActive = true
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            staffService.UpdateStaffAsync(user2.Id, request));
+    }
 }
+

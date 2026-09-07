@@ -1,4 +1,4 @@
-import { WorkstationStatus, LiveWorkstationEvent, TaskItem, TimesheetSummary, User, LeaveRequestItem, StaffMember, CreateStaffPayload } from './types';
+import { WorkstationStatus, LiveWorkstationEvent, TaskItem, TimesheetSummary, User, LeaveRequestItem, StaffMember, CreateStaffPayload, UpdateStaffPayload } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5020';
 
@@ -294,6 +294,33 @@ export async function updateStaffWorkMode(
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message || 'Failed to update work mode' };
+  }
+}
+
+export async function updateStaff(
+  id: string,
+  payload: UpdateStaffPayload
+): Promise<{ success: boolean; data?: StaffMember; error?: string }> {
+  try {
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/staff/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => null);
+      return { success: false, error: errBody?.message || `Error ${res.status}: ${res.statusText}` };
+    }
+
+    const data = await res.json();
+    return { success: true, data };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to update staff member' };
   }
 }
 

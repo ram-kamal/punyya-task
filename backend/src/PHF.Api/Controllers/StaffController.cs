@@ -79,4 +79,28 @@ public class StaffController : ControllerBase
         if (!success) return NotFound(new { message = $"Staff member {id} not found." });
         return Ok(new { success = true });
     }
+
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> UpdateStaff(Guid id, [FromBody] UpdateStaffRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.FullName))
+            return BadRequest(new { message = "Full name is required." });
+
+        if (string.IsNullOrWhiteSpace(request.Email))
+            return BadRequest(new { message = "Email is required." });
+
+        try
+        {
+            var updated = await _staffService.UpdateStaffAsync(id, request, cancellationToken);
+            if (updated == null)
+                return NotFound(new { message = $"Staff member {id} not found." });
+
+            return Ok(updated);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
 }
+

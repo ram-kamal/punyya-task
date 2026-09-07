@@ -37,6 +37,8 @@ import {
   Key,
   Laptop,
   Building,
+  Edit3,
+  UserCog,
 } from 'lucide-react';
 import { WorkstationStatus, LiveWorkstationEvent, TaskItem, TimesheetSummary, User, LeaveRequestItem, StaffMember } from '@/lib/types';
 import {
@@ -54,7 +56,9 @@ import {
   toggleStaffStatus,
   resetStaffPassword,
   updateStaffWorkMode,
+  updateStaff,
 } from '@/lib/api';
+
 import { signalRClient } from '@/lib/signalr';
 
 type ActivityCategory = 'tasks' | 'all' | 'focus' | 'security';
@@ -100,7 +104,21 @@ export default function AdminDashboardPage() {
   const [isResettingPassword, setIsResettingPassword] = useState<boolean>(false);
   const [resetPasswordMessage, setResetPasswordMessage] = useState<string | null>(null);
 
+  // Edit Staff Member State
+  const [selectedStaffForEdit, setSelectedStaffForEdit] = useState<StaffMember | null>(null);
+  const [editFullName, setEditFullName] = useState<string>('');
+  const [editUsername, setEditUsername] = useState<string>('');
+  const [editEmail, setEditEmail] = useState<string>('');
+  const [editRole, setEditRole] = useState<string>('EMPLOYEE');
+  const [editWorkMode, setEditWorkMode] = useState<string>('REMOTE_WFH');
+  const [editStationId, setEditStationId] = useState<string>('');
+  const [editIsActive, setEditIsActive] = useState<boolean>(true);
+  const [editNewPassword, setEditNewPassword] = useState<string>('');
+  const [isUpdatingStaff, setIsUpdatingStaff] = useState<boolean>(false);
+  const [updateStaffMessage, setUpdateStaffMessage] = useState<string | null>(null);
+
   // Activity Feed Filtering & Search
+
   const [activityCategory, setActivityCategory] = useState<ActivityCategory>('tasks');
   const [selectedStationFilter, setSelectedStationFilter] = useState<string>('ALL');
   const [eventSearchQuery, setEventSearchQuery] = useState<string>('');
@@ -455,7 +473,55 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // Handle Open Edit Staff Modal
+  const handleOpenEditStaffModal = (member: StaffMember) => {
+    setSelectedStaffForEdit(member);
+    setEditFullName(member.fullName);
+    setEditUsername(member.username || '');
+    setEditEmail(member.email);
+    setEditRole(member.role);
+    setEditWorkMode(member.workMode || 'REMOTE_WFH');
+    setEditStationId(member.stationId || '');
+    setEditIsActive(member.isActive);
+    setEditNewPassword('');
+    setUpdateStaffMessage(null);
+  };
+
+  // Handle Update Staff Member
+  const handleUpdateStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStaffForEdit) return;
+
+    setIsUpdatingStaff(true);
+    setUpdateStaffMessage(null);
+
+    const res = await updateStaff(selectedStaffForEdit.id, {
+      fullName: editFullName.trim(),
+      username: editUsername.trim() || undefined,
+      email: editEmail.trim(),
+      role: editRole,
+      workMode: editWorkMode,
+      stationId: editStationId.trim() || undefined,
+      isActive: editIsActive,
+      newPassword: editNewPassword.trim() || undefined,
+    });
+
+    setIsUpdatingStaff(false);
+    if (res.success) {
+      setUpdateStaffMessage('✓ Staff member details updated successfully!');
+      fetchStaff().then(setStaff);
+      fetchUsers().then(setUsers);
+      setTimeout(() => {
+        setSelectedStaffForEdit(null);
+        setUpdateStaffMessage(null);
+      }, 1000);
+    } else {
+      setUpdateStaffMessage(res.error || 'Failed to update staff member');
+    }
+  };
+
   // Counts
+
   const taskChangesCount = events.filter((e) => isTaskEvent(e.eventType)).length;
   const activeStationsCount = stations.filter((s) => s.state === 'ACTIVE').length;
   const totalStationsCount = stations.length || 5;
@@ -1631,20 +1697,31 @@ export default function AdminDashboardPage() {
 
                           {/* Actions */}
                           <td className="py-3.5 px-4 text-right">
-                            <button
-                              onClick={() => {
-                                setSelectedStaffForPasswordReset(member);
-                                setNewResetPassword('');
-                                setResetPasswordMessage(null);
-                              }}
-                              className="px-2.5 py-1.5 rounded-lg bg-[#1B2537] hover:bg-[#233148] border border-[#2D3E5B] text-slate-300 hover:text-white text-xs font-semibold transition inline-flex items-center space-x-1.5"
-                              title="Reset Employee Password"
-                            >
-                              <Key className="w-3 h-3 text-amber-400" />
-                              <span>Reset Key</span>
-                            </button>
+                            <div className="flex items-center justify-end space-x-2">
+                              <button
+                                onClick={() => handleOpenEditStaffModal(member)}
+                                className="px-2.5 py-1.5 rounded-lg bg-blue-600/15 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 hover:text-white text-xs font-semibold transition inline-flex items-center space-x-1.5"
+                                title="Edit Staff Details"
+                              >
+                                <Edit3 className="w-3 h-3 text-blue-400" />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedStaffForPasswordReset(member);
+                                  setNewResetPassword('');
+                                  setResetPasswordMessage(null);
+                                }}
+                                className="px-2.5 py-1.5 rounded-lg bg-[#1B2537] hover:bg-[#233148] border border-[#2D3E5B] text-slate-300 hover:text-white text-xs font-semibold transition inline-flex items-center space-x-1.5"
+                                title="Reset Employee Password"
+                              >
+                                <Key className="w-3 h-3 text-amber-400" />
+                                <span>Reset Key</span>
+                              </button>
+                            </div>
                           </td>
                         </tr>
+
                       ))
                     )}
                   </tbody>
@@ -2116,6 +2193,227 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Windows 11 Style Modal: EDIT STAFF MEMBER DETAILS */}
+      {selectedStaffForEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-[#141B28] border border-[#293850] rounded-xl w-full max-w-xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#222E42]">
+              <div className="flex items-center space-x-2.5 text-white">
+                <div className="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                  <UserCog className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider">Edit Staff Member Details</h3>
+                  <p className="text-[11px] text-slate-400">Update identity, access role, station routing, and security credentials</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedStaffForEdit(null)}
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-[#1E293B] transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Current Profile Summary Pill */}
+            <div className="bg-[#0C1019] p-3 rounded-lg border border-[#222E42] flex items-center justify-between text-xs">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-300 font-bold flex items-center justify-center text-sm">
+                  {selectedStaffForEdit.fullName.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div className="font-bold text-white text-xs">{selectedStaffForEdit.fullName}</div>
+                  <div className="text-[11px] text-slate-400 font-mono">
+                    ID: {selectedStaffForEdit.id.slice(0, 8)}... • Joined {new Date(selectedStaffForEdit.createdAt).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                  editIsActive
+                    ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40'
+                    : 'bg-rose-950/60 text-rose-400 border-rose-500/40'
+                }`}
+              >
+                {editIsActive ? 'ACTIVE ACCOUNT' : 'SUSPENDED'}
+              </span>
+            </div>
+
+            <form onSubmit={handleUpdateStaff} className="space-y-4 text-xs">
+              {/* Row 1: Full Name */}
+              <div>
+                <label className="block font-bold text-slate-300 mb-1">Full Legal Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editFullName}
+                  onChange={(e) => setEditFullName(e.target.value)}
+                  placeholder="e.g. Dhyan Patel"
+                  className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              {/* Row 2: Username & Email */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Username / Staff Handle</label>
+                  <input
+                    type="text"
+                    value={editUsername}
+                    onChange={(e) => setEditUsername(e.target.value)}
+                    placeholder="e.g. dhvaj or PHF-101"
+                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                  />
+                  <span className="text-[10px] text-slate-500">Sign-in handle for desktop telemetry agent</span>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Personal / Work Email *</label>
+                  <input
+                    type="email"
+                    required
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="e.g. dhyanidhvaj@gmail.com"
+                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                  />
+                  <span className="text-[10px] text-slate-500">Used for notifications and web admin access</span>
+                </div>
+              </div>
+
+              {/* Row 3: Role & Work Mode */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">System Role</label>
+                  <select
+                    value={editRole}
+                    onChange={(e) => setEditRole(e.target.value)}
+                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="EMPLOYEE">Employee (Task Worker)</option>
+                    <option value="MANAGER">Manager / Team Lead</option>
+                    <option value="ADMIN">System Administrator</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Work Mode</label>
+                  <select
+                    value={editWorkMode}
+                    onChange={(e) => {
+                      const newMode = e.target.value;
+                      setEditWorkMode(newMode);
+                      if (newMode === 'REMOTE_WFH' && (!editStationId || editStationId.startsWith('ST-'))) {
+                        setEditStationId(`WFH-${(editUsername || editFullName.replace(/\s+/g, '')).toUpperCase()}`);
+                      }
+                    }}
+                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="REMOTE_WFH">🏠 Remote (Work From Home)</option>
+                    <option value="IN_OFFICE">🏢 In-Office (Dedicated Desk)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 4: Station ID & Account Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Assigned Station / Device ID</label>
+                  <input
+                    type="text"
+                    value={editStationId}
+                    onChange={(e) => setEditStationId(e.target.value)}
+                    placeholder="e.g. ST-101 or WFH-DHVAJ"
+                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                  <span className="text-[10px] text-slate-500">Matches client app telemetry routing</span>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Account Status</label>
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditIsActive(true)}
+                      className={`py-1.5 px-3 rounded-lg font-bold border transition flex items-center justify-center space-x-1.5 ${
+                        editIsActive
+                          ? 'bg-emerald-600/30 border-emerald-500 text-emerald-300'
+                          : 'bg-[#0C1019] border-[#222E42] text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <span>Active</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditIsActive(false)}
+                      className={`py-1.5 px-3 rounded-lg font-bold border transition flex items-center justify-center space-x-1.5 ${
+                        !editIsActive
+                          ? 'bg-rose-600/30 border-rose-500 text-rose-300'
+                          : 'bg-[#0C1019] border-[#222E42] text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-rose-400" />
+                      <span>Suspended</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 5: Optional Password Override */}
+              <div className="pt-2 border-t border-[#1F2B3E]">
+                <label className="block font-bold text-slate-300 mb-1">
+                  Change Password <span className="text-slate-500 font-normal">(Leave blank to keep unchanged)</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={editNewPassword}
+                    onChange={(e) => setEditNewPassword(e.target.value)}
+                    placeholder="Enter new password to reset, or leave empty"
+                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white font-mono placeholder-slate-600 focus:outline-none focus:border-blue-500"
+                  />
+                  <Key className="w-3.5 h-3.5 absolute right-3 top-2.5 text-slate-500" />
+                </div>
+              </div>
+
+              {/* Feedback Message */}
+              {updateStaffMessage && (
+                <div
+                  className={`p-2.5 rounded-lg text-xs font-semibold ${
+                    updateStaffMessage.startsWith('✓')
+                      ? 'bg-emerald-950/80 border border-emerald-500/40 text-emerald-300'
+                      : 'bg-rose-950/80 border border-rose-500/40 text-rose-300'
+                  }`}
+                >
+                  {updateStaffMessage}
+                </div>
+              )}
+
+              {/* Modal Buttons */}
+              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-[#222E42]">
+                <button
+                  type="button"
+                  onClick={() => setSelectedStaffForEdit(null)}
+                  className="px-4 py-2 rounded-lg bg-[#1B2537] hover:bg-[#222E42] border border-[#2D3E5B] text-slate-300 hover:text-white transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingStaff || !editFullName.trim() || !editEmail.trim()}
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-bold transition flex items-center space-x-2 shadow-md shadow-blue-600/20"
+                >
+                  <UserCheck className="w-3.5 h-3.5" />
+                  <span>{isUpdatingStaff ? 'Saving...' : 'Save Changes'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
 
       {/* Footer */}
       <footer className="border-t border-[#222E42] bg-[#101520] px-6 py-3.5 mt-auto">
