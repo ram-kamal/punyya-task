@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: phf_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: phf_work_management
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../database/migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql
+
+  minio:
+    image: minio/minio:latest
+    container_name: phf_minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadminpassword
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    container_name: phf_backend
+    restart: always
+    depends_on:
+      - postgres
+      - minio
+    environment:
+      - DatabaseProvider=PostgreSQL
+      - ConnectionStrings__PostgreSQL=Host=postgres;Port=5432;Database=phf_work_management;Username=postgres;Password=postgrespassword;
+      - Jwt__Secret=PHF_Work_Management_Enterprise_Super_Secret_Key_2026_Secure_HMAC_SHA256_Auth!
+      - Jwt__Issuer=PHF.Api
+      - Jwt__Audience=PHF.Clients
+      - Storage__Provider=Local
+    ports:
+      - "5000:5000"
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+    container_name: phf_web_portal
+    restart: always
+    depends_on:
+      - backend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:5000
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
+  miniodata:

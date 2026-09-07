@@ -1,0 +1,26 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /app
+
+# Copy csproj files and restore
+COPY PHFWorkManagement.slnx ./
+COPY backend/src/PHF.Core/PHF.Core.csproj ./backend/src/PHF.Core/
+COPY backend/src/PHF.Infrastructure/PHF.Infrastructure.csproj ./backend/src/PHF.Infrastructure/
+COPY backend/src/PHF.Realtime/PHF.Realtime.csproj ./backend/src/PHF.Realtime/
+COPY backend/src/PHF.Api/PHF.Api.csproj ./backend/src/PHF.Api/
+COPY backend/tests/PHF.Api.Tests/PHF.Api.Tests.csproj ./backend/tests/PHF.Api.Tests/
+COPY client/src/PHF.Client.Telemetry/PHF.Client.Telemetry.csproj ./client/src/PHF.Client.Telemetry/
+COPY client/src/PHF.Client.Core/PHF.Client.Core.csproj ./client/src/PHF.Client.Core/
+COPY client/src/PHF.Client.Wpf/PHF.Client.Wpf.csproj ./client/src/PHF.Client.Wpf/
+
+RUN dotnet restore backend/src/PHF.Api/PHF.Api.csproj
+
+# Copy all source and publish API
+COPY backend/ ./backend/
+RUN dotnet publish backend/src/PHF.Api/PHF.Api.csproj -c Release -o /out
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+WORKDIR /app
+COPY --from=build /out ./
+EXPOSE 5000
+ENV ASPNETCORE_URLS=http://+:5000
+ENTRYPOINT ["dotnet", "PHF.Api.dll"]

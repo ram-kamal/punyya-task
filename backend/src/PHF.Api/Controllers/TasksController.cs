@@ -1,0 +1,176 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using PHF.Core.DTOs;
+using PHF.Core.Interfaces;
+
+namespace PHF.Api.Controllers;
+
+[ApiController]
+[Route("api/v1/[controller]")]
+public class TasksController : ControllerBase
+{
+    private readonly ITaskService _taskService;
+    private readonly IStorageService _storageService;
+
+    public TasksController(ITaskService taskService, IStorageService storageService)
+    {
+        _taskService = taskService;
+        _storageService = storageService;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetTasks(
+        [FromQuery] string? status,
+        [FromQuery] Guid? assignedTo,
+        [FromQuery] string? priority,
+        CancellationToken cancellationToken)
+    {
+        var tasks = await _taskService.GetTasksAsync(status, assignedTo, priority, cancellationToken);
+        return Ok(tasks);
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetTaskById(Guid id, CancellationToken cancellationToken)
+    {
+        var task = await _taskService.GetTaskByIdAsync(id, cancellationToken);
+        if (task == null) return NotFound(new { message = $"Task {id} not found" });
+
+        return Ok(task);
+    }
+
+    [Authorize]
+    [HttpPost]
+    public async Task<IActionResult> CreateTask([FromBody] CreateTaskRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        var task = await _taskService.CreateTaskAsync(request, userId, cancellationToken);
+        return CreatedAtAction(nameof(GetTaskById), new { id = task.Id }, task);
+    }
+
+    [Authorize]
+    [HttpPatch("{id:guid}/status")]
+    public async Task<IActionResult> UpdateStatus(
+        Guid id, 
+        [FromBody] UpdateTaskStatusRequest request, 
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var updated = await _taskService.UpdateTaskStatusAsync(id, request, userId, cancellationToken);
+            if (updated == null) return NotFound(new { message = $"Task {id} not found" });
+
+            return Ok(updated);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Deliverable gate validation error
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [Authorize]
+    [HttpPost("{id:guid}/attachments")]
+    public async Task<IActionResult> UploadAttachment(Guid id, IFormFile file, CancellationToken cancellationToken)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { message = "No file provided." });
+        }
+
+        var userId = GetCurrentUserId();
+        using var stream = file.OpenReadStream();
+        var storagePath = await _storageService.SaveFileAsync(file.FileName, stream, file.ContentType, cancellationToken);
+
+        var attachment = await _taskService.AttachDeliverableAsync(new AttachDeliverableRequest
+        {
+            TaskId = id,
+            DeliverableUrl = storagePath,
+            FileName = file.FileName,
+            FileSizeBytes = file.Length,
+            MimeType = file.ContentType
+        }, userId, cancellationToken);
+
+        return Ok(attachment);
+    }
+
+    [Authorize]
+    [HttpPost("{id:guid}/attachments/presign")]
+    public IActionResult PresignAttachmentUrl(Guid id, [FromBody] PresignRequest request)
+    {
+        // For S3 compatibility or local storage direct upload endpoint
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        var uploadUrl = $"{baseUrl}/api/v1/tasks/{id}/attachments";
+
+        return Ok(new
+        {
+            TaskId = id,
+            UploadUrl = uploadUrl,
+            Key = $"{id}/{Guid.NewGuid():N}_{request.FileName}",
+            Method = "POST"
+        });
+    }
+
+    [Authorize]
+    [HttpPost("{id:guid}/attachments/complete")]
+    public async Task<IActionResult> CompleteAttachment(
+        Guid id, 
+        [FromBody] CompleteAttachmentRequest request, 
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        var attachment = await _taskService.AttachDeliverableAsync(new AttachDeliverableRequest
+        {
+            TaskId = id,
+            DeliverableUrl = request.StoragePath ?? request.DeliverableUrl ?? "",
+            FileName = request.FileName,
+            FileSizeBytes = request.FileSizeBytes,
+            MimeType = request.MimeType
+        }, userId, cancellationToken);
+
+        return Ok(attachment);
+    }
+
+    [HttpGet("{id:guid}/deliverable")]
+    public async Task<IActionResult> DownloadDeliverable(Guid id, CancellationToken cancellationToken)
+    {
+        var task = await _taskService.GetTaskByIdAsync(id, cancellationToken);
+        if (task == null || string.IsNullOrWhiteSpace(task.DeliverableUrl))
+        {
+            return NotFound(new { message = "No deliverable found for this task." });
+        }
+
+        var fileResult = await _storageService.GetFileAsync(task.DeliverableUrl, cancellationToken);
+        if (fileResult == null)
+        {
+            return NotFound(new { message = "Deliverable file not found on storage." });
+        }
+
+        return File(fileResult.Value.Stream, fileResult.Value.ContentType, fileResult.Value.FileName);
+    }
+
+    [Authorize]
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteTask(Guid id, CancellationToken cancellationToken)
+    {
+        var success = await _taskService.DeleteTaskAsync(id, cancellationToken);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
+    private Guid GetCurrentUserId()
+    {
+        var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!string.IsNullOrWhiteSpace(claim) && Guid.TryParse(claim, out var guid))
+        {
+            return guid;
+        }
+
+        // Fallback for testing/unauthenticated dev
+        return Guid.Parse("a0000000-0000-0000-0000-000000000002");
+    }
+}
+
+public record PresignRequest(string FileName, string? ContentType);
+public record CompleteAttachmentRequest(string FileName, string? StoragePath, string? DeliverableUrl, long FileSizeBytes, string? MimeType);

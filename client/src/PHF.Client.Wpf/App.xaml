@@ -1,0 +1,69 @@
+<Application x:Class="PHF.Client.Wpf.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <!-- High Contrast Palette (WCAG 2.1 AA Compliant) -->
+        <SolidColorBrush x:Key="BgDark" Color="#0B1120" />
+        <SolidColorBrush x:Key="BgSurface" Color="#1E293B" />
+        <SolidColorBrush x:Key="BgSurfaceLight" Color="#334155" />
+        <SolidColorBrush x:Key="TextPrimary" Color="#F8FAFC" />
+        <SolidColorBrush x:Key="TextSecondary" Color="#94A3B8" />
+        <SolidColorBrush x:Key="AccentBlue" Color="#3B82F6" />
+        <SolidColorBrush x:Key="AccentGreen" Color="#10B981" />
+        <SolidColorBrush x:Key="AccentAmber" Color="#F59E0B" />
+        <SolidColorBrush x:Key="AccentRed" Color="#EF4444" />
+        <SolidColorBrush x:Key="BorderSubtle" Color="#334155" />
+
+        <!-- Accessible Focus Visual Style -->
+        <Style x:Key="AccessibleFocusVisual">
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Rectangle Stroke="#60A5FA" StrokeThickness="2" StrokeDashArray="2 2" SnapsToDevicePixels="true"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Button Style -->
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource AccentBlue}" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource AccessibleFocusVisual}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.9" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="#475569" />
+                                <Setter Property="Foreground" Value="#94A3B8" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- TextBox Style -->
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#0F172A" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderSubtle}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource AccessibleFocusVisual}" />
+        </Style>
+    </Application.Resources>
+</Application>

@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/backend/" />
+  <Folder Name="/backend/src/">
+    <Project Path="backend/src/PHF.Api/PHF.Api.csproj" />
+    <Project Path="backend/src/PHF.Core/PHF.Core.csproj" />
+    <Project Path="backend/src/PHF.Infrastructure/PHF.Infrastructure.csproj" />
+    <Project Path="backend/src/PHF.Realtime/PHF.Realtime.csproj" />
+  </Folder>
+  <Folder Name="/backend/tests/">
+    <Project Path="backend/tests/PHF.Api.Tests/PHF.Api.Tests.csproj" />
+  </Folder>
+  <Folder Name="/client/" />
+  <Folder Name="/client/src/">
+    <Project Path="client/src/PHF.Client.Core/PHF.Client.Core.csproj" />
+    <Project Path="client/src/PHF.Client.Telemetry/PHF.Client.Telemetry.csproj" />
+    <Project Path="client/src/PHF.Client.Wpf/PHF.Client.Wpf.csproj" />
+  </Folder>
+</Solution>

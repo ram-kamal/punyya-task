@@ -1,0 +1,6 @@
+@PHF.Api_HostAddress = http://localhost:5020
+
+GET {{PHF.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
