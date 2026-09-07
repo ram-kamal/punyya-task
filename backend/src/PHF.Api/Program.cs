@@ -51,10 +51,30 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// 3. Database Provider (PostgreSQL or SQLite fallback)
+// 3. Database Provider (PostgreSQL or SQLite fallback, with auto-detection for Render DATABASE_URL)
 var dbProvider = builder.Configuration["DatabaseProvider"] ?? "Sqlite";
 var pgConn = builder.Configuration.GetConnectionString("PostgreSQL");
 var sqliteConn = builder.Configuration.GetConnectionString("Sqlite") ?? "Data Source=phf_local.db";
+
+var renderDbUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+if (!string.IsNullOrWhiteSpace(renderDbUrl) && renderDbUrl.StartsWith("postgres", StringComparison.OrdinalIgnoreCase))
+{
+    try
+    {
+        dbProvider = "PostgreSQL";
+        var uri = new Uri(renderDbUrl);
+        var userInfo = uri.UserInfo.Split(':');
+        var user = userInfo[0];
+        var password = userInfo.Length > 1 ? userInfo[1] : "";
+        var port = uri.Port > 0 ? uri.Port : 5432;
+        var database = uri.AbsolutePath.TrimStart('/');
+        pgConn = $"Host={uri.Host};Port={port};Database={database};Username={user};Password={password};SSL Mode=Require;Trust Server Certificate=true;";
+    }
+    catch
+    {
+        // fallback to standard config
+    }
+}
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
@@ -122,10 +142,12 @@ builder.Services.AddCors(options =>
 
 // 6. Application Services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IStaffService, StaffService>();
 builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<IShiftService, ShiftService>();
 builder.Services.AddScoped<ITelemetryService, TelemetryService>();
 builder.Services.AddScoped<ITimesheetService, TimesheetService>();
+builder.Services.AddScoped<ILeaveService, LeaveService>();
 builder.Services.AddSingleton<IStorageService, LocalStorageService>();
 builder.Services.AddScoped<IRealtimeNotifier, SignalRRealtimeNotifier>();
 
@@ -138,6 +160,42 @@ using (var scope = app.Services.CreateScope())
     try
     {
         await dbContext.Database.EnsureCreatedAsync();
+
+        // Migrate users table columns if needed
+        try
+        {
+            await dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE users ADD COLUMN username TEXT;");
+        }
+        catch { /* Column may already exist */ }
+
+        try
+        {
+            await dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE users ADD COLUMN work_mode TEXT DEFAULT 'IN_OFFICE';");
+        }
+        catch { /* Column may already exist */ }
+
+        // Ensure leave_requests table exists if running on an existing database
+        await dbContext.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS leave_requests (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                leave_type TEXT NOT NULL,
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                total_days INTEGER NOT NULL DEFAULT 1,
+                reason TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'PENDING',
+                reviewed_by TEXT,
+                reviewed_at TEXT,
+                review_comments TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_leave_requests_user_status ON leave_requests (user_id, status);
+            CREATE INDEX IF NOT EXISTS ix_leave_requests_dates ON leave_requests (start_date, end_date);
+        ");
+
         await dbContext.EnsureSeedDataAsync();
     }
     catch (Exception ex)

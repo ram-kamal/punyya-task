@@ -16,6 +16,10 @@ public class User
     [Column("email")]
     public string Email { get; set; } = string.Empty;
 
+    [MaxLength(100)]
+    [Column("username")]
+    public string? Username { get; set; }
+
     [Required]
     [MaxLength(255)]
     [Column("password_hash")]
@@ -35,6 +39,10 @@ public class User
     [Column("station_id")]
     public string? StationId { get; set; }
 
+    [MaxLength(50)]
+    [Column("work_mode")]
+    public string WorkMode { get; set; } = "IN_OFFICE";
+
     [Column("is_active")]
     public bool IsActive { get; set; } = true;
 
@@ -47,4 +55,5 @@ public class User
     public ICollection<Shift> Shifts { get; set; } = new List<Shift>();
     public ICollection<UserSession> UserSessions { get; set; } = new List<UserSession>();
     public ICollection<AppActivityLog> AppActivityLogs { get; set; } = new List<AppActivityLog>();
+    public ICollection<LeaveRequest> LeaveRequests { get; set; } = new List<LeaveRequest>();
 }

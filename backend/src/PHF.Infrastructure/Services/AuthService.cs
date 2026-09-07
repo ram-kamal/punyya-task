@@ -24,8 +24,9 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse?> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
+        var identifier = (request.Email ?? string.Empty).Trim().ToLower();
         var user = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower() && u.IsActive, cancellationToken);
+            .FirstOrDefaultAsync(u => (u.Email.ToLower() == identifier || (u.Username != null && u.Username.ToLower() == identifier)) && u.IsActive, cancellationToken);
 
         if (user == null)
             return null;
@@ -51,8 +52,10 @@ public class AuthService : IAuthService
             {
                 Id = user.Id,
                 Email = user.Email,
+                Username = user.Username,
                 FullName = user.FullName,
                 Role = user.Role,
+                WorkMode = user.WorkMode ?? "IN_OFFICE",
                 StationId = user.StationId
             }
         };
@@ -67,8 +70,10 @@ public class AuthService : IAuthService
         {
             Id = user.Id,
             Email = user.Email,
+            Username = user.Username,
             FullName = user.FullName,
             Role = user.Role,
+            WorkMode = user.WorkMode ?? "IN_OFFICE",
             StationId = user.StationId
         };
     }

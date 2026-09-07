@@ -43,3 +43,20 @@ public enum ShiftStatus
     ACTIVE,
     COMPLETED
 }
+
+public enum LeaveStatus
+{
+    PENDING,
+    APPROVED,
+    REJECTED,
+    CANCELLED
+}
+
+public enum LeaveType
+{
+    CASUAL,
+    SICK,
+    MEDICAL,
+    ANNUAL,
+    EMERGENCY
+}

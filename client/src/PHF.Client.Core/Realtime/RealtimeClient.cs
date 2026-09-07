@@ -12,6 +12,7 @@ public class RealtimeClient : IAsyncDisposable
     public event Action<TaskResponseDto>? OnTaskAssigned;
     public event Action<Guid, string, string?>? OnTaskStatusChanged;
     public event Action<LiveWorkstationEventDto>? OnWorkstationEventReceived;
+    public event Action<LiveWorkstationEventDto>? OnLeaveUpdated;
     public event Action<bool>? OnConnectionStateChanged;
 
     public bool IsConnected => _hubConnection?.State == HubConnectionState.Connected;
@@ -63,6 +64,11 @@ public class RealtimeClient : IAsyncDisposable
         _hubConnection.On<LiveWorkstationEventDto>("WorkstationEventReceived", evt =>
         {
             OnWorkstationEventReceived?.Invoke(evt);
+        });
+
+        _hubConnection.On<LiveWorkstationEventDto>("LeaveUpdated", evt =>
+        {
+            OnLeaveUpdated?.Invoke(evt);
         });
 
         _hubConnection.Reconnecting += _ =>

@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using PHF.Client.Core.Http;
 using PHF.Client.Core.Realtime;
@@ -32,12 +33,16 @@ public partial class MainWindow : Window
     private string? _stagedFilePath = null;
 
     private readonly ObservableCollection<TaskItemViewModel> _tasks = new();
+    private readonly ObservableCollection<LeaveItemViewModel> _leaves = new();
+    private DispatcherTimer? _autoRefreshTimer;
+    private DispatcherTimer? _toastDismissTimer;
 
     public MainWindow()
     {
         InitializeComponent();
 
         TasksItemsControl.ItemsSource = _tasks;
+        LeavesItemsControl.ItemsSource = _leaves;
 
         // Initialize Services (default port 5020)
         _apiClient = new ApiClient("http://localhost:5020");
@@ -50,14 +55,21 @@ public partial class MainWindow : Window
         _engine.FocusChanged += OnForegroundFocusChanged;
         _syncWorker.OnBatchSynced += OnBatchSynced;
         _realtimeClient.OnTaskAssigned += OnRealtimeTaskAssigned;
+        _realtimeClient.OnWorkstationEventReceived += OnRealtimeWorkstationEventReceived;
+        _realtimeClient.OnLeaveUpdated += OnRealtimeLeaveUpdated;
         _realtimeClient.OnConnectionStateChanged += OnRealtimeConnectionChanged;
 
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
     }
 
+    private const string DefaultCloudRenderUrl = "https://punnya-api.onrender.com";
+
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        LoadSavedServerConfig();
+        UpdateStationIdentifierFromWorkMode();
+
         // Check authentication or prompt login
         if (!_apiClient.IsAuthenticated)
         {
@@ -69,8 +81,61 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ChkWorkFromHome_Changed(object sender, RoutedEventArgs e)
+    {
+        UpdateStationIdentifierFromWorkMode();
+    }
+
+    private void UpdateStationIdentifierFromWorkMode()
+    {
+        var machine = Environment.MachineName.ToUpper();
+        if (ChkWorkFromHome.IsChecked == true)
+        {
+            var cleanMachine = machine.Length > 12 ? machine.Substring(0, 12) : machine;
+            TxtLoginStation.Text = $"WFH-{cleanMachine}";
+            TxtDevicePreview.Text = $"Paired Device: WFH-{cleanMachine}";
+        }
+        else
+        {
+            var cleanMachine = machine.Length > 6 ? machine.Substring(0, 6) : machine;
+            TxtLoginStation.Text = $"ST-{cleanMachine}";
+            TxtDevicePreview.Text = $"Office Station: ST-{cleanMachine}";
+        }
+    }
+
+    private void LoadSavedServerConfig()
+    {
+        try
+        {
+            var configDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PHF");
+            var configFile = Path.Combine(configDir, "server_url.txt");
+            if (File.Exists(configFile))
+            {
+                var saved = File.ReadAllText(configFile).Trim();
+                if (!string.IsNullOrWhiteSpace(saved))
+                {
+                    TxtServerUrl.Text = saved;
+                }
+            }
+        }
+        catch { }
+    }
+
+    private void SaveServerConfig(string url)
+    {
+        try
+        {
+            var configDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PHF");
+            Directory.CreateDirectory(configDir);
+            File.WriteAllText(Path.Combine(configDir, "server_url.txt"), url);
+        }
+        catch { }
+    }
+
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
+        _autoRefreshTimer?.Stop();
+        _toastDismissTimer?.Stop();
         _engine.Stop();
         _syncWorker.Stop();
         _ = _realtimeClient.StopAsync();
@@ -97,9 +162,24 @@ public partial class MainWindow : Window
         // Connect Realtime SignalR
         await _realtimeClient.StartAsync(_stationId);
 
-        // Load tasks and shift status
+        // Load tasks, shift status, and leaves
         await RefreshShiftStatusAsync();
         await RefreshTasksAsync();
+        await RefreshLeavesAsync();
+
+        // 15-second gentle periodic auto-refresh timer as robust fallback
+        _autoRefreshTimer?.Stop();
+        _autoRefreshTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(15)
+        };
+        _autoRefreshTimer.Tick += async (s, e) =>
+        {
+            await RefreshLeavesAsync();
+            await RefreshTasksAsync();
+            await RefreshShiftStatusAsync();
+        };
+        _autoRefreshTimer.Start();
 
         TxtStatusBar.Text = $"Active Workstation: {_stationId} • Telemetry hook listening on user32.dll";
     }
@@ -233,6 +313,69 @@ public partial class MainWindow : Window
         });
     }
 
+    private void OnRealtimeLeaveUpdated(LiveWorkstationEventDto evt)
+    {
+        Dispatcher.Invoke(async () =>
+        {
+            await RefreshLeavesAsync();
+            ShowLeaveToastNotification(evt);
+            TxtStatusBar.Text = $"Leave Update: {evt.Details}";
+        });
+    }
+
+    private void OnRealtimeWorkstationEventReceived(LiveWorkstationEventDto evt)
+    {
+        if (evt.EventType != null && evt.EventType.StartsWith("LEAVE_"))
+        {
+            Dispatcher.Invoke(async () =>
+            {
+                await RefreshLeavesAsync();
+                ShowLeaveToastNotification(evt);
+                TxtStatusBar.Text = $"Leave Update: {evt.Details}";
+            });
+        }
+    }
+
+    private void ShowLeaveToastNotification(LiveWorkstationEventDto evt)
+    {
+        try
+        {
+            var isApproved = evt.Details?.Contains("APPROVED", StringComparison.OrdinalIgnoreCase) == true;
+            var isRejected = evt.Details?.Contains("REJECTED", StringComparison.OrdinalIgnoreCase) == true;
+
+            TxtToastIcon.Text = isApproved ? "✅" : (isRejected ? "❌" : "🏖️");
+            TxtToastTitle.Text = isApproved ? "Leave Request Approved!" : (isRejected ? "Leave Request Rejected" : "Leave Request Updated");
+            TxtToastTitle.Foreground = isApproved 
+                ? (SolidColorBrush)FindResource("AccentGreenSoft") 
+                : (isRejected ? (SolidColorBrush)FindResource("AccentRedHover") : (SolidColorBrush)FindResource("AccentBlueLight"));
+
+            TxtToastMessage.Text = evt.Details ?? "Your leave request status was updated by management.";
+            NotificationToast.Visibility = Visibility.Visible;
+
+            _toastDismissTimer?.Stop();
+            _toastDismissTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(7)
+            };
+            _toastDismissTimer.Tick += (s, e) =>
+            {
+                _toastDismissTimer?.Stop();
+                NotificationToast.Visibility = Visibility.Collapsed;
+            };
+            _toastDismissTimer.Start();
+        }
+        catch
+        {
+            // Ignore UI toast errors
+        }
+    }
+
+    private void BtnDismissToast_Click(object sender, RoutedEventArgs e)
+    {
+        _toastDismissTimer?.Stop();
+        NotificationToast.Visibility = Visibility.Collapsed;
+    }
+
     // --- Action Handlers ---
 
     private async void BtnDoLogin_Click(object sender, RoutedEventArgs e)
@@ -240,54 +383,43 @@ public partial class MainWindow : Window
         var email = TxtLoginEmail.Text.Trim();
         var password = TxtLoginPassword.Password;
         var station = TxtLoginStation.Text.Trim();
-        var serverUrl = TxtServerUrl.Text.Trim();
+        var currentUrl = TxtServerUrl.Text.Trim();
 
         TxtLoginError.Visibility = Visibility.Collapsed;
         BtnDoLogin.IsEnabled = false;
 
         try
         {
-            if (!string.IsNullOrWhiteSpace(serverUrl))
-            {
-                _apiClient.SetBaseUrl(serverUrl);
-                _realtimeClient.SetBaseUrl(serverUrl);
-            }
+            // Auto-candidate URLs to try silently so employees never need to type any URL
+            var candidateUrls = new List<string>();
+            if (!string.IsNullOrWhiteSpace(currentUrl)) candidateUrls.Add(currentUrl);
+            if (!candidateUrls.Contains("http://localhost:5020")) candidateUrls.Add("http://localhost:5020");
+            if (!candidateUrls.Contains(DefaultCloudRenderUrl)) candidateUrls.Add(DefaultCloudRenderUrl);
+            if (!candidateUrls.Contains("http://localhost:5000")) candidateUrls.Add("http://localhost:5000");
 
             AuthResponse? auth = null;
-            try
-            {
-                auth = await _apiClient.LoginAsync(email, password, station);
-            }
-            catch (Exception)
-            {
-                // If connecting failed, try auto-fallback to alternate port (5020 <-> 5000)
-                var alternateUrl = serverUrl.Contains("5020") 
-                    ? serverUrl.Replace("5020", "5000") 
-                    : (serverUrl.Contains("5000") ? serverUrl.Replace("5000", "5020") : null);
+            string? workingUrl = null;
+            Exception? lastEx = null;
 
-                if (!string.IsNullOrWhiteSpace(alternateUrl))
+            foreach (var url in candidateUrls)
+            {
+                try
                 {
-                    try
+                    _apiClient.SetBaseUrl(url);
+                    _realtimeClient.SetBaseUrl(url);
+                    auth = await _apiClient.LoginAsync(email, password, station);
+                    if (auth != null)
                     {
-                        _apiClient.SetBaseUrl(alternateUrl);
-                        _realtimeClient.SetBaseUrl(alternateUrl);
-                        auth = await _apiClient.LoginAsync(email, password, station);
-                        if (auth != null)
-                        {
-                            TxtServerUrl.Text = alternateUrl;
-                        }
-                    }
-                    catch
-                    {
-                        // Restore original to display error
-                        _apiClient.SetBaseUrl(serverUrl);
-                        _realtimeClient.SetBaseUrl(serverUrl);
-                        throw;
+                        workingUrl = url;
+                        TxtServerUrl.Text = url;
+                        SaveServerConfig(url);
+                        break;
                     }
                 }
-                else
+                catch (Exception ex)
                 {
-                    throw;
+                    lastEx = ex;
+                    // Silently try next candidate
                 }
             }
 
@@ -297,9 +429,14 @@ public partial class MainWindow : Window
                 _stationId = !string.IsNullOrWhiteSpace(station) ? station : (auth.User.StationId ?? "ST-101");
                 await InitializeWorkstationSessionAsync();
             }
+            else if (lastEx != null && workingUrl == null)
+            {
+                TxtLoginError.Text = $"Connection failed: {lastEx.Message}. (Tried local and Render cloud)";
+                TxtLoginError.Visibility = Visibility.Visible;
+            }
             else
             {
-                TxtLoginError.Text = "Invalid email or password. Please try again.";
+                TxtLoginError.Text = "Invalid username/email or password. Please try again.";
                 TxtLoginError.Visibility = Visibility.Visible;
             }
         }
@@ -353,7 +490,7 @@ public partial class MainWindow : Window
         if (sender is Button btn && btn.Tag is Guid taskId)
         {
             var vm = _tasks.FirstOrDefault(t => t.Id == taskId);
-            if (vm == null) return;
+            if (vm == null || vm.IsCompleted) return;
 
             if (_activeTaskId == taskId)
             {
@@ -385,6 +522,9 @@ public partial class MainWindow : Window
     {
         if (sender is Button btn && btn.Tag is Guid taskId)
         {
+            var vm = _tasks.FirstOrDefault(t => t.Id == taskId);
+            if (vm == null || vm.IsCompleted) return;
+
             _modalTargetTaskId = taskId;
             _stagedFilePath = null;
             TxtSelectedFilePath.Text = "No file selected";
@@ -482,7 +622,7 @@ public partial class MainWindow : Window
         if (sender is Button btn && btn.Tag is Guid taskId)
         {
             var vm = _tasks.FirstOrDefault(t => t.Id == taskId);
-            if (vm == null) return;
+            if (vm == null || vm.IsCompleted) return;
 
             // Deliverable Gate Validation (punnya-combined-spec.pptx)
             if (vm.DeliverableRequired && !vm.HasDeliverable)
@@ -529,7 +669,109 @@ public partial class MainWindow : Window
         BtnRefresh.IsEnabled = false;
         await RefreshTasksAsync();
         await RefreshShiftStatusAsync();
+        await RefreshLeavesAsync();
         BtnRefresh.IsEnabled = true;
+    }
+
+    private async void BtnOpenLeaveCenter_Click(object sender, RoutedEventArgs e)
+    {
+        LeaveCenterModal.Visibility = Visibility.Visible;
+        TxtLeaveFormMessage.Visibility = Visibility.Collapsed;
+        if (string.IsNullOrWhiteSpace(TxtLeaveStartDate.Text))
+        {
+            TxtLeaveStartDate.Text = DateTime.UtcNow.Date.AddDays(1).ToString("yyyy-MM-dd");
+            TxtLeaveEndDate.Text = DateTime.UtcNow.Date.AddDays(2).ToString("yyyy-MM-dd");
+        }
+        await RefreshLeavesAsync();
+    }
+
+    private void BtnCloseLeaveCenter_Click(object sender, RoutedEventArgs e)
+    {
+        LeaveCenterModal.Visibility = Visibility.Collapsed;
+    }
+
+    private async void BtnRefreshLeaves_Click(object sender, RoutedEventArgs e)
+    {
+        await RefreshLeavesAsync();
+    }
+
+    private async void BtnSubmitLeaveApplication_Click(object sender, RoutedEventArgs e)
+    {
+        TxtLeaveFormMessage.Visibility = Visibility.Collapsed;
+
+        var typeItem = (ComboBoxItem)CmbLeaveType.SelectedItem;
+        var leaveType = typeItem?.Tag?.ToString() ?? "CASUAL";
+
+        if (!DateTime.TryParse(TxtLeaveStartDate.Text.Trim(), out var startDate))
+        {
+            MessageBox.Show("Please enter a valid start date (YYYY-MM-DD).", "Invalid Date", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (!DateTime.TryParse(TxtLeaveEndDate.Text.Trim(), out var endDate))
+        {
+            MessageBox.Show("Please enter a valid end date (YYYY-MM-DD).", "Invalid Date", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (endDate.Date < startDate.Date)
+        {
+            MessageBox.Show("End date cannot be earlier than start date.", "Invalid Date Range", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var reason = TxtLeaveReason.Text.Trim();
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            MessageBox.Show("Please provide a reason for the leave application.", "Reason Required", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        BtnSubmitLeaveApplication.IsEnabled = false;
+
+        try
+        {
+            var res = await _apiClient.ApplyLeaveAsync(new CreateLeaveRequestDto
+            {
+                LeaveType = leaveType,
+                StartDate = startDate,
+                EndDate = endDate,
+                Reason = reason
+            });
+
+            if (res != null)
+            {
+                TxtLeaveReason.Text = "";
+                TxtLeaveFormMessage.Text = $"✓ {leaveType} leave applied successfully ({res.TotalDays} day{(res.TotalDays > 1 ? "s" : "")})!";
+                TxtLeaveFormMessage.Visibility = Visibility.Visible;
+                await RefreshLeavesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to submit leave application: {ex.Message}", "Submission Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            BtnSubmitLeaveApplication.IsEnabled = true;
+        }
+    }
+
+    private async Task RefreshLeavesAsync()
+    {
+        try
+        {
+            var leaves = await _apiClient.GetMyLeavesAsync();
+            _leaves.Clear();
+            foreach (var l in leaves)
+            {
+                _leaves.Add(new LeaveItemViewModel(l));
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to refresh leaves: {ex.Message}");
+        }
     }
 }
 
@@ -560,6 +802,11 @@ public class TaskItemViewModel : INotifyPropertyChanged
 
     // Deliverable Gate: Enabled only when deliverable is attached (or not required)
     public bool CanComplete => !DeliverableRequired || HasDeliverable;
+
+    // Completed State: Hides active action buttons (Start/Attach/Complete) and displays completed ribbon
+    public bool IsCompleted => _dto.Status == "COMPLETED";
+    public Visibility ActionButtonsVisibility => IsCompleted ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility CompletedBadgeVisibility => IsCompleted ? Visibility.Visible : Visibility.Collapsed;
 
     public bool IsCurrentActive
     {
@@ -633,6 +880,41 @@ public class TaskItemViewModel : INotifyPropertyChanged
         }
     }
 
+    public SolidColorBrush PriorityBgBrush => _dto.Priority switch
+    {
+        "CRITICAL" => new SolidColorBrush(Color.FromArgb(50, 239, 68, 68)),
+        "HIGH" => new SolidColorBrush(Color.FromArgb(50, 245, 158, 11)),
+        "MEDIUM" => new SolidColorBrush(Color.FromArgb(40, 96, 205, 255)),
+        _ => new SolidColorBrush(Color.FromArgb(30, 163, 163, 163))
+    };
+
+    public SolidColorBrush PriorityFgBrush => _dto.Priority switch
+    {
+        "CRITICAL" => new SolidColorBrush(Color.FromRgb(252, 165, 165)),
+        "HIGH" => new SolidColorBrush(Color.FromRgb(252, 211, 77)),
+        "MEDIUM" => new SolidColorBrush(Color.FromRgb(96, 205, 255)),
+        _ => new SolidColorBrush(Color.FromRgb(212, 212, 212))
+    };
+
+    public SolidColorBrush StatusBgBrush => _dto.Status switch
+    {
+        "COMPLETED" => new SolidColorBrush(Color.FromArgb(40, 34, 197, 94)),
+        "IN_PROGRESS" => new SolidColorBrush(Color.FromArgb(40, 96, 205, 255)),
+        _ => new SolidColorBrush(Color.FromArgb(25, 163, 163, 163))
+    };
+
+    public SolidColorBrush DeliverableBgBrush
+    {
+        get
+        {
+            if (HasDeliverable || _dto.Status == "COMPLETED")
+                return new SolidColorBrush(Color.FromArgb(35, 34, 197, 94));
+            if (_dto.Status == "IN_PROGRESS")
+                return new SolidColorBrush(Color.FromArgb(35, 245, 158, 11));
+            return new SolidColorBrush(Color.FromArgb(20, 255, 255, 255));
+        }
+    }
+
     public string StartPauseButtonText => _isCurrentActive ? "Pause Task" : "Start Task";
 
     public SolidColorBrush StartPauseButtonBrush => _isCurrentActive
@@ -644,4 +926,44 @@ public class TaskItemViewModel : INotifyPropertyChanged
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
+}
+
+public class LeaveItemViewModel
+{
+    private readonly LeaveResponseDto _dto;
+
+    public LeaveItemViewModel(LeaveResponseDto dto)
+    {
+        _dto = dto;
+    }
+
+    public Guid Id => _dto.Id;
+    public string LeaveType => _dto.LeaveType;
+    public string Reason => _dto.Reason;
+    public string Status => _dto.Status;
+
+    public string DateRangeText =>
+        $"{_dto.StartDate:MMM dd} – {_dto.EndDate:MMM dd, yyyy} • {_dto.TotalDays} Day{(_dto.TotalDays > 1 ? "s" : "")}";
+
+    public SolidColorBrush StatusBgBrush => _dto.Status switch
+    {
+        "APPROVED" => new SolidColorBrush(Color.FromArgb(40, 34, 197, 94)),
+        "REJECTED" => new SolidColorBrush(Color.FromArgb(40, 239, 68, 68)),
+        _ => new SolidColorBrush(Color.FromArgb(40, 245, 158, 11))
+    };
+
+    public SolidColorBrush StatusFgBrush => _dto.Status switch
+    {
+        "APPROVED" => new SolidColorBrush(Color.FromRgb(110, 231, 183)),
+        "REJECTED" => new SolidColorBrush(Color.FromRgb(252, 165, 165)),
+        _ => new SolidColorBrush(Color.FromRgb(252, 211, 77))
+    };
+
+    public Visibility ReviewSectionVisibility =>
+        !string.IsNullOrWhiteSpace(_dto.ReviewComments) || !string.IsNullOrWhiteSpace(_dto.ReviewerName)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+    public string ReviewText =>
+        $"Manager: {_dto.ReviewerName ?? "Supervisor"} — \"{_dto.ReviewComments ?? "Reviewed"}\"";
 }

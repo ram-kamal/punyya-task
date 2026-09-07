@@ -178,4 +178,25 @@ public class ApiClient
             return false;
         }
     }
+
+    public async Task<LeaveResponseDto?> ApplyLeaveAsync(CreateLeaveRequestDto request, CancellationToken ct = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync("/api/v1/leaves", request, _jsonOptions, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var err = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException($"Failed to submit leave: {response.StatusCode} - {err}");
+        }
+
+        return await response.Content.ReadFromJsonAsync<LeaveResponseDto>(_jsonOptions, ct);
+    }
+
+    public async Task<List<LeaveResponseDto>> GetMyLeavesAsync(CancellationToken ct = default)
+    {
+        var response = await _httpClient.GetAsync("/api/v1/leaves/my", ct);
+        if (!response.IsSuccessStatusCode) return new List<LeaveResponseDto>();
+
+        var leaves = await response.Content.ReadFromJsonAsync<List<LeaveResponseDto>>(_jsonOptions, ct);
+        return leaves ?? new List<LeaveResponseDto>();
+    }
 }

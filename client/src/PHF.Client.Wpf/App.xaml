@@ -3,51 +3,88 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-        <!-- High Contrast Palette (WCAG 2.1 AA Compliant) -->
-        <SolidColorBrush x:Key="BgDark" Color="#0B1120" />
-        <SolidColorBrush x:Key="BgSurface" Color="#1E293B" />
-        <SolidColorBrush x:Key="BgSurfaceLight" Color="#334155" />
-        <SolidColorBrush x:Key="TextPrimary" Color="#F8FAFC" />
-        <SolidColorBrush x:Key="TextSecondary" Color="#94A3B8" />
-        <SolidColorBrush x:Key="AccentBlue" Color="#3B82F6" />
-        <SolidColorBrush x:Key="AccentGreen" Color="#10B981" />
-        <SolidColorBrush x:Key="AccentAmber" Color="#F59E0B" />
-        <SolidColorBrush x:Key="AccentRed" Color="#EF4444" />
-        <SolidColorBrush x:Key="BorderSubtle" Color="#334155" />
+        <!-- Windows 11 Fluent Design Color Palette (Dark Mica) -->
+        <SolidColorBrush x:Key="BgCanvas" Color="#181818" />
+        <SolidColorBrush x:Key="BgDark" Color="#1A1A1A" />
+        <SolidColorBrush x:Key="BgMica" Color="#202020" />
+        <SolidColorBrush x:Key="BgSurface" Color="#282828" />
+        <SolidColorBrush x:Key="BgSurfaceCard" Color="#2B2B2B" />
+        <SolidColorBrush x:Key="BgSurfaceHover" Color="#333333" />
+        <SolidColorBrush x:Key="BgSurfaceLight" Color="#383838" />
+        <SolidColorBrush x:Key="BgSurfaceSubtle" Color="#222222" />
+        <SolidColorBrush x:Key="BgSurfaceInset" Color="#1C1C1C" />
+
+        <!-- Text Colors -->
+        <SolidColorBrush x:Key="TextPrimary" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="TextSecondary" Color="#A3A3A3" />
+        <SolidColorBrush x:Key="TextTertiary" Color="#737373" />
+
+        <!-- Accent Colors -->
+        <SolidColorBrush x:Key="AccentBlue" Color="#0078D4" />
+        <SolidColorBrush x:Key="AccentBlueHover" Color="#1187E5" />
+        <SolidColorBrush x:Key="AccentBlueLight" Color="#60CDFF" />
+        <SolidColorBrush x:Key="AccentGreen" Color="#16A34A" />
+        <SolidColorBrush x:Key="AccentGreenHover" Color="#22C55E" />
+        <SolidColorBrush x:Key="AccentGreenSoft" Color="#22C55E" />
+        <SolidColorBrush x:Key="AccentAmber" Color="#D97706" />
+        <SolidColorBrush x:Key="AccentAmberHover" Color="#F59E0B" />
+        <SolidColorBrush x:Key="AccentRed" Color="#DC2626" />
+        <SolidColorBrush x:Key="AccentRedHover" Color="#EF4444" />
+
+        <!-- Borders -->
+        <SolidColorBrush x:Key="BorderSubtle" Color="#383838" />
+        <SolidColorBrush x:Key="BorderSubtleHover" Color="#484848" />
+        <SolidColorBrush x:Key="BorderFocus" Color="#60CDFF" />
+
+        <!-- Global Font Family -->
+        <FontFamily x:Key="FluentFont">Segoe UI Variable Text, Segoe UI, sans-serif</FontFamily>
 
         <!-- Accessible Focus Visual Style -->
         <Style x:Key="AccessibleFocusVisual">
             <Setter Property="Control.Template">
                 <Setter.Value>
                     <ControlTemplate>
-                        <Rectangle Stroke="#60A5FA" StrokeThickness="2" StrokeDashArray="2 2" SnapsToDevicePixels="true"/>
+                        <Rectangle Stroke="#60CDFF" StrokeThickness="2" StrokeDashArray="2 2" SnapsToDevicePixels="true" RadiusX="4" RadiusY="4"/>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
 
-        <!-- Button Style -->
+        <!-- Windows 11 Standard Button Style -->
         <Style TargetType="Button">
+            <Setter Property="FontFamily" Value="{StaticResource FluentFont}" />
             <Setter Property="Background" Value="{StaticResource AccentBlue}" />
             <Setter Property="Foreground" Value="#FFFFFF" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="12.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Padding" Value="14,8" />
-            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="14,7" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="#00000000" />
+            <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FocusVisualStyle" Value="{StaticResource AccessibleFocusVisual}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                        <Border x:Name="border" 
+                                Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" 
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Opacity" Value="0.9" />
+                                <Setter TargetName="border" Property="Opacity" Value="0.92" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.80" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="border" Property="Background" Value="#475569" />
-                                <Setter Property="Foreground" Value="#94A3B8" />
+                                <Setter TargetName="border" Property="Background" Value="#333333" />
+                                <Setter TargetName="border" Property="BorderBrush" Value="#2A2A2A" />
+                                <Setter Property="Foreground" Value="#666666" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -55,15 +92,108 @@
             </Setter>
         </Style>
 
-        <!-- TextBox Style -->
+        <!-- Secondary Outline Button Style -->
+        <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="{StaticResource BgSurfaceLight}" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderSubtle}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" 
+                                Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" 
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource BgSurfaceHover}" />
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource BorderSubtleHover}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="#222222" />
+                                <Setter Property="Foreground" Value="#555555" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Windows 11 TextBox Style -->
         <Style TargetType="TextBox">
-            <Setter Property="Background" Value="#0F172A" />
+            <Setter Property="FontFamily" Value="{StaticResource FluentFont}" />
+            <Setter Property="Background" Value="{StaticResource BgSurfaceInset}" />
             <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
             <Setter Property="BorderBrush" Value="{StaticResource BorderSubtle}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="10,8" />
             <Setter Property="FontSize" Value="13" />
+            <Setter Property="CaretBrush" Value="{StaticResource AccentBlueLight}" />
             <Setter Property="FocusVisualStyle" Value="{StaticResource AccessibleFocusVisual}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="border" 
+                                Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                CornerRadius="5" 
+                                SnapsToDevicePixels="True">
+                            <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource BorderSubtleHover}" />
+                            </Trigger>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource BorderFocus}" />
+                                <Setter TargetName="border" Property="BorderThickness" Value="1.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Windows 11 PasswordBox Style -->
+        <Style TargetType="PasswordBox">
+            <Setter Property="FontFamily" Value="{StaticResource FluentFont}" />
+            <Setter Property="Background" Value="{StaticResource BgSurfaceInset}" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderSubtle}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="CaretBrush" Value="{StaticResource AccentBlueLight}" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource AccessibleFocusVisual}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="PasswordBox">
+                        <Border x:Name="border" 
+                                Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                CornerRadius="5" 
+                                SnapsToDevicePixels="True">
+                            <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource BorderSubtleHover}" />
+                            </Trigger>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource BorderFocus}" />
+                                <Setter TargetName="border" Property="BorderThickness" Value="1.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Application.Resources>
 </Application>

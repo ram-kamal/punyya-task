@@ -1,4 +1,4 @@
-import { WorkstationStatus, LiveWorkstationEvent, TaskItem, TimesheetSummary, User } from './types';
+import { WorkstationStatus, LiveWorkstationEvent, TaskItem, TimesheetSummary, User, LeaveRequestItem, StaffMember, CreateStaffPayload } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5020';
 
@@ -151,3 +151,149 @@ export function getTimesheetCsvDownloadUrl(startDate?: string, endDate?: string)
   if (endDate) params.append('endDate', endDate);
   return `${API_BASE}/api/v1/timesheet/export/csv${params.toString() ? `?${params.toString()}` : ''}`;
 }
+
+export async function fetchLeaves(status?: string): Promise<LeaveRequestItem[]> {
+  try {
+    const url = status && status !== 'ALL'
+      ? `${API_BASE}/api/v1/leaves?status=${status}`
+      : `${API_BASE}/api/v1/leaves`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (err) {
+    console.error('fetchLeaves error:', err);
+    return [];
+  }
+}
+
+export async function reviewLeave(
+  leaveId: string,
+  action: 'approve' | 'reject',
+  comments?: string
+): Promise<{ success: boolean; data?: LeaveRequestItem; error?: string }> {
+  try {
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/leaves/${leaveId}/${action}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      },
+      body: JSON.stringify({ comments: comments || undefined }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      return { success: false, error: `API Error ${res.status}: ${err}` };
+    }
+
+    const data = await res.json();
+    return { success: true, data };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to review leave' };
+  }
+}
+
+export async function fetchStaff(): Promise<StaffMember[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/staff`, { cache: 'no-store' });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (err) {
+    console.error('fetchStaff error:', err);
+    return [];
+  }
+}
+
+export async function createStaff(
+  payload: CreateStaffPayload
+): Promise<{ success: boolean; data?: StaffMember; error?: string }> {
+  try {
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/staff`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => null);
+      return { success: false, error: errBody?.message || `Error ${res.status}: ${res.statusText}` };
+    }
+
+    const data = await res.json();
+    return { success: true, data };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to create staff member' };
+  }
+}
+
+export async function toggleStaffStatus(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/staff/${id}/toggle-status`, {
+      method: 'PATCH',
+      headers: { ...authHeaders },
+    });
+    if (!res.ok) {
+      return { success: false, error: `Error ${res.status}: ${res.statusText}` };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to toggle status' };
+  }
+}
+
+export async function resetStaffPassword(
+  id: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/staff/${id}/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      },
+      body: JSON.stringify({ newPassword }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => null);
+      return { success: false, error: errBody?.message || `Error ${res.status}` };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to reset password' };
+  }
+}
+
+export async function updateStaffWorkMode(
+  id: string,
+  workMode: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/staff/${id}/work-mode`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      },
+      body: JSON.stringify({ workMode }),
+    });
+    if (!res.ok) {
+      return { success: false, error: `Error ${res.status}` };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to update work mode' };
+  }
+}
+

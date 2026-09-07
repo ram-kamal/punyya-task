@@ -85,3 +85,47 @@ export interface User {
   role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
   stationId?: string;
 }
+
+export interface LeaveRequestItem {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  stationId?: string;
+  leaveType: 'CASUAL' | 'SICK' | 'MEDICAL' | 'ANNUAL' | 'EMERGENCY' | string;
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  reason: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  reviewedBy?: string;
+  reviewerName?: string;
+  reviewedAt?: string;
+  reviewComments?: string;
+  createdAt: string;
+}
+
+export interface StaffMember {
+  id: string;
+  email: string;
+  username?: string;
+  fullName: string;
+  role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
+  workMode: 'IN_OFFICE' | 'REMOTE_WFH' | string;
+  stationId?: string;
+  isActive: boolean;
+  createdAt: string;
+  activeTasksCount: number;
+  shiftStatus?: string;
+}
+
+export interface CreateStaffPayload {
+  fullName: string;
+  username?: string;
+  email: string;
+  role?: string;
+  workMode?: string;
+  stationId?: string;
+  password?: string;
+}
+

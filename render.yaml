@@ -1,0 +1,23 @@
+# Render Blueprint Configuration (100% Free Tier)
+# Deploy via: Render Dashboard -> Blueprints -> New Blueprint Instance
+version: "1"
+
+services:
+  # PHF Web API Service
+  - type: web
+    name: punnya-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: DatabaseProvider
+        value: Sqlite
+      - key: Jwt__Secret
+        generateValue: true
+      - key: Jwt__Issuer
+        value: PHF.Api
+      - key: Jwt__Audience
+        value: PHF.Clients

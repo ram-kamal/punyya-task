@@ -4,249 +4,300 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="PHF Work Management System — Employee Client" 
-        Height="780" Width="1000"
-        MinHeight="600" MinWidth="850"
+        Title="PHF Work Management System — Employee Desk" 
+        Height="820" Width="1020"
+        MinHeight="650" MinWidth="880"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource BgDark}"
+        Background="{StaticResource BgCanvas}"
         Foreground="{StaticResource TextPrimary}"
+        FontFamily="{StaticResource FluentFont}"
         AutomationProperties.Name="PHF Work Management Desk Application"
         AutomationProperties.HelpText="Desktop workstation task management and event-driven telemetry client">
 
     <Grid>
         <!-- Main Dashboard View -->
-        <Grid Margin="24">
+        <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" /> <!-- Top Header -->
-                <RowDefinition Height="Auto" /> <!-- Overview Panels (Shift & Telemetry) -->
-                <RowDefinition Height="Auto" /> <!-- Toolbar & Quick Actions -->
-                <RowDefinition Height="*" />    <!-- Task List Feed -->
-                <RowDefinition Height="Auto" /> <!-- Footer Status Bar -->
+                <RowDefinition Height="Auto" /> <!-- Top Fluent App Bar -->
+                <RowDefinition Height="*" />    <!-- Content Area -->
+                <RowDefinition Height="Auto" /> <!-- Bottom Status Bar -->
             </Grid.RowDefinitions>
 
-            <!-- Top Header -->
-            <Grid Grid.Row="0" Margin="0,0,0,20">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+            <!-- Top Fluent App Bar -->
+            <Border Grid.Row="0" Background="{StaticResource BgMica}" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="0,0,0,1" Padding="24,14">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                <StackPanel Orientation="Vertical">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="Punnya Task Desk" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" />
-                        <TextBlock Text=" — Employee Client" FontSize="20" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
-                        
-                        <!-- Online Status Badge -->
-                        <Border x:Name="StatusBadgeBorder" Background="#166534" CornerRadius="12" Padding="10,4" Margin="16,0,0,0">
-                            <TextBlock x:Name="TxtConnectionStatus" Text="● ONLINE" FontSize="12" FontWeight="Bold" Foreground="#86EFAC" 
-                                       AutomationProperties.Name="Real-time Connection Status" />
+                        <!-- App Emblem -->
+                        <Border Width="38" Height="38" CornerRadius="8" Background="{StaticResource AccentBlue}" Margin="0,0,14,0">
+                            <TextBlock Text="PHF" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
-                    </StackPanel>
-                    <TextBlock x:Name="TxtSubHeader" Text="PHF Work Management System • Event-driven background telemetry" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,4,0,0" />
-                </StackPanel>
 
-                <!-- User & Station Profile -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Background="{StaticResource BgSurface}" CornerRadius="8" Padding="12,8" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="10" Height="10" Fill="{StaticResource AccentBlue}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="TxtUserInfo" Text="Aarav Sharma (ST-101)" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimary}" />
-                        </StackPanel>
-                    </Border>
-                    <Button x:Name="BtnLogout" Content="Log Out" Margin="8,0,0,0" Background="{StaticResource BgSurfaceLight}" Click="BtnLogout_Click"
-                            AutomationProperties.Name="Log Out Button" AutomationProperties.HelpText="Logs out from current workstation session" />
-                </StackPanel>
-            </Grid>
-
-            <!-- Overview Panels (Slide 4 Wireframe) -->
-            <Grid Grid.Row="1" Margin="0,0,0,20">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="16" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <!-- Panel A: SHIFT MANAGEMENT -->
-                <Border Grid.Column="0" Background="{StaticResource BgSurface}" CornerRadius="10" Padding="18" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="SHIFT MANAGEMENT" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextSecondary}" />
-
-                        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,10,0,0">
-                            <TextBlock x:Name="TxtShiftState" Text="Clocked In" FontSize="18" FontWeight="Bold" Foreground="{StaticResource AccentGreen}" />
-                            <TextBlock x:Name="TxtShiftHours" Text="Logged Today: 4h 22m" FontSize="13" Foreground="{StaticResource TextSecondary}" Margin="0,4,0,0" />
-                        </StackPanel>
-
-                        <Button x:Name="BtnClockToggle" Grid.Row="1" Grid.Column="1" Content="Clock Out" VerticalAlignment="Center"
-                                Background="{StaticResource AccentAmber}" Padding="16,8" Click="BtnClockToggle_Click"
-                                AutomationProperties.Name="Clock Toggle Button" AutomationProperties.HelpText="Clock In or Clock Out from your daily shift" />
-                    </Grid>
-                </Border>
-
-                <!-- Panel B: WINDOW TELEMETRY -->
-                <Border Grid.Column="2" Background="{StaticResource BgSurface}" CornerRadius="10" Padding="18" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="WINDOW TELEMETRY" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextSecondary}" />
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Mode: near-0% CPU" FontSize="11" FontWeight="SemiBold" Foreground="#38BDF8" />
-
-                        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,10,0,0">
-                            <TextBlock Text="Listening (event hook)" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource AccentGreen}" />
-                            <TextBlock x:Name="TxtActiveApp" Text="Active App: Adobe Premiere Pro" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-
-                        <Border Grid.Row="1" Grid.Column="1" Background="#064E3B" CornerRadius="8" Padding="10,6" VerticalAlignment="Center">
-                            <TextBlock x:Name="TxtActiveTaskBadge" Text="Linked: TASK-109" FontSize="11" FontWeight="Bold" Foreground="#6EE7B7" />
-                        </Border>
-                    </Grid>
-                </Border>
-            </Grid>
-
-            <!-- Toolbar & Refresh -->
-            <Grid Grid.Row="2" Margin="0,0,0,12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <TextBlock Grid.Column="0" Text="Assigned Tasks" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" />
-                
-                <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button x:Name="BtnSyncNow" Content="Sync Telemetry" Margin="0,0,8,0" Background="{StaticResource BgSurfaceLight}" Click="BtnSyncNow_Click"
-                            AutomationProperties.Name="Sync Telemetry Now" AutomationProperties.HelpText="Immediately uploads cached offline telemetry to server" />
-                    <Button x:Name="BtnRefresh" Content="Refresh Tasks" Background="{StaticResource AccentBlue}" Click="BtnRefresh_Click"
-                            AutomationProperties.Name="Refresh Tasks List" AutomationProperties.HelpText="Reloads assignments from central API" />
-                </StackPanel>
-            </Grid>
-
-            <!-- Task List Feed (Slide 4 Wireframe Items) -->
-            <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" Focusable="True" AutomationProperties.Name="Assigned Tasks Feed">
-                <ItemsControl x:Name="TasksItemsControl">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="{StaticResource BgSurface}" CornerRadius="10" Padding="18" Margin="0,0,0,14" 
-                                    BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <!-- Top Row: Task Code, Title, Priority -->
-                                    <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding TaskCode}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource AccentBlue}" Margin="0,0,10,0" />
-                                        <TextBlock Text="—" FontSize="15" Foreground="{StaticResource TextSecondary}" Margin="0,0,10,0" />
-                                        <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" />
+                        <StackPanel VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Punnya Task Desk" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" />
+                                
+                                <!-- Online Status Pill -->
+                                <Border x:Name="StatusBadgeBorder" Background="#1A22C55E" BorderBrush="#3322C55E" BorderThickness="1" CornerRadius="12" Padding="9,2.5" Margin="14,0,0,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="6" Height="6" Fill="{StaticResource AccentGreenSoft}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock x:Name="TxtConnectionStatus" Text="LIVE CONNECTED" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentGreenSoft}" 
+                                                   AutomationProperties.Name="Real-time Connection Status" />
                                     </StackPanel>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock x:Name="TxtSubHeader" Text="PHF Work Management System • Background Event Telemetry" FontSize="11.5" Foreground="{StaticResource TextSecondary}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </StackPanel>
 
-                                    <!-- Priority Badge -->
-                                    <Border Grid.Row="0" Grid.Column="1" Background="{StaticResource BgSurfaceLight}" CornerRadius="6" Padding="8,3">
-                                        <TextBlock Text="{Binding Priority}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" />
-                                    </Border>
+                    <!-- User & Workstation Profile -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Background="{StaticResource BgSurfaceCard}" CornerRadius="6" Padding="12,6" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Width="22" Height="22" CornerRadius="11" Background="{StaticResource BgSurfaceLight}" Margin="0,0,8,0">
+                                    <TextBlock Text="👤" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock x:Name="TxtUserInfo" Text="Aarav Sharma (ST-101)" FontWeight="SemiBold" FontSize="12.5" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                        <Button x:Name="BtnLogout" Content="Sign Out" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Click="BtnLogout_Click"
+                                AutomationProperties.Name="Log Out Button" AutomationProperties.HelpText="Logs out from current workstation session" />
+                    </StackPanel>
+                </Grid>
+            </Border>
 
-                                    <!-- Description -->
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding Description}" 
-                                               FontSize="13" Foreground="{StaticResource TextSecondary}" Margin="0,8,0,8" TextWrapping="Wrap" />
+            <!-- Main Scrollable Dashboard Content -->
+            <Grid Grid.Row="1" Margin="24,20,24,16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" /> <!-- Overview Cards (Shift & Telemetry) -->
+                    <RowDefinition Height="Auto" /> <!-- Toolbar & Quick Actions -->
+                    <RowDefinition Height="*" />    <!-- Task List Feed -->
+                </Grid.RowDefinitions>
 
-                                    <!-- Status & Deliverable Gate Indicator (Slide 4) -->
-                                    <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,12">
-                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                            <TextBlock Text="Status: " FontSize="13" Foreground="{StaticResource TextSecondary}" />
-                                            <TextBlock Text="{Binding StatusText}" FontSize="13" FontWeight="Bold" Foreground="{Binding StatusColorBrush}" />
+                <!-- Overview Panels (Shift & Telemetry) -->
+                <Grid Grid.Row="0" Margin="0,0,0,20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Panel A: SHIFT MANAGEMENT -->
+                    <Border Grid.Column="0" Background="{StaticResource BgSurfaceCard}" CornerRadius="8" Padding="18,16" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="SHIFT MANAGEMENT" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextTertiary}" />
+
+                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,8,0,0">
+                                <TextBlock x:Name="TxtShiftState" Text="Clocked In" FontSize="17" FontWeight="Bold" Foreground="{StaticResource AccentGreenSoft}" />
+                                <TextBlock x:Name="TxtShiftHours" Text="Logged Today: 4h 22m" FontSize="12.5" Foreground="{StaticResource TextSecondary}" Margin="0,3,0,0" />
+                            </StackPanel>
+
+                            <Button x:Name="BtnClockToggle" Grid.Row="1" Grid.Column="1" Content="Clock Out" VerticalAlignment="Center"
+                                    Background="{StaticResource AccentAmber}" Padding="16,7" Click="BtnClockToggle_Click"
+                                    AutomationProperties.Name="Clock Toggle Button" AutomationProperties.HelpText="Clock In or Clock Out from your daily shift" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Panel B: WINDOW TELEMETRY -->
+                    <Border Grid.Column="2" Background="{StaticResource BgSurfaceCard}" CornerRadius="8" Padding="18,16" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="WORKSTATION TELEMETRY" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextTertiary}" />
+                            <Border Grid.Row="0" Grid.Column="1" Background="#1A60CDFF" CornerRadius="4" Padding="6,2">
+                                <TextBlock Text="near-0% CPU mode" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource AccentBlueLight}" />
+                            </Border>
+
+                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,8,0,0">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse Width="6" Height="6" Fill="{StaticResource AccentGreenSoft}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Listening (Win32 Event Hook)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AccentGreenSoft}" />
+                                </StackPanel>
+                                <TextBlock x:Name="TxtActiveApp" Text="Active App: Google Chrome" FontSize="13.5" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+
+                            <Border Grid.Row="1" Grid.Column="1" Background="#1A22C55E" BorderBrush="#3322C55E" BorderThickness="1" CornerRadius="6" Padding="10,5" VerticalAlignment="Center">
+                                <TextBlock x:Name="TxtActiveTaskBadge" Text="Linked: TASK-101" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentGreenSoft}" />
+                            </Border>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- Toolbar & Refresh -->
+                <Grid Grid.Row="1" Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Assigned Tasks" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" />
+                        <TextBlock Text="• Review deliverables &amp; progress" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <Button x:Name="BtnOpenLeaveCenter" Content="🏖️ Leaves" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="BtnOpenLeaveCenter_Click"
+                                AutomationProperties.Name="Open Leave Center" AutomationProperties.HelpText="Apply for leave or view submission history" />
+                        <Button x:Name="BtnSyncNow" Content="Sync Telemetry" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="BtnSyncNow_Click"
+                                AutomationProperties.Name="Sync Telemetry Now" AutomationProperties.HelpText="Immediately uploads cached offline telemetry to server" />
+                        <Button x:Name="BtnRefresh" Content="↻ Refresh Tasks" Click="BtnRefresh_Click"
+                                AutomationProperties.Name="Refresh Tasks List" AutomationProperties.HelpText="Reloads assignments from central API" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Task List Feed (Fluent Cards) -->
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Focusable="True" AutomationProperties.Name="Assigned Tasks Feed">
+                    <ItemsControl x:Name="TasksItemsControl">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource BgSurfaceCard}" CornerRadius="8" Padding="18,16" Margin="0,0,0,12" 
+                                        BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Top Row: Task Code Chip & Title -->
+                                        <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Border Background="#260078D4" BorderBrush="#400078D4" BorderThickness="1" CornerRadius="4" Padding="7,2" Margin="0,0,10,0">
+                                                <TextBlock Text="{Binding TaskCode}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource AccentBlueLight}" />
+                                            </Border>
+                                            <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" />
                                         </StackPanel>
 
-                                        <!-- Deliverable indicator line -->
-                                        <Border Background="#0F172A" CornerRadius="6" Padding="10,6" Margin="0,4,0,0" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
-                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding DeliverableStatusText}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding DeliverableColorBrush}" />
-                                            </StackPanel>
+                                        <!-- Priority Badge Pill -->
+                                        <Border Grid.Row="0" Grid.Column="1" Background="{Binding PriorityBgBrush}" CornerRadius="10" Padding="10,3">
+                                            <TextBlock Text="{Binding Priority}" FontSize="11" FontWeight="Bold" Foreground="{Binding PriorityFgBrush}" />
                                         </Border>
-                                    </StackPanel>
 
-                                    <!-- Actions Row -->
-                                    <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <!-- Start / Pause Task -->
-                                        <Button Content="{Binding StartPauseButtonText}" Background="{Binding StartPauseButtonBrush}" 
-                                                Margin="0,0,8,0" Tag="{Binding Id}" Click="BtnStartPauseTask_Click"
-                                                AutomationProperties.Name="Toggle Active Task Timer" />
+                                        <!-- Description -->
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding Description}" 
+                                                   FontSize="12.5" Foreground="{StaticResource TextSecondary}" Margin="0,8,0,12" TextWrapping="Wrap" LineHeight="18" />
 
-                                        <!-- Attach Deliverable -->
-                                        <Button Content="Attach Deliverable" Background="{StaticResource BgSurfaceLight}" 
-                                                Margin="0,0,8,0" Tag="{Binding Id}" Click="BtnAttachDeliverable_Click"
-                                                AutomationProperties.Name="Attach Work Deliverable" />
+                                        <!-- Status & Deliverable Gate Ribbon (Fluent Inset Surface) -->
+                                        <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Background="{StaticResource BgSurfaceInset}" 
+                                                CornerRadius="6" Padding="12,8" Margin="0,0,0,14" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
 
-                                        <!-- Mark Completed (Deliverable Gate: Enabled only when deliverable is attached) -->
-                                        <Button Content="Mark Completed" Background="{StaticResource AccentGreen}" 
-                                                IsEnabled="{Binding CanComplete}" Tag="{Binding Id}" Click="BtnMarkCompleted_Click"
-                                                AutomationProperties.Name="Mark Task Completed" 
-                                                AutomationProperties.HelpText="Closing a task requires proof of output. Disabled until deliverable is attached." />
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
+                                                <!-- Status Pill -->
+                                                <Border Grid.Column="0" Background="{Binding StatusBgBrush}" CornerRadius="4" Padding="8,3" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding StatusText}" FontSize="11.5" FontWeight="Bold" Foreground="{Binding StatusColorBrush}" />
+                                                </Border>
+
+                                                <!-- Deliverable Gate Indicator -->
+                                                <Border Grid.Column="2" Background="{Binding DeliverableBgBrush}" CornerRadius="4" Padding="9,3" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding DeliverableStatusText}" FontSize="11.5" FontWeight="SemiBold" Foreground="{Binding DeliverableColorBrush}" />
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Actions Row (Visible for active/pending tasks) -->
+                                        <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right"
+                                                    Visibility="{Binding ActionButtonsVisibility}">
+                                            <!-- Start / Pause Task -->
+                                            <Button Content="{Binding StartPauseButtonText}" Background="{Binding StartPauseButtonBrush}" 
+                                                    Margin="0,0,8,0" Tag="{Binding Id}" Click="BtnStartPauseTask_Click"
+                                                    AutomationProperties.Name="Toggle Active Task Timer" />
+
+                                            <!-- Attach Deliverable -->
+                                            <Button Content="Attach Deliverable" Style="{StaticResource SecondaryButton}" 
+                                                    Margin="0,0,8,0" Tag="{Binding Id}" Click="BtnAttachDeliverable_Click"
+                                                    AutomationProperties.Name="Attach Work Deliverable" />
+
+                                            <!-- Mark Completed (Deliverable Gate: Enabled only when deliverable is attached) -->
+                                            <Button Content="Mark Completed ✓" Background="{StaticResource AccentGreen}" 
+                                                    IsEnabled="{Binding CanComplete}" Tag="{Binding Id}" Click="BtnMarkCompleted_Click"
+                                                    AutomationProperties.Name="Mark Task Completed" 
+                                                    AutomationProperties.HelpText="Closing a task requires proof of output. Disabled until deliverable is attached." />
+                                        </StackPanel>
+
+                                        <!-- Completed State Banner (Shown only when task is COMPLETED) -->
+                                        <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right"
+                                                    Visibility="{Binding CompletedBadgeVisibility}">
+                                            <Border Background="#14532D" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="6" Padding="12,6">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="✓ Task Completed &amp; Archived" FontSize="11.5" FontWeight="Bold" Foreground="#86EFAC" />
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
 
             <!-- Bottom Status Bar -->
-            <Grid Grid.Row="4" Margin="0,14,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Name="TxtStatusBar" Text="Ready • Win32 Hook active (SetWinEventHook 0x0003)" FontSize="12" Foreground="{StaticResource TextSecondary}" />
-                <TextBlock x:Name="TxtSyncInfo" Grid.Column="1" Text="Tamper-locked SQLite buffer: Synced" FontSize="12" Foreground="{StaticResource AccentGreen}" />
-            </Grid>
+            <Border Grid.Row="2" Background="{StaticResource BgMica}" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="0,1,0,0" Padding="24,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="TxtStatusBar" Text="Ready • Win32 Hook active (SetWinEventHook 0x0003)" FontSize="11.5" Foreground="{StaticResource TextTertiary}" />
+                    <TextBlock x:Name="TxtSyncInfo" Grid.Column="1" Text="Tamper-locked SQLite buffer: Synced" FontSize="11.5" Foreground="{StaticResource AccentGreenSoft}" />
+                </Grid>
+            </Border>
         </Grid>
 
-        <!-- Deliverable Attachment Modal Overlay -->
+        <!-- Deliverable Attachment Modal Overlay (Windows 11 ContentDialog style) -->
         <Grid x:Name="AttachDeliverableModal" Visibility="Collapsed" Background="#D9000000">
-            <Border Background="{StaticResource BgSurface}" CornerRadius="12" Width="520" Padding="24"
-                    HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
+            <Border Background="{StaticResource BgSurfaceCard}" CornerRadius="10" Width="520" Padding="24"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="{StaticResource BorderSubtleHover}" BorderThickness="1">
                 <StackPanel>
-                    <TextBlock Text="Attach Proof of Work / Deliverable" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" />
+                    <TextBlock Text="Attach Proof of Work / Deliverable" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" />
                     <TextBlock Text="Deliverable Gate: A task cannot be marked completed without proof of output." FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,4,0,16" />
 
                     <!-- Drag and drop zone -->
-                    <Border x:Name="DropZoneBorder" Background="#0F172A" BorderBrush="{StaticResource AccentBlue}" BorderThickness="2" 
+                    <Border x:Name="DropZoneBorder" Background="{StaticResource BgSurfaceInset}" BorderBrush="{StaticResource AccentBlue}" BorderThickness="1.5" 
                             CornerRadius="8" Height="110" AllowDrop="True" 
                             Drop="DropZone_Drop" DragOver="DropZone_DragOver" Margin="0,0,0,14">
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <TextBlock Text="📁 Drag and Drop Deliverable File Here" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource AccentBlue}" HorizontalAlignment="Center" />
-                            <TextBlock Text="ZIP, PDF, DOCX, MP4, SQL, etc." FontSize="11" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                            <TextBlock Text="📁 Drag and Drop Deliverable File Here" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource AccentBlueLight}" HorizontalAlignment="Center" />
+                            <TextBlock Text="ZIP, PDF, DOCX, MP4, SQL, code, etc." FontSize="11" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" />
                         </StackPanel>
                     </Border>
 
-                    <Button x:Name="BtnBrowseFile" Content="Browse Local File..." Background="{StaticResource BgSurfaceLight}" Click="BtnBrowseFile_Click" Margin="0,0,0,14" />
+                    <Button x:Name="BtnBrowseFile" Content="Browse Local File..." Style="{StaticResource SecondaryButton}" Click="BtnBrowseFile_Click" Margin="0,0,0,14" />
 
-                    <TextBlock Text="Selected File:" FontSize="12" Foreground="{StaticResource TextSecondary}" />
+                    <TextBlock Text="Selected File:" FontSize="11.5" Foreground="{StaticResource TextSecondary}" />
                     <TextBlock x:Name="TxtSelectedFilePath" Text="No file selected" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,2,0,14" TextTrimming="CharacterEllipsis" />
 
-                    <TextBlock Text="Or External Deliverable URL / Link:" FontSize="12" Foreground="{StaticResource TextSecondary}" />
+                    <TextBlock Text="Or External Deliverable URL / Link:" FontSize="11.5" Foreground="{StaticResource TextSecondary}" />
                     <TextBox x:Name="TxtDeliverableUrlInput" Margin="0,4,0,20" Text="" />
 
                     <Grid>
@@ -255,39 +306,196 @@
                             <ColumnDefinition Width="10" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Button Grid.Column="0" Content="Cancel" Background="{StaticResource BgSurfaceLight}" Click="BtnCancelDeliverable_Click" />
+                        <Button Grid.Column="0" Content="Cancel" Style="{StaticResource SecondaryButton}" Click="BtnCancelDeliverable_Click" />
                         <Button Grid.Column="2" Content="Upload &amp; Attach ✓" Background="{StaticResource AccentGreen}" Click="BtnSaveDeliverable_Click" />
                     </Grid>
                 </StackPanel>
             </Border>
         </Grid>
 
-        <!-- Employee Login Overlay -->
-        <Grid x:Name="LoginModal" Visibility="Collapsed" Background="#FA0B1120">
-            <Border Background="{StaticResource BgSurface}" CornerRadius="12" Width="440" Padding="28"
-                    HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
+        <!-- Employee Login Overlay (Windows 11 ContentDialog style) -->
+        <Grid x:Name="LoginModal" Visibility="Collapsed" Background="#F2181818">
+            <Border Background="{StaticResource BgSurfaceCard}" CornerRadius="10" Width="440" Padding="28"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="{StaticResource BorderSubtleHover}" BorderThickness="1">
                 <StackPanel>
-                    <TextBlock Text="PHF Work Management System" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" HorizontalAlignment="Center" />
-                    <TextBlock Text="Employee Workstation Sign-In" FontSize="13" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,20" />
+                    <Border Width="42" Height="42" CornerRadius="8" Background="{StaticResource AccentBlue}" HorizontalAlignment="Center" Margin="0,0,0,12">
+                        <TextBlock Text="PHF" FontSize="15" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
 
-                    <TextBlock Text="Email Address" FontSize="12" Foreground="{StaticResource TextSecondary}" />
-                    <TextBox x:Name="TxtLoginEmail" Text="st101@punnyaheart.org" Margin="0,4,0,12" />
+                    <TextBlock Text="PHF Work Management System" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" HorizontalAlignment="Center" />
+                    <TextBlock Text="Sign in with your username or personal email" FontSize="12.5" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,20" />
 
-                    <TextBlock Text="Password" FontSize="12" Foreground="{StaticResource TextSecondary}" />
-                    <PasswordBox x:Name="TxtLoginPassword" Password="Password@123" Margin="0,4,0,12" 
-                                 Background="#0F172A" Foreground="{StaticResource TextPrimary}" Padding="10,8" FontSize="13" />
+                    <TextBlock Text="Username or Email" FontSize="11.5" Foreground="{StaticResource TextSecondary}" />
+                    <TextBox x:Name="TxtLoginEmail" Text="st101" Margin="0,4,0,12" />
 
-                    <TextBlock Text="Station Identifier" FontSize="12" Foreground="{StaticResource TextSecondary}" />
-                    <TextBox x:Name="TxtLoginStation" Text="ST-101" Margin="0,4,0,12" />
+                    <TextBlock Text="Password" FontSize="11.5" Foreground="{StaticResource TextSecondary}" />
+                    <PasswordBox x:Name="TxtLoginPassword" Password="Password@123" Margin="0,4,0,12" />
 
-                    <TextBlock Text="Server API URL" FontSize="12" Foreground="{StaticResource TextSecondary}" />
-                    <TextBox x:Name="TxtServerUrl" Text="http://localhost:5020" Margin="0,4,0,16" />
+                    <!-- Work From Home Toggle & Auto-Device Pairing -->
+                    <Border Background="#1A3B82F6" BorderBrush="#333B82F6" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,14">
+                        <StackPanel>
+                            <CheckBox x:Name="ChkWorkFromHome" Content="Working from Home (Remote)" Foreground="{StaticResource TextPrimary}" 
+                                      FontSize="12" FontWeight="SemiBold" IsChecked="True" Checked="ChkWorkFromHome_Changed" Unchecked="ChkWorkFromHome_Changed" />
+                            <TextBlock x:Name="TxtDevicePreview" Text="Paired Device: WFH-PC" FontSize="11" Foreground="{StaticResource AccentBlue}" Margin="20,4,0,0" />
+                        </StackPanel>
+                    </Border>
 
-                    <TextBlock x:Name="TxtLoginError" Text="" FontSize="12" Foreground="{StaticResource AccentRed}" Margin="0,0,0,10" Visibility="Collapsed" />
+                    <!-- Advanced Network / Server Settings (Collapsed by default so employees never see or enter URLs) -->
+                    <Expander Header="⚙ Advanced Connection Settings (Optional)" Foreground="{StaticResource TextSecondary}" FontSize="11" Margin="0,0,0,14" IsExpanded="False">
+                        <StackPanel Margin="4,8,4,0">
+                            <TextBlock Text="Server API URL (Auto-Resolved)" FontSize="10.5" Foreground="{StaticResource TextSecondary}" />
+                            <TextBox x:Name="TxtServerUrl" Text="http://localhost:5020" FontSize="11" Margin="0,2,0,8" />
+                            <TextBlock Text="Station Identifier" FontSize="10.5" Foreground="{StaticResource TextSecondary}" />
+                            <TextBox x:Name="TxtLoginStation" Text="WFH-DESK" FontSize="11" Margin="0,2,0,4" />
+                        </StackPanel>
+                    </Expander>
 
-                    <Button x:Name="BtnDoLogin" Content="Clock In &amp; Launch Desk" Background="{StaticResource AccentBlue}" Height="40" Click="BtnDoLogin_Click" />
+                    <TextBlock x:Name="TxtLoginError" Text="" FontSize="11.5" Foreground="{StaticResource AccentRed}" Margin="0,0,0,10" Visibility="Collapsed" />
+
+                    <Button x:Name="BtnDoLogin" Content="Clock In &amp; Launch Desk" Background="{StaticResource AccentBlue}" Height="38" Click="BtnDoLogin_Click" />
                 </StackPanel>
             </Border>
         </Grid>
+
+        <!-- Leave Center Modal (Windows 11 ContentDialog style) -->
+        <Grid x:Name="LeaveCenterModal" Visibility="Collapsed" Background="#D9000000">
+            <Border Background="{StaticResource BgSurfaceCard}" CornerRadius="10" Width="680" MaxHeight="640" Padding="24"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="{StaticResource BorderSubtleHover}" BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <Grid Grid.Row="0" Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Employee Leave Center" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" />
+                            <TextBlock Text="Apply for time-off and track management review status in real time" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,3,0,0" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="✕" Style="{StaticResource SecondaryButton}" Padding="10,4" Click="BtnCloseLeaveCenter_Click" />
+                    </Grid>
+
+                    <!-- Two-column Body: Form on Left, History on Right -->
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="310" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left Column: Apply Form -->
+                        <Border Grid.Column="0" Background="{StaticResource BgSurfaceInset}" CornerRadius="8" Padding="14" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="APPLY FOR LEAVE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextTertiary}" Margin="0,0,0,10" />
+
+                                <TextBlock Text="Leave Type" FontSize="11.5" Foreground="{StaticResource TextSecondary}" />
+                                <ComboBox x:Name="CmbLeaveType" Margin="0,4,0,10" SelectedIndex="0" Background="#1C1C1C" Foreground="{StaticResource TextPrimary}" Padding="8,6">
+                                    <ComboBoxItem Content="CASUAL — Casual Leave" Tag="CASUAL" />
+                                    <ComboBoxItem Content="SICK — Sick Leave" Tag="SICK" />
+                                    <ComboBoxItem Content="MEDICAL — Medical Leave" Tag="MEDICAL" />
+                                    <ComboBoxItem Content="ANNUAL — Annual Leave" Tag="ANNUAL" />
+                                    <ComboBoxItem Content="EMERGENCY — Emergency" Tag="EMERGENCY" />
+                                </ComboBox>
+
+                                <TextBlock Text="Start Date (YYYY-MM-DD)" FontSize="11.5" Foreground="{StaticResource TextSecondary}" />
+                                <TextBox x:Name="TxtLeaveStartDate" Margin="0,4,0,10" Text="" />
+
+                                <TextBlock Text="End Date (YYYY-MM-DD)" FontSize="11.5" Foreground="{StaticResource TextSecondary}" />
+                                <TextBox x:Name="TxtLeaveEndDate" Margin="0,4,0,10" Text="" />
+
+                                <TextBlock Text="Reason / Justification" FontSize="11.5" Foreground="{StaticResource TextSecondary}" />
+                                <TextBox x:Name="TxtLeaveReason" Height="65" AcceptsReturn="True" TextWrapping="Wrap" Margin="0,4,0,10" Text="" />
+
+                                <TextBlock x:Name="TxtLeaveFormMessage" Text="" FontSize="11" Foreground="{StaticResource AccentGreenSoft}" Margin="0,0,0,8" Visibility="Collapsed" TextWrapping="Wrap" />
+
+                                <Button x:Name="BtnSubmitLeaveApplication" Content="Submit Application ✓" Background="{StaticResource AccentBlue}" Height="34" Click="BtnSubmitLeaveApplication_Click" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Right Column: My Leave History -->
+                        <Border Grid.Column="2" Background="{StaticResource BgSurfaceInset}" CornerRadius="8" Padding="14" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <Grid Grid.Row="0" Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="MY SUBMITTED REQUESTS" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextTertiary}" VerticalAlignment="Center" />
+                                        <Border Background="#14532D" CornerRadius="4" Padding="6,1.5" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="● LIVE AUTO-SYNC" FontSize="9.5" FontWeight="Bold" Foreground="#86EFAC" />
+                                        </Border>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="↻" Style="{StaticResource SecondaryButton}" Padding="6,2" Click="BtnRefreshLeaves_Click" ToolTip="Manual Refresh" />
+                                </Grid>
+
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl x:Name="LeavesItemsControl">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{StaticResource BgSurfaceCard}" CornerRadius="6" Padding="10" Margin="0,0,0,8" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
+                                                    <StackPanel>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding LeaveType}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource AccentBlueLight}" />
+                                                            <Border Grid.Column="1" Background="{Binding StatusBgBrush}" CornerRadius="4" Padding="6,2">
+                                                                <TextBlock Text="{Binding Status}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding StatusFgBrush}" />
+                                                            </Border>
+                                                        </Grid>
+
+                                                        <TextBlock Text="{Binding DateRangeText}" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,4,0,2" />
+                                                        <TextBlock Text="{Binding Reason}" FontSize="11" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" />
+
+                                                        <!-- Reviewer feedback if reviewed -->
+                                                        <Border Visibility="{Binding ReviewSectionVisibility}" Background="#1F2937" CornerRadius="4" Padding="6" Margin="0,6,0,0">
+                                                            <TextBlock Text="{Binding ReviewText}" FontSize="10.5" Foreground="{StaticResource AccentGreenSoft}" TextWrapping="Wrap" />
+                                                        </Border>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Windows 11 Floating In-App Toast Banner (Auto-Update Live Alerts) -->
+        <Border x:Name="NotificationToast" Visibility="Collapsed" VerticalAlignment="Top" HorizontalAlignment="Right" 
+                Margin="0,55,24,0" Background="#1E293B" CornerRadius="8" Padding="14,10" BorderBrush="{StaticResource AccentBlue}" BorderThickness="1.5"
+                MaxWidth="380">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="16" Direction="270" ShadowDepth="4" Opacity="0.5" Color="#000000" />
+            </Border.Effect>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TxtToastIcon" Text="🏖️" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="TxtToastTitle" Text="Leave Status Updated" FontSize="12.5" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" />
+                    <TextBlock x:Name="TxtToastMessage" Text="Your leave request was reviewed by Operations Manager." FontSize="11" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" />
+                </StackPanel>
+                <Button Grid.Column="2" Content="✕" Style="{StaticResource SecondaryButton}" Padding="6,2" VerticalAlignment="Top" Margin="8,0,0,0" Click="BtnDismissToast_Click" />
+            </Grid>
+        </Border>
     </Grid>
 </Window>

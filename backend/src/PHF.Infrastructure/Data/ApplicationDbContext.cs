@@ -16,6 +16,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<TaskAttachment> TaskAttachments => Set<TaskAttachment>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<AppActivityLog> AppActivityLogs => Set<AppActivityLog>();
+    public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -88,11 +89,78 @@ public class ApplicationDbContext : DbContext
         {
             entity.HasIndex(s => new { s.UserId, s.ClockIn });
         });
+
+        // Leave Requests
+        modelBuilder.Entity<LeaveRequest>(entity =>
+        {
+            entity.HasIndex(l => new { l.UserId, l.Status });
+            entity.HasIndex(l => new { l.StartDate, l.EndDate });
+            entity.HasOne(l => l.User)
+                  .WithMany(u => u.LeaveRequests)
+                  .HasForeignKey(l => l.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(l => l.Reviewer)
+                  .WithMany()
+                  .HasForeignKey(l => l.ReviewedBy)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
     }
 
     public async Task EnsureSeedDataAsync()
     {
-        if (await Users.AnyAsync()) return;
+        if (!await LeaveRequests.AnyAsync() && await Users.AnyAsync())
+        {
+            var st101 = await Users.FirstOrDefaultAsync(u => u.StationId == "ST-101");
+            var st102 = await Users.FirstOrDefaultAsync(u => u.StationId == "ST-102");
+            if (st101 != null && st102 != null)
+            {
+                var initialLeaves = new List<LeaveRequest>
+                {
+                    new()
+                    {
+                        Id = Guid.Parse("c0000000-0000-0000-0000-000000000001"),
+                        UserId = st101.Id,
+                        LeaveType = LeaveType.CASUAL.ToString(),
+                        StartDate = DateTime.UtcNow.Date.AddDays(3),
+                        EndDate = DateTime.UtcNow.Date.AddDays(4),
+                        TotalDays = 2,
+                        Reason = "Family function and personal appointment",
+                        Status = LeaveStatus.PENDING.ToString(),
+                        CreatedAt = DateTime.UtcNow.AddHours(-3)
+                    },
+                    new()
+                    {
+                        Id = Guid.Parse("c0000000-0000-0000-0000-000000000002"),
+                        UserId = st102.Id,
+                        LeaveType = LeaveType.SICK.ToString(),
+                        StartDate = DateTime.UtcNow.Date.AddDays(1),
+                        EndDate = DateTime.UtcNow.Date.AddDays(1),
+                        TotalDays = 1,
+                        Reason = "Medical checkup and dental consultation",
+                        Status = LeaveStatus.PENDING.ToString(),
+                        CreatedAt = DateTime.UtcNow.AddHours(-1)
+                    }
+                };
+                await LeaveRequests.AddRangeAsync(initialLeaves);
+                await SaveChangesAsync();
+            }
+        }
+
+        if (await Users.AnyAsync())
+        {
+            var existingUsers = await Users.Where(u => string.IsNullOrEmpty(u.Username)).ToListAsync();
+            if (existingUsers.Any())
+            {
+                foreach (var u in existingUsers)
+                {
+                    u.Username = u.Email.Split('@')[0];
+                    if (string.IsNullOrEmpty(u.WorkMode)) u.WorkMode = "IN_OFFICE";
+                }
+                await SaveChangesAsync();
+            }
+            return;
+        }
 
         // BCrypt hash for "Password@123" and "Admin@123"
         // Generate a standard test hash using BCrypt
@@ -107,12 +175,12 @@ public class ApplicationDbContext : DbContext
 
         var users = new List<User>
         {
-            new() { Id = adminId, Email = "admin@punnyaheart.org", PasswordHash = defaultPasswordHash, FullName = "System Administrator", Role = UserRole.ADMIN.ToString(), StationId = "ST-ADMIN" },
-            new() { Id = managerId, Email = "manager@punnyaheart.org", PasswordHash = defaultPasswordHash, FullName = "Operations Manager", Role = UserRole.MANAGER.ToString(), StationId = "ST-MGR" },
-            new() { Id = st101Id, Email = "st101@punnyaheart.org", PasswordHash = defaultPasswordHash, FullName = "Aarav Sharma", Role = UserRole.EMPLOYEE.ToString(), StationId = "ST-101" },
-            new() { Id = st102Id, Email = "st102@punnyaheart.org", PasswordHash = defaultPasswordHash, FullName = "Priya Patel", Role = UserRole.EMPLOYEE.ToString(), StationId = "ST-102" },
-            new() { Id = st103Id, Email = "st103@punnyaheart.org", PasswordHash = defaultPasswordHash, FullName = "Rahul Verma", Role = UserRole.EMPLOYEE.ToString(), StationId = "ST-103" },
-            new() { Id = st104Id, Email = "st104@punnyaheart.org", PasswordHash = defaultPasswordHash, FullName = "Sneha Reddy", Role = UserRole.EMPLOYEE.ToString(), StationId = "ST-104" },
+            new() { Id = adminId, Email = "admin@punnyaheart.org", Username = "admin", PasswordHash = defaultPasswordHash, FullName = "System Administrator", Role = UserRole.ADMIN.ToString(), StationId = "ST-ADMIN", WorkMode = "IN_OFFICE" },
+            new() { Id = managerId, Email = "manager@punnyaheart.org", Username = "manager", PasswordHash = defaultPasswordHash, FullName = "Operations Manager", Role = UserRole.MANAGER.ToString(), StationId = "ST-MGR", WorkMode = "IN_OFFICE" },
+            new() { Id = st101Id, Email = "st101@punnyaheart.org", Username = "st101", PasswordHash = defaultPasswordHash, FullName = "Aarav Sharma", Role = UserRole.EMPLOYEE.ToString(), StationId = "ST-101", WorkMode = "IN_OFFICE" },
+            new() { Id = st102Id, Email = "st102@punnyaheart.org", Username = "st102", PasswordHash = defaultPasswordHash, FullName = "Priya Patel", Role = UserRole.EMPLOYEE.ToString(), StationId = "ST-102", WorkMode = "IN_OFFICE" },
+            new() { Id = st103Id, Email = "st103@punnyaheart.org", Username = "st103", PasswordHash = defaultPasswordHash, FullName = "Rahul Verma", Role = UserRole.EMPLOYEE.ToString(), StationId = "ST-103", WorkMode = "IN_OFFICE" },
+            new() { Id = st104Id, Email = "st104@punnyaheart.org", Username = "st104", PasswordHash = defaultPasswordHash, FullName = "Sneha Reddy", Role = UserRole.EMPLOYEE.ToString(), StationId = "ST-104", WorkMode = "IN_OFFICE" },
         };
 
         await Users.AddRangeAsync(users);
@@ -202,6 +270,36 @@ public class ApplicationDbContext : DbContext
             new() { UserId = st104Id, MachineName = "ST-104-DESK", EventType = SessionEventType.LOCK.ToString(), EventTimestamp = todayMorning.AddHours(4) }
         };
         await UserSessions.AddRangeAsync(sessions);
+
+        // Seed some initial leave requests
+        var seedLeaves = new List<LeaveRequest>
+        {
+            new()
+            {
+                Id = Guid.Parse("c0000000-0000-0000-0000-000000000001"),
+                UserId = st101Id,
+                LeaveType = LeaveType.CASUAL.ToString(),
+                StartDate = DateTime.UtcNow.Date.AddDays(3),
+                EndDate = DateTime.UtcNow.Date.AddDays(4),
+                TotalDays = 2,
+                Reason = "Family function and personal appointment",
+                Status = LeaveStatus.PENDING.ToString(),
+                CreatedAt = DateTime.UtcNow.AddHours(-3)
+            },
+            new()
+            {
+                Id = Guid.Parse("c0000000-0000-0000-0000-000000000002"),
+                UserId = st102Id,
+                LeaveType = LeaveType.SICK.ToString(),
+                StartDate = DateTime.UtcNow.Date.AddDays(1),
+                EndDate = DateTime.UtcNow.Date.AddDays(1),
+                TotalDays = 1,
+                Reason = "Medical checkup and consultation",
+                Status = LeaveStatus.PENDING.ToString(),
+                CreatedAt = DateTime.UtcNow.AddHours(-1)
+            }
+        };
+        await LeaveRequests.AddRangeAsync(seedLeaves);
 
         await SaveChangesAsync();
     }

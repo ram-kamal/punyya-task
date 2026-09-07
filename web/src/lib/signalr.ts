@@ -10,6 +10,7 @@ class SignalRManager {
   public onEventReceived?: (event: LiveWorkstationEvent) => void;
   public onStatusUpdated?: (status: WorkstationStatus) => void;
   public onTaskUpdated?: () => void;
+  public onLeaveUpdated?: () => void;
   public onConnectionStateChange?: (connected: boolean) => void;
 
   public async connect(): Promise<void> {
@@ -41,6 +42,10 @@ class SignalRManager {
 
       this.connection.on('TaskStatusChanged', () => {
         if (this.onTaskUpdated) this.onTaskUpdated();
+      });
+
+      this.connection.on('LeaveUpdated', () => {
+        if (this.onLeaveUpdated) this.onLeaveUpdated();
       });
 
       this.connection.onreconnecting(() => {

@@ -26,6 +26,13 @@ public class SignalRRealtimeNotifier : IRealtimeNotifier
             await _hubContext.Clients.Group($"Station_{eventDto.StationId}")
                 .SendAsync("WorkstationEventReceived", eventDto);
         }
+
+        // Auto-update: Broadcast leave events to ALL clients (web + desktop) so UI updates automatically in real-time
+        if (eventDto.EventType != null && eventDto.EventType.StartsWith("LEAVE_"))
+        {
+            await _hubContext.Clients.All.SendAsync("LeaveUpdated", eventDto);
+            await _hubContext.Clients.All.SendAsync("WorkstationEventReceived", eventDto);
+        }
     }
 
     public async Task BroadcastWorkstationStatusAsync(WorkstationStatusDto statusDto)

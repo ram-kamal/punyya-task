@@ -5,8 +5,7 @@ namespace PHF.Core.DTOs;
 public record LoginRequest
 {
     [Required]
-    [EmailAddress]
-    public string Email { get; init; } = string.Empty;
+    public string Email { get; init; } = string.Empty; // Accepts username or email
 
     [Required]
     public string Password { get; init; } = string.Empty;
@@ -25,7 +24,9 @@ public record UserProfileDto
 {
     public Guid Id { get; init; }
     public string Email { get; init; } = string.Empty;
+    public string? Username { get; init; }
     public string FullName { get; init; } = string.Empty;
     public string Role { get; init; } = string.Empty;
+    public string WorkMode { get; init; } = "IN_OFFICE";
     public string? StationId { get; init; }
 }
