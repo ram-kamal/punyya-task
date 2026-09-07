@@ -8,7 +8,9 @@ namespace PHF.Client.Telemetry;
 public class WindowTracker : IDisposable
 {
     private IntPtr _hookHandle = IntPtr.Zero;
+    private IntPtr _lastHwnd = IntPtr.Zero;
     private Win32Native.WinEventDelegate? _eventDelegate;
+    private readonly Timer _pollTimer;
     private readonly object _lock = new();
 
     private string _currentProcessName = "Desktop";
@@ -19,6 +21,12 @@ public class WindowTracker : IDisposable
 
     public string CurrentProcessName => _currentProcessName;
     public string CurrentWindowTitle => _currentWindowTitle;
+
+    public WindowTracker()
+    {
+        // Periodic 1-second fallback polling to ensure zero missed focus changes
+        _pollTimer = new Timer(_ => CheckForegroundPoll(), null, Timeout.Infinite, Timeout.Infinite);
+    }
 
     public void Start()
     {
@@ -36,12 +44,13 @@ public class WindowTracker : IDisposable
                 _eventDelegate,
                 0,
                 0,
-                Win32Native.WINEVENT_OUTOFCONTEXT | Win32Native.WINEVENT_SKIPOWNPROCESS);
+                Win32Native.WINEVENT_OUTOFCONTEXT);
 
             _lastFocusChange = DateTime.UtcNow;
 
-            // Capture initial window
+            // Capture initial window and start fallback poller
             CaptureCurrentWindow();
+            _pollTimer.Change(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         }
     }
 
@@ -49,12 +58,30 @@ public class WindowTracker : IDisposable
     {
         lock (_lock)
         {
+            _pollTimer.Change(Timeout.Infinite, Timeout.Infinite);
+
             if (_hookHandle != IntPtr.Zero)
             {
                 Win32Native.UnhookWinEvent(_hookHandle);
                 _hookHandle = IntPtr.Zero;
                 _eventDelegate = null;
             }
+        }
+    }
+
+    private void CheckForegroundPoll()
+    {
+        try
+        {
+            var hwnd = Win32Native.GetForegroundWindow();
+            if (hwnd != IntPtr.Zero && hwnd != _lastHwnd)
+            {
+                ProcessForegroundChange(hwnd);
+            }
+        }
+        catch
+        {
+            // Ignore polling errors
         }
     }
 
@@ -75,56 +102,85 @@ public class WindowTracker : IDisposable
 
     private void ProcessForegroundChange(IntPtr hwnd)
     {
-        try
+        lock (_lock)
         {
-            var now = DateTime.UtcNow;
-            var durationSeconds = (int)(now - _lastFocusChange).TotalSeconds;
-            if (durationSeconds < 0) durationSeconds = 0;
+            if (hwnd == _lastHwnd) return;
 
-            var prevProcess = _currentProcessName;
-            var prevTitle = _currentWindowTitle;
-
-            // Retrieve Process Name
-            var processName = "Unknown";
-            Win32Native.GetWindowThreadProcessId(hwnd, out var pid);
-            if (pid > 0)
+            try
             {
-                try
+                var now = DateTime.UtcNow;
+                var durationSeconds = (int)(now - _lastFocusChange).TotalSeconds;
+                if (durationSeconds < 0) durationSeconds = 0;
+
+                var prevProcess = _currentProcessName;
+                var prevTitle = _currentWindowTitle;
+
+                // Retrieve Process Name
+                var rawProcessName = "Unknown";
+                Win32Native.GetWindowThreadProcessId(hwnd, out var pid);
+                if (pid > 0)
                 {
-                    using var proc = Process.GetProcessById((int)pid);
-                    processName = proc.ProcessName;
+                    try
+                    {
+                        using var proc = Process.GetProcessById((int)pid);
+                        rawProcessName = proc.ProcessName;
+                    }
+                    catch
+                    {
+                        rawProcessName = "System";
+                    }
                 }
-                catch
+
+                // Retrieve Window Title
+                var titleBuilder = new StringBuilder(512);
+                Win32Native.GetWindowText(hwnd, titleBuilder, titleBuilder.Capacity);
+                var windowTitle = titleBuilder.ToString();
+
+                var friendlyName = FormatFriendlyName(rawProcessName, windowTitle);
+
+                // Fire focus change event with previous application duration
+                if (!string.IsNullOrWhiteSpace(prevProcess))
                 {
-                    processName = "System";
+                    WindowFocusChanged?.Invoke(this, new WindowFocusChangedEventArgs(
+                        prevProcess,
+                        prevTitle,
+                        now,
+                        durationSeconds));
                 }
+
+                _currentProcessName = friendlyName;
+                _currentWindowTitle = !string.IsNullOrWhiteSpace(windowTitle) ? windowTitle : friendlyName;
+                _lastHwnd = hwnd;
+                _lastFocusChange = now;
             }
-
-            // Retrieve Window Title
-            var titleBuilder = new StringBuilder(512);
-            Win32Native.GetWindowText(hwnd, titleBuilder, titleBuilder.Capacity);
-            var windowTitle = titleBuilder.ToString();
-
-            if (string.IsNullOrWhiteSpace(windowTitle))
+            catch (Exception ex)
             {
-                windowTitle = processName;
+                Debug.WriteLine($"[WindowTracker] Error tracking foreground: {ex.Message}");
             }
-
-            // Fire focus change event with previous application duration
-            WindowFocusChanged?.Invoke(this, new WindowFocusChangedEventArgs(
-                prevProcess,
-                prevTitle,
-                now,
-                durationSeconds));
-
-            _currentProcessName = processName;
-            _currentWindowTitle = windowTitle;
-            _lastFocusChange = now;
         }
-        catch (Exception ex)
+    }
+
+    private static string FormatFriendlyName(string process, string title)
+    {
+        var p = process.ToLowerInvariant();
+        return p switch
         {
-            Debug.WriteLine($"[WindowTracker] Error tracking foreground: {ex.Message}");
-        }
+            "explorer" => string.IsNullOrWhiteSpace(title) || title.Equals("Program Manager", StringComparison.OrdinalIgnoreCase)
+                ? "Windows Desktop"
+                : (title.Equals("File Explorer", StringComparison.OrdinalIgnoreCase) ? "File Explorer" : $"File Explorer ({title})"),
+            "chrome" => "Google Chrome",
+            "msedge" => "Microsoft Edge",
+            "firefox" => "Mozilla Firefox",
+            "code" => "Visual Studio Code",
+            "devenv" => "Visual Studio",
+            "notepad" => "Notepad",
+            "slack" => "Slack",
+            "teams" => "Microsoft Teams",
+            "premiere" or "adobe premiere pro" => "Adobe Premiere Pro",
+            "audacity" => "Audacity",
+            "windowsterminal" or "powershell" or "cmd" => "Terminal",
+            _ => process.Length > 0 ? char.ToUpper(process[0]) + process.Substring(1) : process
+        };
     }
 
     public void CaptureCurrentWindow()
@@ -147,6 +203,7 @@ public class WindowTracker : IDisposable
     public void Dispose()
     {
         Stop();
+        _pollTimer.Dispose();
         GC.SuppressFinalize(this);
     }
 }
