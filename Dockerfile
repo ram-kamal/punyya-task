@@ -1,4 +1,14 @@
-# Multi-stage Dockerfile for PHF.Api (.NET 8 Web API)
+# Multi-stage Dockerfile for PHF.Api (.NET 8 Web API + Next.js Admin Center)
+
+# Stage 1: Build Next.js Web Admin Portal
+FROM node:20-alpine AS web-build
+WORKDIR /web
+COPY web/package*.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build
+
+# Stage 2: Build .NET 8 Web API
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
@@ -15,7 +25,10 @@ COPY backend/ backend/
 WORKDIR "/src/backend/src/PHF.Api"
 RUN dotnet publish "PHF.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
-# Runtime Image
+# Copy static web admin build into publish/wwwroot
+COPY --from=web-build /web/out /app/publish/wwwroot
+
+# Stage 3: Runtime Image
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
@@ -26,3 +39,4 @@ EXPOSE 8080
 COPY --from=build /app/publish .
 
 ENTRYPOINT ["dotnet", "PHF.Api.dll"]
+

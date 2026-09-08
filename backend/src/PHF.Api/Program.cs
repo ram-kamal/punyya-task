@@ -213,14 +213,17 @@ app.UseSwaggerUI(c =>
 });
 
 app.UseCors("AllowAll");
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<WorkstationHub>("/hubs/workstation");
 
-// Root status endpoint
-app.MapGet("/", () => Results.Ok(new
+// Status health endpoint under /api/health
+app.MapGet("/api/health", () => Results.Ok(new
 {
     Application = "PHF Work Management System API",
     Status = "Healthy",
@@ -229,4 +232,8 @@ app.MapGet("/", () => Results.Ok(new
     Timestamp = DateTime.UtcNow
 }));
 
+// Fallback to Next.js Web Admin Portal
+app.MapFallbackToFile("index.html");
+
 app.Run();
+
