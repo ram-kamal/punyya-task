@@ -67,6 +67,7 @@ import {
   logout,
   getStoredUser,
   getStoredAuthToken,
+  API_BASE,
 } from '@/lib/api';
 
 import { signalRClient } from '@/lib/signalr';
@@ -1486,7 +1487,7 @@ export default function AdminDashboardPage() {
                                   <span className="truncate">{task.deliverableFileName || 'Deliverable attached'}</span>
                                 </div>
                                 <a
-                                  href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5020'}/api/v1/tasks/${task.id}/deliverable`}
+                                  href={`${API_BASE}/api/v1/tasks/${task.id}/deliverable`}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="text-rose-400 hover:text-rose-300 shrink-0 ml-2"

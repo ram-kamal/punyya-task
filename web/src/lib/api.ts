@@ -1,8 +1,8 @@
 import { WorkstationStatus, LiveWorkstationEvent, TaskItem, TimesheetSummary, User, LeaveRequestItem, StaffMember, CreateStaffPayload, UpdateStaffPayload } from './types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL !== undefined && process.env.NEXT_PUBLIC_API_URL !== '' 
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL !== undefined && process.env.NEXT_PUBLIC_API_URL !== '' 
   ? process.env.NEXT_PUBLIC_API_URL 
-  : (typeof window !== 'undefined' ? '' : 'http://localhost:5020');
+  : (typeof window !== 'undefined' ? (window.location.port === '3000' ? 'http://localhost:5020' : '') : 'http://localhost:5020');
 
 
 const AUTH_TOKEN_KEY = 'phf_admin_token';
