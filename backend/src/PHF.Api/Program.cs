@@ -171,6 +171,21 @@ using (var scope = app.Services.CreateScope())
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     try
     {
+        try
+        {
+            _ = await dbContext.Users.AnyAsync();
+        }
+        catch
+        {
+            // Tables do not exist yet on target database (e.g. Supabase), generate and execute DDL script
+            try
+            {
+                var script = dbContext.Database.GenerateCreateScript();
+                await dbContext.Database.ExecuteSqlRawAsync(script);
+            }
+            catch { }
+        }
+
         await dbContext.Database.EnsureCreatedAsync();
 
         if (dbContext.Database.IsSqlite())
