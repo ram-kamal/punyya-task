@@ -1,0 +1,56 @@
+; Script generated for Punnya Heart Foundation
+; Inno Setup 6 Script for Punnya Heart Desk
+
+#define MyAppName "Punnya Heart Desk"
+#define MyAppVersion "1.0.0-beta"
+#define MyAppPublisher "Punnya Heart Foundation"
+#define MyAppURL "https://punnya-api.onrender.com"
+#define MyAppExeName "PunnyaHeartDesk.exe"
+#define MySourceDir "..\publish\PunnyaHeartDesk-Beta-win-x64"
+
+[Setup]
+AppId={{C349C5B2-F4A1-42D3-87D9-92381F1BEA88}
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
+AppVerName={#MyAppName} {#MyAppVersion}
+AppPublisher={#MyAppPublisher}
+AppPublisherURL={#MyAppURL}
+AppSupportURL={#MyAppURL}
+AppUpdatesURL={#MyAppURL}
+DefaultDirName={autopf}\{#MyAppName}
+DefaultGroupName={#MyAppName}
+AllowNoIcons=yes
+PrivilegesRequiredOverridesAllowed=dialog commandline
+OutputDir=..\publish\installer
+OutputBaseFilename=PunnyaHeartDesk_Setup_v1.0
+SetupIconFile=..\src\PHF.Client.Wpf\app.ico
+Compression=lzma2/ultra64
+SolidCompression=yes
+WizardStyle=modern
+UninstallDisplayIcon={app}\{#MyAppExeName}
+UninstallDisplayName={#MyAppName}
+CloseApplications=yes
+RestartApplications=no
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
+Name: "startwithwindows"; Description: "Launch Punnya Heart Desk automatically when Windows starts (Recommended for Workstation Telemetry)"; GroupDescription: "Workstation Telemetry Options:"
+
+[Files]
+Source: "{#MySourceDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MySourceDir}\README_BETA_TESTING.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\src\PHF.Client.Wpf\app.ico"; DestDir: "{app}"; Flags: ignoreversion
+
+[Icons]
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app.ico"
+Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app.ico"; Tasks: desktopicon
+
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "PunnyaHeartDesk"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue; Tasks: startwithwindows
+
+[Run]
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
