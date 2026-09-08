@@ -84,6 +84,7 @@ export interface User {
   fullName: string;
   role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
   stationId?: string;
+  username?: string;
 }
 
 export interface LeaveRequestItem {

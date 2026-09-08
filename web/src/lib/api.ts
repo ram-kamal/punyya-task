@@ -5,27 +5,70 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL !== undefined && process.env.NE
   : (typeof window !== 'undefined' ? '' : 'http://localhost:5020');
 
 
-let cachedManagerToken: string | null = null;
+const AUTH_TOKEN_KEY = 'phf_admin_token';
+const AUTH_USER_KEY = 'phf_admin_user';
+
+export function getStoredAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+export function getStoredUser(): User | null {
+  if (typeof window === 'undefined') return null;
+  const raw = localStorage.getItem(AUTH_USER_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredAuth(token: string, user: User) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(AUTH_TOKEN_KEY, token);
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+}
+
+export function clearStoredAuth() {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_USER_KEY);
+}
+
+export async function login(
+  identifier: string,
+  password: string
+): Promise<{ success: boolean; user?: User; token?: string; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: identifier.trim(), password: password.trim() }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      return { success: false, error: err?.message || 'Invalid username/email or password.' };
+    }
+
+    const data = await res.json();
+    setStoredAuth(data.token, data.user);
+    return { success: true, user: data.user, token: data.token };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Unable to reach server. Please check your network connection.' };
+  }
+}
+
+export function logout() {
+  clearStoredAuth();
+}
 
 export async function getAuthHeader(): Promise<Record<string, string>> {
-  if (!cachedManagerToken) {
-    try {
-      const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'dhyanidhvaj@gmail.com', password: 'Admin0246' }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        cachedManagerToken = data.token;
-      }
-    } catch (err) {
-      console.error('Auto-login manager error:', err);
-    }
-  }
-
-  return cachedManagerToken ? { Authorization: `Bearer ${cachedManagerToken}` } : {};
+  const token = getStoredAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
+
 
 export async function fetchStations(): Promise<WorkstationStatus[]> {
   try {

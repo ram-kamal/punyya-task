@@ -9,15 +9,17 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        darkBg: '#090D16',
-        surface: '#131B2E',
-        surfaceHover: '#1B263F',
-        cardBorder: '#233252',
-        accentBlue: '#2563EB',
+        darkBg: '#0D0E12',
+        surface: '#151720',
+        surfaceHover: '#1C1F2B',
+        cardBorder: '#262938',
+        accentRose: '#E11D48',
+        accentRoseHover: '#BE123C',
         accentGreen: '#10B981',
         accentAmber: '#F59E0B',
-        accentRed: '#EF4444',
+        accentPurple: '#8B5CF6',
       },
+
     },
   },
   plugins: [],

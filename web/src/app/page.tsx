@@ -39,6 +39,12 @@ import {
   Building,
   Edit3,
   UserCog,
+  LogOut,
+  Menu,
+  Heart,
+  Shield,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { WorkstationStatus, LiveWorkstationEvent, TaskItem, TimesheetSummary, User, LeaveRequestItem, StaffMember } from '@/lib/types';
 import {
@@ -57,16 +63,32 @@ import {
   resetStaffPassword,
   updateStaffWorkMode,
   updateStaff,
+  login,
+  logout,
+  getStoredUser,
+  getStoredAuthToken,
 } from '@/lib/api';
 
 import { signalRClient } from '@/lib/signalr';
 
+
 type ActivityCategory = 'tasks' | 'all' | 'focus' | 'security';
 
 export default function AdminDashboardPage() {
+  // Authentication & Mobile Menu State
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authChecking, setAuthChecking] = useState<boolean>(true);
+  const [loginIdentifier, setLoginIdentifier] = useState<string>('');
+  const [loginPassword, setLoginPassword] = useState<string>('');
+  const [loginShowPassword, setLoginShowPassword] = useState<boolean>(false);
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+
   const [activeTab, setActiveTab] = useState<'oversight' | 'tasks' | 'timesheets' | 'leaves' | 'staff'>('oversight');
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+
 
   // Core Data State
   const [stations, setStations] = useState<WorkstationStatus[]>([]);
@@ -164,7 +186,20 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // Check existing session on mount
   useEffect(() => {
+    const user = getStoredUser();
+    const token = getStoredAuthToken();
+    if (user && token) {
+      setCurrentUser(user);
+    }
+    setAuthChecking(false);
+  }, []);
+
+  // Connect & load data only when authenticated
+  useEffect(() => {
+    if (!currentUser) return;
+
     loadDashboardData();
 
     // Setup SignalR Realtime Listener
@@ -210,7 +245,38 @@ export default function AdminDashboardPage() {
       clearInterval(interval);
       signalRClient.disconnect();
     };
-  }, []);
+  }, [currentUser]);
+
+  // Handle Admin Login
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginIdentifier.trim() || !loginPassword.trim()) {
+      setLoginError('Please enter both your email/username and password.');
+      return;
+    }
+
+    setIsLoggingIn(true);
+    setLoginError(null);
+
+    const res = await login(loginIdentifier.trim(), loginPassword.trim());
+    setIsLoggingIn(false);
+
+    if (res.success && res.user) {
+      setCurrentUser(res.user);
+      setLoginPassword('');
+    } else {
+      setLoginError(res.error || 'Authentication failed. Please check your credentials.');
+    }
+  };
+
+  // Handle Admin Logout
+  const handleLogout = () => {
+    logout();
+    setCurrentUser(null);
+    setLoginError(null);
+    setMobileMenuOpen(false);
+  };
+
 
   // Handle Quick Task Dispatch
   const handleDispatchTask = async (e: React.FormEvent) => {
@@ -521,7 +587,6 @@ export default function AdminDashboardPage() {
   };
 
   // Counts
-
   const taskChangesCount = events.filter((e) => isTaskEvent(e.eventType)).length;
   const activeStationsCount = stations.filter((s) => s.state === 'ACTIVE').length;
   const totalStationsCount = stations.length || 5;
@@ -532,78 +597,386 @@ export default function AdminDashboardPage() {
   const avgEfficiency = timesheet?.averageEfficiencyPercentage ?? 92;
   const hoursLoggedToday = timesheet?.totalHoursLoggedToday ?? 18.5;
 
+  // Session verification loader
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-[#0D0E12] flex flex-col items-center justify-center text-slate-300">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-rose-600 via-rose-500 to-pink-600 flex items-center justify-center text-white shadow-xl shadow-rose-600/30 animate-pulse">
+            <Heart className="w-7 h-7 fill-white" />
+          </div>
+          <div className="flex items-center space-x-2 text-sm text-slate-400">
+            <RefreshCw className="w-4 h-4 animate-spin text-rose-500" />
+            <span>Verifying administrative session...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Admin Login Screen (Gates entire portal)
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-[#0D0E12] text-slate-100 flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
+        {/* Ambient Heart Crimson & Mint Glows */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-rose-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-10 right-10 w-72 h-72 bg-emerald-600/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="w-full max-w-md relative z-10">
+          <div className="bg-[#151720] border border-[#262938] rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+            {/* Header / Logo */}
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-rose-600 via-rose-500 to-pink-600 flex items-center justify-center shadow-lg shadow-rose-600/25 mb-3.5">
+                <Heart className="w-7 h-7 text-white fill-white" />
+              </div>
+              <div className="inline-flex items-center space-x-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wider uppercase mb-2">
+                <Shield className="w-3 h-3" />
+                <span>Executive Admin Center</span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Punnya Heart Foundation</h1>
+              <p className="text-xs text-slate-400 mt-1">Sign in with your administrative credentials to manage workstation telemetry and workforce operations.</p>
+            </div>
+
+            {/* Error Feedback */}
+            {loginError && (
+              <div className="mb-5 p-3 rounded-xl bg-rose-950/60 border border-rose-600/40 text-rose-300 text-xs flex items-start space-x-2 animate-in fade-in">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Email or Username
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={loginIdentifier}
+                  onChange={(e) => setLoginIdentifier(e.target.value)}
+                  placeholder="e.g. dhyanidhvaj@gmail.com or dhvaj"
+                  className="w-full px-3.5 py-2.5 bg-[#0D0E12] border border-[#262938] rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-colors"
+                  autoComplete="username"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                    Password
+                  </label>
+                </div>
+                <div className="relative">
+                  <input
+                    type={loginShowPassword ? 'text' : 'password'}
+                    required
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="Enter your administrative password"
+                    className="w-full px-3.5 py-2.5 bg-[#0D0E12] border border-[#262938] rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-colors pr-10"
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setLoginShowPassword(!loginShowPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition p-1"
+                    title={loginShowPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {loginShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoggingIn}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-600 text-white font-bold text-sm shadow-lg shadow-rose-600/30 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 mt-2"
+              >
+                {isLoggingIn ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Signing in...</span>
+                  </>
+                ) : (
+                  <>
+                    <Key className="w-4 h-4" />
+                    <span>Access Admin Center</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 pt-4 border-t border-[#262938] flex items-center justify-center space-x-2 text-[11px] text-slate-500">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              <span>TLS / SHA-256 Authenticated Session</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#0C1017] text-slate-100 flex flex-col font-sans antialiased">
-      {/* Windows 11 Fluent App Bar Navigation */}
-      <header className="border-b border-[#232F42] bg-[#121824]/90 backdrop-blur-md sticky top-0 z-30 px-6 py-3.5 shadow-sm">
+    <div className="min-h-screen bg-[#0D0E12] text-slate-100 flex flex-col font-sans antialiased">
+      {/* Responsive Fluent Navigation Header */}
+      <header className="border-b border-[#262938] bg-[#151720]/95 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-6 py-3 shadow-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-3.5">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 via-blue-500 to-sky-400 flex items-center justify-center font-black text-white shadow-lg shadow-blue-500/20 text-sm tracking-tight">
-              PHF
+          {/* Logo & Brand */}
+          <div className="flex items-center space-x-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-rose-600 via-rose-500 to-pink-600 flex items-center justify-center font-black text-white shadow-lg shadow-rose-600/25 text-xs sm:text-sm tracking-tight shrink-0">
+              <Heart className="w-5 h-5 text-white fill-white" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h1 className="text-base font-bold tracking-tight text-white">PHF Work Management System</h1>
-                <span className="text-[11px] bg-blue-500/15 text-blue-400 font-semibold px-2 py-0.5 rounded-full border border-blue-500/25">
-                  Admin Console
+                <h1 className="text-sm sm:text-base font-bold tracking-tight text-white leading-tight">Punnya Heart</h1>
+                <span className="text-[10px] sm:text-[11px] bg-rose-500/15 text-rose-400 font-semibold px-2 py-0.5 rounded-full border border-rose-500/25 hidden xs:inline-block">
+                  Admin Center
                 </span>
               </div>
-              <p className="text-xs text-slate-400">Punnya Task Desk • Real-Time Workforce Oversight &amp; Telemetry</p>
+              <p className="text-[11px] text-slate-400 hidden sm:block">Real-Time Workforce Oversight &amp; Telemetry</p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          {/* Desktop Actions */}
+          <div className="hidden md:flex items-center space-x-2.5">
             {/* Live SignalR Indicator */}
             <div
               className={`flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
                 isConnected
-                  ? 'bg-emerald-950/50 border-emerald-500/30 text-emerald-400 shadow-sm shadow-emerald-950/20'
-                  : 'bg-rose-950/50 border-rose-500/30 text-rose-400'
+                  ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400 shadow-sm shadow-emerald-950/20'
+                  : 'bg-rose-950/40 border-rose-500/30 text-rose-400'
               }`}
             >
               <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
-              <span className="tracking-wide text-[11px]">{isConnected ? 'LIVE FEED CONNECTED' : 'RECONNECTING'}</span>
+              <span className="tracking-wide text-[11px]">{isConnected ? 'LIVE FEED' : 'RECONNECTING'}</span>
             </div>
 
             {/* Quick Dispatch Task Modal Button */}
             <button
               onClick={() => setIsDispatchModalOpen(true)}
-              className="flex items-center space-x-2 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/20 transition-all active:scale-[0.98]"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all active:scale-[0.98]"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               <span>DISPATCH TASK</span>
             </button>
 
-            {/* One-Click Timesheet CSV Export */}
+            {/* Timesheet CSV Export */}
             <a
               href={getTimesheetCsvDownloadUrl()}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center space-x-2 px-3.5 py-1.5 rounded-lg bg-[#1B2537] hover:bg-[#233148] border border-[#2D3E5B] text-slate-200 hover:text-white text-xs font-semibold shadow-sm transition-all"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-200 hover:text-white text-xs font-semibold transition-all"
             >
               <Download className="w-3.5 h-3.5 text-emerald-400" />
-              <span>TIMESHEET (CSV)</span>
+              <span>CSV</span>
             </a>
 
+            {/* Refresh */}
             <button
               onClick={loadDashboardData}
-              className="p-1.5 rounded-lg bg-[#1B2537] hover:bg-[#233148] border border-[#2D3E5B] text-slate-300 hover:text-white transition"
+              className="p-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-300 hover:text-white transition"
               title="Refresh Dashboard"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Authenticated Admin Badge */}
+            <div className="flex items-center space-x-2 pl-2 border-l border-[#262938]">
+              <div className="w-7 h-7 rounded-full bg-rose-500/20 border border-rose-500/30 text-rose-300 flex items-center justify-center text-xs font-bold uppercase">
+                {currentUser?.fullName?.[0] || currentUser?.username?.[0] || 'A'}
+              </div>
+              <div className="text-left leading-tight hidden lg:block">
+                <div className="text-xs font-semibold text-white max-w-[120px] truncate">{currentUser?.fullName || currentUser?.username}</div>
+                <div className="text-[10px] text-rose-400 font-medium">ADMIN</div>
+              </div>
+            </div>
+
+            {/* Sign Out Button */}
+            <button
+              onClick={handleLogout}
+              className="p-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/30 text-rose-300 hover:text-white transition ml-1"
+              title="Sign Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Mobile Right Controls */}
+          <div className="flex md:hidden items-center space-x-2">
+            {/* Live Indicator Dot */}
+            <div
+              className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}
+              title={isConnected ? 'Live feed connected' : 'Reconnecting'}
+            />
+
+            {/* Refresh Button */}
+            <button
+              onClick={loadDashboardData}
+              className="p-2 rounded-lg bg-[#1C1F2B] border border-[#262938] text-slate-300 active:bg-[#262938]"
+              title="Refresh"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
+
+            {/* Mobile Hamburger Toggle */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-lg bg-[#1C1F2B] border border-[#262938] text-slate-200 active:bg-[#262938]"
+              aria-label="Toggle Navigation Menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5 text-rose-400" /> : <Menu className="w-5 h-5 text-white" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Dropdown Drawer */}
+        {mobileMenuOpen && (
+          <div className="md:hidden mt-3 pt-3 border-t border-[#262938] space-y-3 animate-in fade-in slide-in-from-top-2 duration-150">
+            {/* User Details & Sign Out */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-[#1C1F2B] border border-[#262938]">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-full bg-rose-500/20 border border-rose-500/30 text-rose-300 flex items-center justify-center text-xs font-bold uppercase">
+                  {currentUser?.fullName?.[0] || currentUser?.username?.[0] || 'A'}
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-white">{currentUser?.fullName || currentUser?.username}</div>
+                  <div className="text-[10px] text-slate-400">{currentUser?.email}</div>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-rose-950/60 border border-rose-500/40 text-rose-300 text-xs font-semibold"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Logout</span>
+              </button>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setIsDispatchModalOpen(true);
+                }}
+                className="flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl bg-rose-600 active:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Dispatch Task</span>
+              </button>
+              <a
+                href={getTimesheetCsvDownloadUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl bg-[#1C1F2B] border border-[#32364A] text-slate-200 active:bg-[#262938] text-xs font-semibold"
+              >
+                <Download className="w-4 h-4 text-emerald-400" />
+                <span>Export CSV</span>
+              </a>
+            </div>
+
+            {/* Navigation Tabs in Drawer */}
+            <div className="space-y-1">
+              {[
+                { id: 'oversight', label: 'Live Oversight & Telemetry', icon: Monitor, badge: null },
+                { id: 'tasks', label: 'Task Distribution', icon: Briefcase, badge: tasks.length },
+                { id: 'timesheets', label: 'Payroll Timesheets', icon: FileText, badge: null },
+                {
+                  id: 'leaves',
+                  label: 'Leave Requests',
+                  icon: CalendarDays,
+                  badge: pendingLeavesCount > 0 ? `${pendingLeavesCount} PENDING` : leaves.length,
+                  isAlert: pendingLeavesCount > 0,
+                },
+                { id: 'staff', label: 'Staff & Enrollment', icon: Users, badge: staff.length },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id as any);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${
+                      isActive
+                        ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
+                        : 'text-slate-300 hover:bg-[#1C1F2B]'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <Icon className="w-4 h-4" />
+                      <span>{tab.label}</span>
+                    </div>
+                    {tab.badge !== null && (
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                          tab.isAlert
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            : isActive
+                            ? 'bg-white/20 text-white'
+                            : 'bg-[#101218] text-slate-400'
+                        }`}
+                      >
+                        {tab.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </header>
+
+      {/* Mobile Horizontal Quick-Scroll Tab Bar */}
+      <div className="md:hidden bg-[#12141C] border-b border-[#262938] px-3 py-2 overflow-x-auto no-scrollbar flex items-center space-x-2 sticky top-[57px] z-20">
+        {[
+          { id: 'oversight', label: 'Oversight', icon: Monitor },
+          { id: 'tasks', label: 'Tasks', count: tasks.length, icon: Briefcase },
+          { id: 'timesheets', label: 'Timesheet', icon: FileText },
+          { id: 'leaves', label: 'Leaves', count: pendingLeavesCount > 0 ? pendingLeavesCount : leaves.length, isAlert: pendingLeavesCount > 0, icon: CalendarDays },
+          { id: 'staff', label: 'Staff', count: staff.length, icon: Users },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition shrink-0 ${
+                isActive
+                  ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/30'
+                  : 'bg-[#1C1F2B] text-slate-300 border border-[#262938]'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{tab.label}</span>
+              {tab.count !== undefined && (
+                <span
+                  className={`text-[9px] px-1.5 py-0.5 rounded-full ml-1 ${
+                    tab.isAlert ? 'bg-amber-500/30 text-amber-300 font-black' : isActive ? 'bg-black/20 text-white' : 'bg-[#101218] text-slate-400'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto w-full px-6 py-6 flex-1 space-y-6">
         {/* KPI Metric Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-[#141B28] rounded-xl p-4 border border-[#222E42] relative overflow-hidden group shadow-sm">
+          <div className="bg-[#151720] rounded-xl p-4 border border-[#262938] relative overflow-hidden group shadow-sm">
             <div className="flex items-center justify-between text-slate-400 mb-1.5">
               <span className="text-[11px] font-bold tracking-wider uppercase">Active Stations</span>
-              <Monitor className="w-4 h-4 text-blue-400" />
+              <Monitor className="w-4 h-4 text-rose-400" />
             </div>
             <div className="text-2xl font-black text-white">
               {activeStationsCount} <span className="text-slate-500 text-sm font-normal">/ {totalStationsCount} Online</span>
@@ -614,7 +987,7 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          <div className="bg-[#141B28] rounded-xl p-4 border border-[#222E42] relative overflow-hidden group shadow-sm">
+          <div className="bg-[#151720] rounded-xl p-4 border border-[#262938] relative overflow-hidden group shadow-sm">
             <div className="flex items-center justify-between text-slate-400 mb-1.5">
               <span className="text-[11px] font-bold tracking-wider uppercase">Tasks In Progress</span>
               <Briefcase className="w-4 h-4 text-indigo-400" />
@@ -625,7 +998,7 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          <div className="bg-[#141B28] rounded-xl p-4 border border-[#222E42] relative overflow-hidden group shadow-sm">
+          <div className="bg-[#151720] rounded-xl p-4 border border-[#262938] relative overflow-hidden group shadow-sm">
             <div className="flex items-center justify-between text-slate-400 mb-1.5">
               <span className="text-[11px] font-bold tracking-wider uppercase">Avg Team Efficiency</span>
               <TrendingUp className="w-4 h-4 text-emerald-400" />
@@ -634,7 +1007,7 @@ export default function AdminDashboardPage() {
             <div className="text-[11px] text-slate-400 mt-2 font-medium">Active-to-idle ratio computed automatically</div>
           </div>
 
-          <div className="bg-[#141B28] rounded-xl p-4 border border-[#222E42] relative overflow-hidden group shadow-sm">
+          <div className="bg-[#151720] rounded-xl p-4 border border-[#262938] relative overflow-hidden group shadow-sm">
             <div className="flex items-center justify-between text-slate-400 mb-1.5">
               <span className="text-[11px] font-bold tracking-wider uppercase">Hours Logged Today</span>
               <Clock className="w-4 h-4 text-amber-400" />
@@ -644,15 +1017,15 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Fluent Tabs Navigation */}
-        <div className="flex items-center justify-between border-b border-[#222E42] pb-3">
+        {/* Fluent Tabs Navigation (Desktop) */}
+        <div className="hidden md:flex items-center justify-between border-b border-[#262938] pb-3">
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setActiveTab('oversight')}
               className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition ${
                 activeTab === 'oversight'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                  : 'text-slate-400 hover:text-white hover:bg-[#162030]'
+                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
+                  : 'text-slate-400 hover:text-white hover:bg-[#1A1D27]'
               }`}
             >
               <Monitor className="w-3.5 h-3.5" />
@@ -663,13 +1036,13 @@ export default function AdminDashboardPage() {
               onClick={() => setActiveTab('tasks')}
               className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition ${
                 activeTab === 'tasks'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                  : 'text-slate-400 hover:text-white hover:bg-[#162030]'
+                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
+                  : 'text-slate-400 hover:text-white hover:bg-[#1A1D27]'
               }`}
             >
               <Briefcase className="w-3.5 h-3.5" />
               <span>Task Distribution &amp; Deliverables</span>
-              <span className="bg-[#0E1522] text-slate-300 text-[10px] px-1.5 py-0.5 rounded-full ml-1">
+              <span className="bg-[#101218] text-slate-300 text-[10px] px-1.5 py-0.5 rounded-full ml-1">
                 {tasks.length}
               </span>
             </button>
@@ -678,8 +1051,8 @@ export default function AdminDashboardPage() {
               onClick={() => setActiveTab('timesheets')}
               className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition ${
                 activeTab === 'timesheets'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                  : 'text-slate-400 hover:text-white hover:bg-[#162030]'
+                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
+                  : 'text-slate-400 hover:text-white hover:bg-[#1A1D27]'
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
@@ -690,8 +1063,8 @@ export default function AdminDashboardPage() {
               onClick={() => setActiveTab('leaves')}
               className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition ${
                 activeTab === 'leaves'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                  : 'text-slate-400 hover:text-white hover:bg-[#162030]'
+                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
+                  : 'text-slate-400 hover:text-white hover:bg-[#1A1D27]'
               }`}
             >
               <CalendarDays className="w-3.5 h-3.5" />
@@ -701,7 +1074,7 @@ export default function AdminDashboardPage() {
                   {pendingLeavesCount} PENDING
                 </span>
               ) : (
-                <span className="bg-[#0E1522] text-slate-400 text-[10px] px-1.5 py-0.5 rounded-full ml-1">
+                <span className="bg-[#101218] text-slate-400 text-[10px] px-1.5 py-0.5 rounded-full ml-1">
                   {leaves.length}
                 </span>
               )}
@@ -711,20 +1084,20 @@ export default function AdminDashboardPage() {
               onClick={() => setActiveTab('staff')}
               className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition ${
                 activeTab === 'staff'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                  : 'text-slate-400 hover:text-white hover:bg-[#162030]'
+                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
+                  : 'text-slate-400 hover:text-white hover:bg-[#1A1D27]'
               }`}
             >
               <Users className="w-3.5 h-3.5" />
               <span>Staff &amp; Enrollment</span>
-              <span className="bg-[#0E1522] text-slate-300 text-[10px] px-1.5 py-0.5 rounded-full ml-1">
+              <span className="bg-[#101218] text-slate-300 text-[10px] px-1.5 py-0.5 rounded-full ml-1">
                 {staff.length}
               </span>
             </button>
           </div>
 
           <div className="hidden sm:flex items-center space-x-2 text-xs text-slate-400">
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+            <ShieldCheck className="w-3.5 h-3.5 text-rose-400" />
             <span>SQLite Tamper-Lock Active</span>
           </div>
         </div>
@@ -733,10 +1106,10 @@ export default function AdminDashboardPage() {
         {activeTab === 'oversight' && (
           <div className="space-y-6">
             {/* Workstation Fleet Status Table (Full Width for Clarity) */}
-            <div className="bg-[#141B28] rounded-xl border border-[#222E42] overflow-hidden shadow-sm">
-              <div className="px-5 py-3.5 border-b border-[#222E42] flex items-center justify-between bg-[#111724]">
+            <div className="bg-[#151720] rounded-xl border border-[#262938] overflow-hidden shadow-sm">
+              <div className="px-5 py-3.5 border-b border-[#262938] flex items-center justify-between bg-[#12141C]">
                 <div className="flex items-center space-x-2">
-                  <Monitor className="w-4 h-4 text-blue-400" />
+                  <Monitor className="w-4 h-4 text-rose-400" />
                   <h2 className="text-xs font-bold uppercase tracking-wider text-white">Workstation Fleet Status</h2>
                 </div>
                 <span className="text-[11px] text-slate-400">Near-0% CPU Event Hooks • 300s Idle Detection</span>
@@ -744,7 +1117,7 @@ export default function AdminDashboardPage() {
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-[#0D1320] text-[11px] uppercase tracking-wider text-slate-400 border-b border-[#222E42]">
+                  <thead className="bg-[#0F1117] text-[11px] uppercase tracking-wider text-slate-400 border-b border-[#262938]">
                     <tr>
                       <th className="px-5 py-3">Station</th>
                       <th className="px-5 py-3">Assignee</th>
@@ -754,9 +1127,9 @@ export default function AdminDashboardPage() {
                       <th className="px-5 py-3 text-right">Station State</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#1D273A] font-medium text-xs">
+                  <tbody className="divide-y divide-[#1C1F2B] font-medium text-xs">
                     {stations.map((st) => (
-                      <tr key={st.stationId} className="hover:bg-[#182234]/60 transition">
+                      <tr key={st.stationId} className="hover:bg-[#1A1D27]/60 transition">
                         <td className="px-5 py-3.5 font-bold text-white flex items-center space-x-2.5">
                           <span
                             className={`w-2 h-2 rounded-full ${
@@ -771,7 +1144,7 @@ export default function AdminDashboardPage() {
                         </td>
                         <td className="px-5 py-3.5 text-slate-300">
                           <div className="flex items-center space-x-2">
-                            <div className="w-6 h-6 rounded-full bg-[#202C40] text-slate-300 flex items-center justify-center text-[10px] font-bold">
+                            <div className="w-6 h-6 rounded-full bg-[#222533] text-slate-300 flex items-center justify-center text-[10px] font-bold">
                               {st.fullName ? st.fullName.charAt(0) : '?'}
                             </div>
                             <span className="font-semibold text-slate-200">{st.fullName || 'Unassigned'}</span>
@@ -779,8 +1152,8 @@ export default function AdminDashboardPage() {
                         </td>
                         <td className="px-5 py-3.5">
                           {st.currentTaskCode ? (
-                            <div className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-blue-950/60 text-blue-300 border border-blue-700/40">
-                              <span className="font-mono font-bold text-blue-400">{st.currentTaskCode}</span>
+                            <div className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-rose-950/60 text-rose-300 border border-rose-700/40">
+                              <span className="font-mono font-bold text-rose-400">{st.currentTaskCode}</span>
                               {st.currentTaskTitle && (
                                 <span className="text-slate-300 truncate max-w-[200px]">• {st.currentTaskTitle}</span>
                               )}
@@ -790,7 +1163,7 @@ export default function AdminDashboardPage() {
                           )}
                         </td>
                         <td className="px-5 py-3.5 text-slate-200">
-                          <span className="font-mono text-[11px] bg-[#0E1422] px-2 py-1 rounded border border-[#222E42] text-slate-300">
+                          <span className="font-mono text-[11px] bg-[#101218] px-2 py-1 rounded border border-[#262938] text-slate-300">
                             {st.focusedApp || '—'}
                           </span>
                         </td>
@@ -818,9 +1191,9 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Decluttered Activity Hub (Dedicated Task Changes & Live Telemetry) */}
-            <div className="bg-[#141B28] rounded-xl border border-[#222E42] overflow-hidden shadow-sm">
+            <div className="bg-[#151720] rounded-xl border border-[#262938] overflow-hidden shadow-sm">
               {/* Filter Bar */}
-              <div className="p-4 border-b border-[#222E42] bg-[#111724] flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div className="p-4 border-b border-[#262938] bg-[#12141C] flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-2">
                     <Activity className="w-4 h-4 text-emerald-400" />
@@ -828,18 +1201,18 @@ export default function AdminDashboardPage() {
                   </div>
 
                   {/* Category Filter Chips */}
-                  <div className="flex items-center bg-[#0C1019] p-1 rounded-lg border border-[#222E42]">
+                  <div className="flex items-center bg-[#0D0E12] p-1 rounded-lg border border-[#262938]">
                     <button
                       onClick={() => setActivityCategory('tasks')}
                       className={`px-3 py-1 rounded-md text-xs font-bold flex items-center space-x-1.5 transition ${
                         activityCategory === 'tasks'
-                          ? 'bg-blue-600 text-white shadow-sm'
+                          ? 'bg-rose-600 text-white shadow-sm'
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
                       <Sparkles className="w-3 h-3 text-amber-300" />
                       <span>Task Changes</span>
-                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-900/60 ml-1">
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-950/60 ml-1">
                         {taskChangesCount}
                       </span>
                     </button>
@@ -848,7 +1221,7 @@ export default function AdminDashboardPage() {
                       onClick={() => setActivityCategory('all')}
                       className={`px-3 py-1 rounded-md text-xs font-bold transition ${
                         activityCategory === 'all'
-                          ? 'bg-blue-600 text-white shadow-sm'
+                          ? 'bg-rose-600 text-white shadow-sm'
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
@@ -859,7 +1232,7 @@ export default function AdminDashboardPage() {
                       onClick={() => setActivityCategory('focus')}
                       className={`px-3 py-1 rounded-md text-xs font-bold transition ${
                         activityCategory === 'focus'
-                          ? 'bg-blue-600 text-white shadow-sm'
+                          ? 'bg-rose-600 text-white shadow-sm'
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
@@ -870,7 +1243,7 @@ export default function AdminDashboardPage() {
                       onClick={() => setActivityCategory('security')}
                       className={`px-3 py-1 rounded-md text-xs font-bold transition ${
                         activityCategory === 'security'
-                          ? 'bg-blue-600 text-white shadow-sm'
+                          ? 'bg-rose-600 text-white shadow-sm'
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
@@ -888,14 +1261,14 @@ export default function AdminDashboardPage() {
                       placeholder="Filter activity..."
                       value={eventSearchQuery}
                       onChange={(e) => setEventSearchQuery(e.target.value)}
-                      className="bg-[#0C1019] border border-[#222E42] rounded-lg pl-8 pr-3 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 w-44"
+                      className="bg-[#0D0E12] border border-[#262938] rounded-lg pl-8 pr-3 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 w-44"
                     />
                   </div>
 
                   <select
                     value={selectedStationFilter}
                     onChange={(e) => setSelectedStationFilter(e.target.value)}
-                    className="bg-[#0C1019] border border-[#222E42] rounded-lg px-2.5 py-1 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+                    className="bg-[#0D0E12] border border-[#262938] rounded-lg px-2.5 py-1 text-xs text-slate-300 focus:outline-none focus:border-rose-500"
                   >
                     <option value="ALL">All Stations</option>
                     {stations.map((s) => (
@@ -908,7 +1281,7 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Activity Timeline Feed */}
-              <div className="p-4 max-h-[360px] overflow-y-auto space-y-2.5 divide-y divide-[#1B2538]/60">
+              <div className="p-4 max-h-[360px] overflow-y-auto space-y-2.5 divide-y divide-[#1C1F2B]/60">
                 {filteredEvents.length === 0 ? (
                   <div className="text-center py-10 space-y-2 text-slate-500">
                     <Sparkles className="w-6 h-6 mx-auto text-slate-600" />
@@ -928,7 +1301,7 @@ export default function AdminDashboardPage() {
                     return (
                       <div
                         key={evt.id || idx}
-                        className="pt-2.5 first:pt-0 flex items-start justify-between gap-3 text-xs hover:bg-[#162133]/40 p-2 rounded-lg transition"
+                        className="pt-2.5 first:pt-0 flex items-start justify-between gap-3 text-xs hover:bg-[#1A1D27]/40 p-2 rounded-lg transition"
                       >
                         <div className="flex items-start space-x-3">
                           {/* Event Icon Badge */}
@@ -939,7 +1312,7 @@ export default function AdminDashboardPage() {
                                 : isDispatched
                                 ? 'bg-purple-950/80 text-purple-400 border border-purple-500/30'
                                 : isStatusChanged
-                                ? 'bg-blue-950/80 text-blue-400 border border-blue-500/30'
+                                ? 'bg-rose-950/80 text-rose-400 border border-rose-500/30'
                                 : isSec
                                 ? 'bg-amber-950/80 text-amber-400 border border-amber-500/30'
                                 : 'bg-slate-800 text-slate-400 border border-slate-700'
@@ -962,7 +1335,7 @@ export default function AdminDashboardPage() {
                           <div className="space-y-1">
                             <div className="flex items-center space-x-2">
                               {evt.taskCode && (
-                                <span className="font-mono font-bold text-[11px] px-1.5 py-0.5 rounded bg-blue-950/80 text-blue-300 border border-blue-700/40">
+                                <span className="font-mono font-bold text-[11px] px-1.5 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-700/40">
                                   {evt.taskCode}
                                 </span>
                               )}
@@ -1005,7 +1378,7 @@ export default function AdminDashboardPage() {
         {activeTab === 'tasks' && (
           <div className="space-y-5">
             {/* Header & Filter Controls */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-[#141B28] p-4 rounded-xl border border-[#222E42]">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-[#151720] p-4 rounded-xl border border-[#262938]">
               <div>
                 <h2 className="text-sm font-bold text-white">Workforce Task Distribution &amp; Deliverables</h2>
                 <p className="text-xs text-slate-400">
@@ -1021,14 +1394,14 @@ export default function AdminDashboardPage() {
                     placeholder="Search tasks or assignee..."
                     value={taskSearchQuery}
                     onChange={(e) => setTaskSearchQuery(e.target.value)}
-                    className="bg-[#0C1019] border border-[#222E42] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 w-52"
+                    className="bg-[#0D0E12] border border-[#262938] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 w-52"
                   />
                 </div>
 
                 <select
                   value={taskPriorityFilter}
                   onChange={(e) => setTaskPriorityFilter(e.target.value)}
-                  className="bg-[#0C1019] border border-[#222E42] rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+                  className="bg-[#0D0E12] border border-[#262938] rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-rose-500"
                 >
                   <option value="ALL">All Priorities</option>
                   <option value="CRITICAL">Critical</option>
@@ -1039,7 +1412,7 @@ export default function AdminDashboardPage() {
 
                 <button
                   onClick={() => setIsDispatchModalOpen(true)}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/20 transition"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>New Task</span>
@@ -1061,10 +1434,10 @@ export default function AdminDashboardPage() {
                     : 'Completed';
 
                 return (
-                  <div key={columnStatus} className="bg-[#141B28] rounded-xl border border-[#222E42] flex flex-col max-h-[700px]">
-                    <div className="p-3 border-b border-[#222E42] bg-[#111724] flex items-center justify-between">
+                  <div key={columnStatus} className="bg-[#151720] rounded-xl border border-[#262938] flex flex-col max-h-[700px]">
+                    <div className="p-3 border-b border-[#262938] bg-[#12141C] flex items-center justify-between">
                       <span className="text-xs font-bold uppercase tracking-wider text-slate-300">{colTitle}</span>
-                      <span className="text-[11px] font-bold bg-[#0C1019] text-slate-300 px-2 py-0.5 rounded-full border border-[#222E42]">
+                      <span className="text-[11px] font-bold bg-[#0D0E12] text-slate-300 px-2 py-0.5 rounded-full border border-[#262938]">
                         {columnTasks.length}
                       </span>
                     </div>
@@ -1076,10 +1449,10 @@ export default function AdminDashboardPage() {
                         columnTasks.map((task) => (
                           <div
                             key={task.id}
-                            className="bg-[#0C1018] border border-[#222E42] rounded-lg p-3 space-y-2 hover:border-slate-500 transition shadow-sm"
+                            className="bg-[#0D0E12] border border-[#262938] rounded-lg p-3 space-y-2 hover:border-slate-500 transition shadow-sm"
                           >
                             <div className="flex items-center justify-between">
-                              <span className="text-xs font-mono font-bold text-blue-400">{task.taskCode}</span>
+                              <span className="text-xs font-mono font-bold text-rose-400">{task.taskCode}</span>
                               <span
                                 className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
                                   task.priority === 'CRITICAL'
@@ -1087,7 +1460,7 @@ export default function AdminDashboardPage() {
                                     : task.priority === 'HIGH'
                                     ? 'bg-amber-950 text-amber-400 border border-amber-500/30'
                                     : task.priority === 'MEDIUM'
-                                    ? 'bg-blue-950 text-blue-400 border border-blue-500/30'
+                                    ? 'bg-rose-950 text-rose-400 border border-rose-500/30'
                                     : 'bg-slate-800 text-slate-300'
                                 }`}
                               >
@@ -1100,7 +1473,7 @@ export default function AdminDashboardPage() {
                               <p className="text-[11px] text-slate-400 line-clamp-2">{task.description}</p>
                             )}
 
-                            <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1 border-t border-[#1C2638]">
+                            <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1 border-t border-[#1C1F2B]">
                               <span>{task.assignedToName || 'Unassigned'}</span>
                               <span>{Math.round(task.totalTrackedSeconds / 60)}m tracked</span>
                             </div>
@@ -1116,7 +1489,7 @@ export default function AdminDashboardPage() {
                                   href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5020'}/api/v1/tasks/${task.id}/deliverable`}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="text-blue-400 hover:text-blue-300 shrink-0 ml-2"
+                                  className="text-rose-400 hover:text-rose-300 shrink-0 ml-2"
                                   title="Download Deliverable"
                                 >
                                   <Download className="w-3.5 h-3.5" />
@@ -1142,7 +1515,7 @@ export default function AdminDashboardPage() {
         {/* TAB 3: PAYROLL TIMESHEETS */}
         {activeTab === 'timesheets' && (
           <div className="space-y-5">
-            <div className="flex items-center justify-between bg-[#141B28] p-4 rounded-xl border border-[#222E42]">
+            <div className="flex items-center justify-between bg-[#151720] p-4 rounded-xl border border-[#262938]">
               <div>
                 <h2 className="text-sm font-bold text-white">Consolidated Workstation Timesheet</h2>
                 <p className="text-xs text-slate-400">
@@ -1161,10 +1534,10 @@ export default function AdminDashboardPage() {
               </a>
             </div>
 
-            <div className="bg-[#141B28] rounded-xl border border-[#222E42] overflow-hidden shadow-sm">
+            <div className="bg-[#151720] rounded-xl border border-[#262938] overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-[#0D1320] text-[11px] uppercase tracking-wider text-slate-400 border-b border-[#222E42]">
+                  <thead className="bg-[#0F1117] text-[11px] uppercase tracking-wider text-slate-400 border-b border-[#262938]">
                     <tr>
                       <th className="px-5 py-3">Date</th>
                       <th className="px-5 py-3">Station</th>
@@ -1178,9 +1551,9 @@ export default function AdminDashboardPage() {
                       <th className="px-5 py-3 text-right">Tasks Done</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#1D273A] font-medium text-xs">
+                  <tbody className="divide-y divide-[#1C1F2B] font-medium text-xs">
                     {timesheet?.rows.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-[#182234]/60 transition">
+                      <tr key={idx} className="hover:bg-[#1A1D27]/60 transition">
                         <td className="px-5 py-3.5 text-slate-300 font-mono text-xs">{row.date}</td>
                         <td className="px-5 py-3.5 font-bold text-white">{row.stationId}</td>
                         <td className="px-5 py-3.5 text-white">{row.employeeName}</td>
@@ -1191,7 +1564,7 @@ export default function AdminDashboardPage() {
                         <td className="px-5 py-3.5 text-amber-400 font-semibold">{row.idleHours.toFixed(2)}h</td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center space-x-2">
-                            <div className="w-16 h-2 bg-[#0C1018] rounded-full overflow-hidden border border-[#222E42]">
+                            <div className="w-16 h-2 bg-[#0D0E12] rounded-full overflow-hidden border border-[#262938]">
                               <div
                                 className="h-full bg-emerald-500 rounded-full"
                                 style={{ width: `${Math.min(100, row.efficiencyPercentage)}%` }}
@@ -1216,15 +1589,15 @@ export default function AdminDashboardPage() {
         {activeTab === 'leaves' && (
           <div className="space-y-6">
             {/* Filter and Search Bar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#141B28] p-4 rounded-xl border border-[#222E42]">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#151720] p-4 rounded-xl border border-[#262938]">
               <div className="flex items-center space-x-2">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Status:</span>
                 <button
                   onClick={() => setLeaveStatusFilter('ALL')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                     leaveStatusFilter === 'ALL'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-[#1B2537] text-slate-300 hover:text-white'
+                      ? 'bg-rose-600 text-white shadow-sm'
+                      : 'bg-[#1C1F2B] text-slate-300 hover:text-white'
                   }`}
                 >
                   All ({leaves.length})
@@ -1234,7 +1607,7 @@ export default function AdminDashboardPage() {
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 ${
                     leaveStatusFilter === 'PENDING'
                       ? 'bg-amber-600 text-white shadow-sm'
-                      : 'bg-[#1B2537] text-slate-300 hover:text-white'
+                      : 'bg-[#1C1F2B] text-slate-300 hover:text-white'
                   }`}
                 >
                   <span className="w-2 h-2 rounded-full bg-amber-400"></span>
@@ -1245,7 +1618,7 @@ export default function AdminDashboardPage() {
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 ${
                     leaveStatusFilter === 'APPROVED'
                       ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'bg-[#1B2537] text-slate-300 hover:text-white'
+                      : 'bg-[#1C1F2B] text-slate-300 hover:text-white'
                   }`}
                 >
                   <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
@@ -1256,7 +1629,7 @@ export default function AdminDashboardPage() {
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 ${
                     leaveStatusFilter === 'REJECTED'
                       ? 'bg-rose-600 text-white shadow-sm'
-                      : 'bg-[#1B2537] text-slate-300 hover:text-white'
+                      : 'bg-[#1C1F2B] text-slate-300 hover:text-white'
                   }`}
                 >
                   <span className="w-2 h-2 rounded-full bg-rose-400"></span>
@@ -1271,7 +1644,7 @@ export default function AdminDashboardPage() {
                   placeholder="Search applicant, reason, station..."
                   value={leaveSearchQuery}
                   onChange={(e) => setLeaveSearchQuery(e.target.value)}
-                  className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
                 />
                 {leaveSearchQuery && (
                   <button
@@ -1285,10 +1658,10 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Leave Applications Table */}
-            <div className="bg-[#141B28] rounded-xl border border-[#222E42] overflow-hidden shadow-sm">
-              <div className="px-5 py-3.5 border-b border-[#222E42] flex items-center justify-between bg-[#111724]">
+            <div className="bg-[#151720] rounded-xl border border-[#262938] overflow-hidden shadow-sm">
+              <div className="px-5 py-3.5 border-b border-[#262938] flex items-center justify-between bg-[#12141C]">
                 <div className="flex items-center space-x-2">
-                  <CalendarDays className="w-4 h-4 text-blue-400" />
+                  <CalendarDays className="w-4 h-4 text-rose-400" />
                   <h2 className="text-xs font-bold uppercase tracking-wider text-white">
                     Employee Leave Applications ({filteredLeaves.length})
                   </h2>
@@ -1298,7 +1671,7 @@ export default function AdminDashboardPage() {
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-[#0D1320] text-[11px] uppercase tracking-wider text-slate-400 border-b border-[#222E42]">
+                  <thead className="bg-[#0F1117] text-[11px] uppercase tracking-wider text-slate-400 border-b border-[#262938]">
                     <tr>
                       <th className="px-5 py-3">Applicant / Workstation</th>
                       <th className="px-5 py-3">Type</th>
@@ -1309,7 +1682,7 @@ export default function AdminDashboardPage() {
                       <th className="px-5 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#1D273A] font-medium text-xs">
+                  <tbody className="divide-y divide-[#1C1F2B] font-medium text-xs">
                     {filteredLeaves.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="px-5 py-12 text-center text-slate-500">
@@ -1324,14 +1697,14 @@ export default function AdminDashboardPage() {
                         const isRejected = leave.status === 'REJECTED';
 
                         return (
-                          <tr key={leave.id} className="hover:bg-[#182133] transition-colors">
+                          <tr key={leave.id} className="hover:bg-[#1A1D27] transition-colors">
                             {/* Applicant */}
                             <td className="px-5 py-3.5">
                               <div className="flex flex-col">
                                 <span className="text-white font-bold text-xs">{leave.userName}</span>
                                 <span className="text-slate-400 text-[11px]">{leave.userEmail}</span>
                                 {leave.stationId && (
-                                  <span className="text-[10px] text-blue-400 font-mono mt-0.5">
+                                  <span className="text-[10px] text-rose-400 font-mono mt-0.5">
                                     Station: {leave.stationId}
                                   </span>
                                 )}
@@ -1348,7 +1721,7 @@ export default function AdminDashboardPage() {
                                     ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                                     : leave.leaveType === 'ANNUAL'
                                     ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-                                    : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                    : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
                                 }`}
                               >
                                 {leave.leaveType}
@@ -1462,11 +1835,11 @@ export default function AdminDashboardPage() {
         {activeTab === 'staff' && (
           <div className="space-y-6">
             {/* Header / Actions Card */}
-            <div className="bg-[#141B28] rounded-xl border border-[#222E42] p-5 shadow-sm">
+            <div className="bg-[#151720] rounded-xl border border-[#262938] p-5 shadow-sm">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center space-x-2.5">
-                    <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
                       <Users className="w-5 h-5" />
                     </div>
                     <div>
@@ -1484,7 +1857,7 @@ export default function AdminDashboardPage() {
                       setIsAddStaffModalOpen(true);
                       setAddStaffMessage(null);
                     }}
-                    className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/20 transition-all active:scale-[0.98]"
+                    className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all active:scale-[0.98]"
                   >
                     <UserPlus className="w-4 h-4" />
                     <span>ENROLL NEW STAFF</span>
@@ -1493,7 +1866,7 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Filters & Search Row */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-5 mt-5 border-t border-[#222E42]">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-5 mt-5 border-t border-[#262938]">
                 <div className="relative w-full sm:w-80">
                   <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-500" />
                   <input
@@ -1501,7 +1874,7 @@ export default function AdminDashboardPage() {
                     placeholder="Search by name, username, email, station..."
                     value={staffSearchQuery}
                     onChange={(e) => setStaffSearchQuery(e.target.value)}
-                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
                   />
                   {staffSearchQuery && (
                     <button
@@ -1526,8 +1899,8 @@ export default function AdminDashboardPage() {
                       onClick={() => setStaffFilter(tab.id)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
                         staffFilter === tab.id
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'bg-[#111724] text-slate-400 hover:text-white hover:bg-[#1A2333] border border-[#222E42]'
+                          ? 'bg-rose-600 text-white shadow-sm'
+                          : 'bg-[#12141C] text-slate-400 hover:text-white hover:bg-[#1C1F2B] border border-[#262938]'
                       }`}
                     >
                       {tab.label}
@@ -1538,10 +1911,10 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Staff Directory Table */}
-            <div className="bg-[#141B28] rounded-xl border border-[#222E42] overflow-hidden shadow-sm">
-              <div className="px-5 py-3.5 border-b border-[#222E42] flex items-center justify-between bg-[#111724]">
+            <div className="bg-[#151720] rounded-xl border border-[#262938] overflow-hidden shadow-sm">
+              <div className="px-5 py-3.5 border-b border-[#262938] flex items-center justify-between bg-[#12141C]">
                 <div className="flex items-center space-x-2">
-                  <Users className="w-4 h-4 text-blue-400" />
+                  <Users className="w-4 h-4 text-rose-400" />
                   <h3 className="text-xs font-bold uppercase tracking-wider text-white">Enrolled Team Directory</h3>
                 </div>
                 <span className="text-xs text-slate-400">
@@ -1551,7 +1924,7 @@ export default function AdminDashboardPage() {
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-[#0C1019] text-slate-400 uppercase text-[11px] font-bold border-b border-[#222E42]">
+                  <thead className="bg-[#0D0E12] text-slate-400 uppercase text-[11px] font-bold border-b border-[#262938]">
                     <tr>
                       <th className="py-3 px-4">Staff Member</th>
                       <th className="py-3 px-4">Role</th>
@@ -1563,7 +1936,7 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#1D2738]">
+                  <tbody className="divide-y divide-[#1C1F2B]">
                     {filteredStaff.length === 0 ? (
                       <tr>
                         <td colSpan={8} className="py-12 text-center text-slate-500">
@@ -1573,18 +1946,18 @@ export default function AdminDashboardPage() {
                       </tr>
                     ) : (
                       filteredStaff.map((member) => (
-                        <tr key={member.id} className="hover:bg-[#182132]/60 transition">
+                        <tr key={member.id} className="hover:bg-[#1A1D27]/60 transition">
                           {/* Staff Name & Contact */}
                           <td className="py-3.5 px-4">
                             <div className="flex items-center space-x-3">
-                              <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-xs">
+                              <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center font-bold text-xs">
                                 {member.fullName.charAt(0).toUpperCase()}
                               </div>
                               <div>
                                 <div className="font-bold text-white text-xs">{member.fullName}</div>
                                 <div className="text-[11px] text-slate-400 flex items-center space-x-2">
                                   {member.username && (
-                                    <span className="text-blue-400 font-mono">@{member.username}</span>
+                                    <span className="text-rose-400 font-mono">@{member.username}</span>
                                   )}
                                   <span>{member.email}</span>
                                 </div>
@@ -1599,7 +1972,7 @@ export default function AdminDashboardPage() {
                                 member.role === 'ADMIN'
                                   ? 'bg-purple-950/60 text-purple-300 border-purple-500/40'
                                   : member.role === 'MANAGER'
-                                  ? 'bg-blue-950/60 text-blue-300 border-blue-500/40'
+                                  ? 'bg-rose-950/60 text-rose-300 border-rose-500/40'
                                   : 'bg-slate-800 text-slate-300 border-slate-700'
                               }`}
                             >
@@ -1631,7 +2004,7 @@ export default function AdminDashboardPage() {
                               </span>
                               <button
                                 onClick={() => handleToggleWorkMode(member.id, member.workMode)}
-                                className="text-[10px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-[#1A2333] hover:bg-[#233148] border border-[#2D3E5B] transition"
+                                className="text-[10px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] transition"
                                 title="Switch between WFH and In-Office"
                               >
                                 ⇄
@@ -1641,7 +2014,7 @@ export default function AdminDashboardPage() {
 
                           {/* Workstation ID */}
                           <td className="py-3.5 px-4">
-                            <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#0C1019] border border-[#222E42] text-slate-300">
+                            <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#0D0E12] border border-[#262938] text-slate-300">
                               {member.stationId || 'Unassigned'}
                             </span>
                           </td>
@@ -1667,7 +2040,7 @@ export default function AdminDashboardPage() {
                             <span
                               className={`px-2 py-0.5 rounded text-xs font-bold ${
                                 member.activeTasksCount > 0
-                                  ? 'bg-blue-950/60 text-blue-300 border border-blue-500/30'
+                                  ? 'bg-rose-950/60 text-rose-300 border border-rose-500/30'
                                   : 'text-slate-500'
                               }`}
                             >
@@ -1700,10 +2073,10 @@ export default function AdminDashboardPage() {
                             <div className="flex items-center justify-end space-x-2">
                               <button
                                 onClick={() => handleOpenEditStaffModal(member)}
-                                className="px-2.5 py-1.5 rounded-lg bg-blue-600/15 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 hover:text-white text-xs font-semibold transition inline-flex items-center space-x-1.5"
+                                className="px-2.5 py-1.5 rounded-lg bg-rose-600/15 hover:bg-rose-600/30 border border-rose-500/30 text-rose-400 hover:text-white text-xs font-semibold transition inline-flex items-center space-x-1.5"
                                 title="Edit Staff Details"
                               >
-                                <Edit3 className="w-3 h-3 text-blue-400" />
+                                <Edit3 className="w-3 h-3 text-rose-400" />
                                 <span>Edit</span>
                               </button>
                               <button
@@ -1712,7 +2085,7 @@ export default function AdminDashboardPage() {
                                   setNewResetPassword('');
                                   setResetPasswordMessage(null);
                                 }}
-                                className="px-2.5 py-1.5 rounded-lg bg-[#1B2537] hover:bg-[#233148] border border-[#2D3E5B] text-slate-300 hover:text-white text-xs font-semibold transition inline-flex items-center space-x-1.5"
+                                className="px-2.5 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-300 hover:text-white text-xs font-semibold transition inline-flex items-center space-x-1.5"
                                 title="Reset Employee Password"
                               >
                                 <Key className="w-3 h-3 text-amber-400" />
@@ -1735,15 +2108,15 @@ export default function AdminDashboardPage() {
       {/* Windows 11 Style Modal: DISPATCH NEW TASK */}
       {isDispatchModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-[#141B28] border border-[#293850] rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#222E42]">
+          <div className="bg-[#151720] border border-[#32364A] rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#262938]">
               <div className="flex items-center space-x-2 text-white">
-                <Sparkles className="w-4 h-4 text-blue-400" />
+                <Sparkles className="w-4 h-4 text-rose-400" />
                 <h3 className="text-sm font-bold uppercase tracking-wider">Dispatch New Task</h3>
               </div>
               <button
                 onClick={() => setIsDispatchModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#1E293B] transition"
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#262938] transition"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1759,7 +2132,7 @@ export default function AdminDashboardPage() {
                   placeholder="e.g. Color Grade Patient Exercise Video"
                   value={dispatchTitle}
                   onChange={(e) => setDispatchTitle(e.target.value)}
-                  className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
                 />
               </div>
 
@@ -1768,7 +2141,7 @@ export default function AdminDashboardPage() {
                 <select
                   value={dispatchAssignee}
                   onChange={(e) => setDispatchAssignee(e.target.value)}
-                  className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                 >
                   <option value="">Unassigned (Awaiting employee claim)</option>
                   {users
@@ -1788,7 +2161,7 @@ export default function AdminDashboardPage() {
                   <select
                     value={dispatchPriority}
                     onChange={(e) => setDispatchPriority(e.target.value)}
-                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                   >
                     <option value="LOW">Low</option>
                     <option value="MEDIUM">Medium</option>
@@ -1805,7 +2178,7 @@ export default function AdminDashboardPage() {
                       id="deliverableCheckModal"
                       checked={dispatchDeliverableReq}
                       onChange={(e) => setDispatchDeliverableReq(e.target.checked)}
-                      className="w-4 h-4 accent-blue-600 rounded mr-2 cursor-pointer"
+                      className="w-4 h-4 accent-rose-600 rounded mr-2 cursor-pointer"
                     />
                     <label htmlFor="deliverableCheckModal" className="text-slate-300 cursor-pointer">
                       Proof required to complete
@@ -1821,7 +2194,7 @@ export default function AdminDashboardPage() {
                   placeholder="Specify requirements, output file formats, or review guidelines..."
                   value={dispatchDesc}
                   onChange={(e) => setDispatchDesc(e.target.value)}
-                  className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                 />
               </div>
 
@@ -1841,14 +2214,14 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setIsDispatchModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-[#1B2537] hover:bg-[#222E42] border border-[#2D3E5B] text-slate-300 hover:text-white transition"
+                  className="px-4 py-2 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-300 hover:text-white transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isDispatching || !dispatchTitle.trim()}
-                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-bold transition flex items-center space-x-2 shadow-md shadow-blue-600/20"
+                  className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:bg-slate-700 text-white font-bold transition flex items-center space-x-2 shadow-md shadow-rose-600/20"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>{isDispatching ? 'Dispatching...' : 'Dispatch Task'}</span>
@@ -1862,35 +2235,35 @@ export default function AdminDashboardPage() {
       {/* Windows 11 Style Modal: REVIEW LEAVE REQUEST */}
       {selectedLeaveForReview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-[#141B28] border border-[#293850] rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#222E42]">
+          <div className="bg-[#151720] border border-[#32364A] rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#262938]">
               <div className="flex items-center space-x-2 text-white">
-                <CalendarDays className="w-4 h-4 text-blue-400" />
+                <CalendarDays className="w-4 h-4 text-rose-400" />
                 <h3 className="text-sm font-bold uppercase tracking-wider">
                   Review Leave Application
                 </h3>
               </div>
               <button
                 onClick={() => setSelectedLeaveForReview(null)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#1E293B] transition"
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#262938] transition"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Application Overview Card */}
-            <div className="bg-[#0C1019] rounded-lg p-3.5 border border-[#222E42] space-y-2 text-xs">
+            <div className="bg-[#0D0E12] rounded-lg p-3.5 border border-[#262938] space-y-2 text-xs">
               <div className="flex justify-between items-start">
                 <div>
                   <div className="font-bold text-white text-sm">{selectedLeaveForReview.userName}</div>
                   <div className="text-slate-400 text-[11px]">{selectedLeaveForReview.userEmail}</div>
                 </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase">
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 uppercase">
                   {selectedLeaveForReview.leaveType}
                 </span>
               </div>
 
-              <div className="pt-2 border-t border-[#1C2638] flex justify-between text-slate-300">
+              <div className="pt-2 border-t border-[#1C1F2B] flex justify-between text-slate-300">
                 <span>Duration:</span>
                 <span className="font-semibold text-white">
                   {selectedLeaveForReview.startDate?.split('T')[0]} to {selectedLeaveForReview.endDate?.split('T')[0]} ({selectedLeaveForReview.totalDays} {selectedLeaveForReview.totalDays === 1 ? 'day' : 'days'})
@@ -1899,7 +2272,7 @@ export default function AdminDashboardPage() {
 
               <div>
                 <span className="text-slate-400 block mb-0.5">Reason provided:</span>
-                <p className="bg-[#141B28] p-2 rounded text-slate-200 border border-[#1E2A3E] text-xs">
+                <p className="bg-[#151720] p-2 rounded text-slate-200 border border-[#262938] text-xs">
                   {selectedLeaveForReview.reason}
                 </p>
               </div>
@@ -1916,7 +2289,7 @@ export default function AdminDashboardPage() {
                     className={`py-2 px-3 rounded-lg font-bold border transition flex items-center justify-center space-x-1.5 ${
                       reviewAction === 'approve'
                         ? 'bg-emerald-600 border-emerald-500 text-white shadow-md shadow-emerald-600/20'
-                        : 'bg-[#0C1019] border-[#222E42] text-slate-400 hover:text-white'
+                        : 'bg-[#0D0E12] border-[#262938] text-slate-400 hover:text-white'
                     }`}
                   >
                     <Check className="w-4 h-4" />
@@ -1929,7 +2302,7 @@ export default function AdminDashboardPage() {
                     className={`py-2 px-3 rounded-lg font-bold border transition flex items-center justify-center space-x-1.5 ${
                       reviewAction === 'reject'
                         ? 'bg-rose-600 border-rose-500 text-white shadow-md shadow-rose-600/20'
-                        : 'bg-[#0C1019] border-[#222E42] text-slate-400 hover:text-white'
+                        : 'bg-[#0D0E12] border-[#262938] text-slate-400 hover:text-white'
                     }`}
                   >
                     <X className="w-4 h-4" />
@@ -1952,7 +2325,7 @@ export default function AdminDashboardPage() {
                   }
                   value={reviewComments}
                   onChange={(e) => setReviewComments(e.target.value)}
-                  className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                 />
               </div>
 
@@ -1972,7 +2345,7 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedLeaveForReview(null)}
-                  className="px-4 py-2 rounded-lg bg-[#1B2537] hover:bg-[#222E42] border border-[#2D3E5B] text-slate-300 hover:text-white transition"
+                  className="px-4 py-2 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-300 hover:text-white transition"
                 >
                   Cancel
                 </button>
@@ -1997,15 +2370,15 @@ export default function AdminDashboardPage() {
       {/* Windows 11 Style Modal: ENROLL NEW STAFF MEMBER */}
       {isAddStaffModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-[#141B28] border border-[#293850] rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#222E42]">
+          <div className="bg-[#151720] border border-[#32364A] rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#262938]">
               <div className="flex items-center space-x-2 text-white">
-                <UserPlus className="w-4 h-4 text-blue-400" />
+                <UserPlus className="w-4 h-4 text-rose-400" />
                 <h3 className="text-sm font-bold uppercase tracking-wider">Enroll Staff Member</h3>
               </div>
               <button
                 onClick={() => setIsAddStaffModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#1E293B] transition"
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#262938] transition"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2020,7 +2393,7 @@ export default function AdminDashboardPage() {
                   placeholder="e.g. Dhyan Patel"
                   value={newStaffFullName}
                   onChange={(e) => setNewStaffFullName(e.target.value)}
-                  className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
                 />
               </div>
 
@@ -2032,7 +2405,7 @@ export default function AdminDashboardPage() {
                     placeholder="e.g. dhyan or PHF-101"
                     value={newStaffUsername}
                     onChange={(e) => setNewStaffUsername(e.target.value)}
-                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                   />
                   <span className="text-[10px] text-slate-500">Can be used to sign into desktop app</span>
                 </div>
@@ -2045,7 +2418,7 @@ export default function AdminDashboardPage() {
                     placeholder="e.g. dhyan@gmail.com"
                     value={newStaffEmail}
                     onChange={(e) => setNewStaffEmail(e.target.value)}
-                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                   />
                   <span className="text-[10px] text-slate-500">Any free email provider (no domain required)</span>
                 </div>
@@ -2057,7 +2430,7 @@ export default function AdminDashboardPage() {
                   <select
                     value={newStaffRole}
                     onChange={(e) => setNewStaffRole(e.target.value)}
-                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                   >
                     <option value="EMPLOYEE">Employee</option>
                     <option value="MANAGER">Manager / Lead</option>
@@ -2070,7 +2443,7 @@ export default function AdminDashboardPage() {
                   <select
                     value={newStaffWorkMode}
                     onChange={(e) => setNewStaffWorkMode(e.target.value)}
-                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                   >
                     <option value="REMOTE_WFH">🏠 Remote (Work From Home)</option>
                     <option value="IN_OFFICE">🏢 In-Office (Fixed Desk)</option>
@@ -2085,7 +2458,7 @@ export default function AdminDashboardPage() {
                   required
                   value={newStaffPassword}
                   onChange={(e) => setNewStaffPassword(e.target.value)}
-                  className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-rose-500"
                 />
                 <span className="text-[10px] text-slate-500">Share this with the employee for first-time login</span>
               </div>
@@ -2106,14 +2479,14 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setIsAddStaffModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-[#1B2537] hover:bg-[#222E42] border border-[#2D3E5B] text-slate-300 hover:text-white transition"
+                  className="px-4 py-2 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-300 hover:text-white transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isCreatingStaff || !newStaffFullName.trim() || !newStaffEmail.trim()}
-                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-bold transition flex items-center space-x-2 shadow-md shadow-blue-600/20"
+                  className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:bg-slate-700 text-white font-bold transition flex items-center space-x-2 shadow-md shadow-rose-600/20"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   <span>{isCreatingStaff ? 'Enrolling...' : 'Enroll Staff Member'}</span>
@@ -2127,23 +2500,23 @@ export default function AdminDashboardPage() {
       {/* Windows 11 Style Modal: RESET STAFF PASSWORD */}
       {selectedStaffForPasswordReset && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-[#141B28] border border-[#293850] rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#222E42]">
+          <div className="bg-[#151720] border border-[#32364A] rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#262938]">
               <div className="flex items-center space-x-2 text-white">
                 <Key className="w-4 h-4 text-amber-400" />
                 <h3 className="text-sm font-bold uppercase tracking-wider">Reset Employee Password</h3>
               </div>
               <button
                 onClick={() => setSelectedStaffForPasswordReset(null)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#1E293B] transition"
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#262938] transition"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="bg-[#0C1019] p-3 rounded-lg border border-[#222E42] space-y-1 text-xs">
+            <div className="bg-[#0D0E12] p-3 rounded-lg border border-[#262938] space-y-1 text-xs">
               <div className="text-slate-400">Employee: <span className="text-white font-bold">{selectedStaffForPasswordReset.fullName}</span></div>
-              <div className="text-slate-400">Username / Email: <span className="text-blue-400 font-mono">@{selectedStaffForPasswordReset.username || selectedStaffForPasswordReset.email}</span></div>
+              <div className="text-slate-400">Username / Email: <span className="text-rose-400 font-mono">@{selectedStaffForPasswordReset.username || selectedStaffForPasswordReset.email}</span></div>
             </div>
 
             <form onSubmit={handleResetStaffPassword} className="space-y-4 text-xs">
@@ -2156,7 +2529,7 @@ export default function AdminDashboardPage() {
                   placeholder="e.g. PHF-Pass@2026"
                   value={newResetPassword}
                   onChange={(e) => setNewResetPassword(e.target.value)}
-                  className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-rose-500"
                 />
               </div>
 
@@ -2176,7 +2549,7 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedStaffForPasswordReset(null)}
-                  className="px-4 py-2 rounded-lg bg-[#1B2537] hover:bg-[#222E42] border border-[#2D3E5B] text-slate-300 hover:text-white transition"
+                  className="px-4 py-2 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-300 hover:text-white transition"
                 >
                   Cancel
                 </button>
@@ -2197,10 +2570,10 @@ export default function AdminDashboardPage() {
       {/* Windows 11 Style Modal: EDIT STAFF MEMBER DETAILS */}
       {selectedStaffForEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-[#141B28] border border-[#293850] rounded-xl w-full max-w-xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-[#222E42]">
+          <div className="bg-[#151720] border border-[#32364A] rounded-xl w-full max-w-xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#262938]">
               <div className="flex items-center space-x-2.5 text-white">
-                <div className="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                <div className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400">
                   <UserCog className="w-5 h-5" />
                 </div>
                 <div>
@@ -2210,16 +2583,16 @@ export default function AdminDashboardPage() {
               </div>
               <button
                 onClick={() => setSelectedStaffForEdit(null)}
-                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-[#1E293B] transition"
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-[#262938] transition"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Current Profile Summary Pill */}
-            <div className="bg-[#0C1019] p-3 rounded-lg border border-[#222E42] flex items-center justify-between text-xs">
+            <div className="bg-[#0D0E12] p-3 rounded-lg border border-[#262938] flex items-center justify-between text-xs">
               <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-300 font-bold flex items-center justify-center text-sm">
+                <div className="w-9 h-9 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 font-bold flex items-center justify-center text-sm">
                   {selectedStaffForEdit.fullName.charAt(0).toUpperCase()}
                 </div>
                 <div>
@@ -2250,7 +2623,7 @@ export default function AdminDashboardPage() {
                   value={editFullName}
                   onChange={(e) => setEditFullName(e.target.value)}
                   placeholder="e.g. Dhyan Patel"
-                  className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
                 />
               </div>
 
@@ -2263,7 +2636,7 @@ export default function AdminDashboardPage() {
                     value={editUsername}
                     onChange={(e) => setEditUsername(e.target.value)}
                     placeholder="e.g. dhvaj or PHF-101"
-                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                   />
                   <span className="text-[10px] text-slate-500">Sign-in handle for desktop telemetry agent</span>
                 </div>
@@ -2276,7 +2649,7 @@ export default function AdminDashboardPage() {
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
                     placeholder="e.g. dhyanidhvaj@gmail.com"
-                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                   />
                   <span className="text-[10px] text-slate-500">Used for notifications and web admin access</span>
                 </div>
@@ -2289,7 +2662,7 @@ export default function AdminDashboardPage() {
                   <select
                     value={editRole}
                     onChange={(e) => setEditRole(e.target.value)}
-                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                   >
                     <option value="EMPLOYEE">Employee (Task Worker)</option>
                     <option value="MANAGER">Manager / Team Lead</option>
@@ -2308,7 +2681,7 @@ export default function AdminDashboardPage() {
                         setEditStationId(`WFH-${(editUsername || editFullName.replace(/\s+/g, '')).toUpperCase()}`);
                       }
                     }}
-                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                   >
                     <option value="REMOTE_WFH">🏠 Remote (Work From Home)</option>
                     <option value="IN_OFFICE">🏢 In-Office (Dedicated Desk)</option>
@@ -2325,7 +2698,7 @@ export default function AdminDashboardPage() {
                     value={editStationId}
                     onChange={(e) => setEditStationId(e.target.value)}
                     placeholder="e.g. ST-101 or WFH-DHVAJ"
-                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-rose-500"
                   />
                   <span className="text-[10px] text-slate-500">Matches client app telemetry routing</span>
                 </div>
@@ -2339,7 +2712,7 @@ export default function AdminDashboardPage() {
                       className={`py-1.5 px-3 rounded-lg font-bold border transition flex items-center justify-center space-x-1.5 ${
                         editIsActive
                           ? 'bg-emerald-600/30 border-emerald-500 text-emerald-300'
-                          : 'bg-[#0C1019] border-[#222E42] text-slate-400 hover:text-white'
+                          : 'bg-[#0D0E12] border-[#262938] text-slate-400 hover:text-white'
                       }`}
                     >
                       <span className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -2351,7 +2724,7 @@ export default function AdminDashboardPage() {
                       className={`py-1.5 px-3 rounded-lg font-bold border transition flex items-center justify-center space-x-1.5 ${
                         !editIsActive
                           ? 'bg-rose-600/30 border-rose-500 text-rose-300'
-                          : 'bg-[#0C1019] border-[#222E42] text-slate-400 hover:text-white'
+                          : 'bg-[#0D0E12] border-[#262938] text-slate-400 hover:text-white'
                       }`}
                     >
                       <span className="w-2 h-2 rounded-full bg-rose-400" />
@@ -2362,7 +2735,7 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Row 5: Optional Password Override */}
-              <div className="pt-2 border-t border-[#1F2B3E]">
+              <div className="pt-2 border-t border-[#262938]">
                 <label className="block font-bold text-slate-300 mb-1">
                   Change Password <span className="text-slate-500 font-normal">(Leave blank to keep unchanged)</span>
                 </label>
@@ -2372,7 +2745,7 @@ export default function AdminDashboardPage() {
                     value={editNewPassword}
                     onChange={(e) => setEditNewPassword(e.target.value)}
                     placeholder="Enter new password to reset, or leave empty"
-                    className="w-full bg-[#0C1019] border border-[#222E42] rounded-lg px-3 py-2 text-xs text-white font-mono placeholder-slate-600 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white font-mono placeholder-slate-600 focus:outline-none focus:border-rose-500"
                   />
                   <Key className="w-3.5 h-3.5 absolute right-3 top-2.5 text-slate-500" />
                 </div>
@@ -2392,18 +2765,18 @@ export default function AdminDashboardPage() {
               )}
 
               {/* Modal Buttons */}
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-[#222E42]">
+              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-[#262938]">
                 <button
                   type="button"
                   onClick={() => setSelectedStaffForEdit(null)}
-                  className="px-4 py-2 rounded-lg bg-[#1B2537] hover:bg-[#222E42] border border-[#2D3E5B] text-slate-300 hover:text-white transition"
+                  className="px-4 py-2 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-300 hover:text-white transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isUpdatingStaff || !editFullName.trim() || !editEmail.trim()}
-                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-bold transition flex items-center space-x-2 shadow-md shadow-blue-600/20"
+                  className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:bg-slate-700 text-white font-bold transition flex items-center space-x-2 shadow-md shadow-rose-600/20"
                 >
                   <UserCheck className="w-3.5 h-3.5" />
                   <span>{isUpdatingStaff ? 'Saving...' : 'Save Changes'}</span>
@@ -2416,7 +2789,7 @@ export default function AdminDashboardPage() {
 
 
       {/* Footer */}
-      <footer className="border-t border-[#222E42] bg-[#101520] px-6 py-3.5 mt-auto">
+      <footer className="border-t border-[#262938] bg-[#12141C] px-6 py-3.5 mt-auto">
         <div className="max-w-7xl mx-auto flex items-center justify-between text-xs text-slate-500">
           <div>PHF Work Management System • Punnya Heart Foundation</div>
           <div>Near-0% CPU Win32 Telemetry • Tamper-Lock Offline Buffer • WCAG 2.1 AA Accessible</div>
