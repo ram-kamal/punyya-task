@@ -5,9 +5,14 @@ using PHF.Core.DTOs;
 
 namespace PHF.Client.Core.Http;
 
+public class AccountSuspendedException : Exception
+{
+    public AccountSuspendedException(string message) : base(message) { }
+}
+
 public class ApiClient
 {
-    private readonly HttpClient _httpClient;
+    private HttpClient _httpClient;
     private string? _authToken;
     private readonly JsonSerializerOptions _jsonOptions;
 
@@ -18,11 +23,7 @@ public class ApiClient
     public ApiClient(string baseUrl = "http://localhost:5020")
     {
         BaseUrl = baseUrl.TrimEnd('/');
-        _httpClient = new HttpClient
-        {
-            BaseAddress = new Uri(BaseUrl),
-            Timeout = TimeSpan.FromSeconds(15)
-        };
+        _httpClient = CreateHttpClient(BaseUrl, _authToken);
 
         _jsonOptions = new JsonSerializerOptions
         {
@@ -30,10 +31,24 @@ public class ApiClient
         };
     }
 
+    private static HttpClient CreateHttpClient(string baseUrl, string? token)
+    {
+        var client = new HttpClient
+        {
+            BaseAddress = new Uri(baseUrl),
+            Timeout = TimeSpan.FromSeconds(15)
+        };
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+        return client;
+    }
+
     public void SetBaseUrl(string baseUrl)
     {
         BaseUrl = baseUrl.TrimEnd('/');
-        _httpClient.BaseAddress = new Uri(BaseUrl);
+        _httpClient = CreateHttpClient(BaseUrl, _authToken);
     }
 
     public void SetAuthToken(string token)
@@ -60,13 +75,13 @@ public class ApiClient
                     var err = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>(_jsonOptions, ct);
                     if (err != null && err.TryGetValue("message", out var msg) && !string.IsNullOrWhiteSpace(msg))
                     {
-                        throw new InvalidOperationException(msg);
+                        throw new AccountSuspendedException(msg);
                     }
                 }
-                catch (InvalidOperationException) { throw; }
+                catch (AccountSuspendedException) { throw; }
                 catch { }
 
-                throw new InvalidOperationException("This account is suspended or inactive. Please contact your system administrator.");
+                throw new AccountSuspendedException("This account is suspended or inactive. Please contact your system administrator.");
             }
 
             return null;

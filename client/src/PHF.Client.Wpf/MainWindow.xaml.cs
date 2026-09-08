@@ -423,7 +423,7 @@ public partial class MainWindow : Window
                         break;
                     }
                 }
-                catch (InvalidOperationException ex)
+                catch (AccountSuspendedException ex)
                 {
                     // Account suspended or explicit business failure
                     TxtLoginError.Text = ex.Message;
