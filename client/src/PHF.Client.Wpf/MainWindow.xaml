@@ -67,7 +67,7 @@
                                 <Border Width="22" Height="22" CornerRadius="11" Background="{StaticResource BgSurfaceLight}" Margin="0,0,8,0">
                                     <TextBlock Text="👤" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
-                                <TextBlock x:Name="TxtUserInfo" Text="Aarav Sharma (ST-101)" FontWeight="SemiBold" FontSize="12.5" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" />
+                                <TextBlock x:Name="TxtUserInfo" Text="Workstation Desk" FontWeight="SemiBold" FontSize="12.5" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
                         <Button x:Name="BtnLogout" Content="Sign Out" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Click="BtnLogout_Click"
@@ -338,10 +338,10 @@
                     <TextBlock Text="Sign in to your workstation to log shift telemetry and tasks" FontSize="12.5" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,20" />
 
                     <TextBlock Text="Username or Email" FontSize="11.5" Foreground="{StaticResource TextSecondary}" />
-                    <TextBox x:Name="TxtLoginEmail" Text="dhvaj" Margin="0,4,0,12" />
+                    <TextBox x:Name="TxtLoginEmail" Text="" Margin="0,4,0,12" />
 
                     <TextBlock Text="Password" FontSize="11.5" Foreground="{StaticResource TextSecondary}" />
-                    <PasswordBox x:Name="TxtLoginPassword" Password="Admin0246" Margin="0,4,0,12" />
+                    <PasswordBox x:Name="TxtLoginPassword" Password="" Margin="0,4,0,12" />
 
                     <!-- Work From Home Toggle & Auto-Device Pairing -->
                     <Border Background="#1A10B981" BorderBrush="#3310B981" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,14">

@@ -656,7 +656,7 @@ export default function AdminDashboardPage() {
                   required
                   value={loginIdentifier}
                   onChange={(e) => setLoginIdentifier(e.target.value)}
-                  placeholder="e.g. dhyanidhvaj@gmail.com or dhvaj"
+                  placeholder="Enter your email or username"
                   className="w-full px-3.5 py-2.5 bg-[#0D0E12] border border-[#262938] rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-colors"
                   autoComplete="username"
                 />
@@ -2390,7 +2390,7 @@ export default function AdminDashboardPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Dhyan Patel"
+                  placeholder="e.g. John Doe"
                   value={newStaffFullName}
                   onChange={(e) => setNewStaffFullName(e.target.value)}
                   className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
@@ -2402,7 +2402,7 @@ export default function AdminDashboardPage() {
                   <label className="block font-bold text-slate-300 mb-1">Username / Staff ID</label>
                   <input
                     type="text"
-                    placeholder="e.g. dhyan or PHF-101"
+                    placeholder="e.g. jdoe or PHF-101"
                     value={newStaffUsername}
                     onChange={(e) => setNewStaffUsername(e.target.value)}
                     className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
@@ -2415,7 +2415,7 @@ export default function AdminDashboardPage() {
                   <input
                     type="email"
                     required
-                    placeholder="e.g. dhyan@gmail.com"
+                    placeholder="e.g. employee@punnyaheart.org"
                     value={newStaffEmail}
                     onChange={(e) => setNewStaffEmail(e.target.value)}
                     className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
@@ -2622,7 +2622,7 @@ export default function AdminDashboardPage() {
                   required
                   value={editFullName}
                   onChange={(e) => setEditFullName(e.target.value)}
-                  placeholder="e.g. Dhyan Patel"
+                  placeholder="e.g. John Doe"
                   className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
                 />
               </div>
@@ -2635,7 +2635,7 @@ export default function AdminDashboardPage() {
                     type="text"
                     value={editUsername}
                     onChange={(e) => setEditUsername(e.target.value)}
-                    placeholder="e.g. dhvaj or PHF-101"
+                    placeholder="e.g. jdoe or PHF-101"
                     className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                   />
                   <span className="text-[10px] text-slate-500">Sign-in handle for desktop telemetry agent</span>
@@ -2648,7 +2648,7 @@ export default function AdminDashboardPage() {
                     required
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
-                    placeholder="e.g. dhyanidhvaj@gmail.com"
+                    placeholder="e.g. employee@punnyaheart.org"
                     className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                   />
                   <span className="text-[10px] text-slate-500">Used for notifications and web admin access</span>
@@ -2697,7 +2697,7 @@ export default function AdminDashboardPage() {
                     type="text"
                     value={editStationId}
                     onChange={(e) => setEditStationId(e.target.value)}
-                    placeholder="e.g. ST-101 or WFH-DHVAJ"
+                    placeholder="e.g. ST-101 or WFH-DESK"
                     className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-rose-500"
                   />
                   <span className="text-[10px] text-slate-500">Matches client app telemetry routing</span>
