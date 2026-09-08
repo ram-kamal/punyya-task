@@ -56,19 +56,31 @@ var dbProvider = builder.Configuration["DatabaseProvider"] ?? "Sqlite";
 var pgConn = builder.Configuration.GetConnectionString("PostgreSQL");
 var sqliteConn = builder.Configuration.GetConnectionString("Sqlite") ?? "Data Source=phf_local.db";
 
-var renderDbUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-if (!string.IsNullOrWhiteSpace(renderDbUrl) && renderDbUrl.StartsWith("postgres", StringComparison.OrdinalIgnoreCase))
+var renderDbUrl = Environment.GetEnvironmentVariable("DATABASE_URL") 
+               ?? builder.Configuration["DATABASE_URL"] 
+               ?? builder.Configuration["SUPABASE_DATABASE_URL"]
+               ?? builder.Configuration.GetConnectionString("PostgreSQL");
+
+if (!string.IsNullOrWhiteSpace(renderDbUrl))
 {
     try
     {
         dbProvider = "PostgreSQL";
-        var uri = new Uri(renderDbUrl);
-        var userInfo = uri.UserInfo.Split(':');
-        var user = userInfo[0];
-        var password = userInfo.Length > 1 ? userInfo[1] : "";
-        var port = uri.Port > 0 ? uri.Port : 5432;
-        var database = uri.AbsolutePath.TrimStart('/');
-        pgConn = $"Host={uri.Host};Port={port};Database={database};Username={user};Password={password};SSL Mode=Require;Trust Server Certificate=true;";
+        if (renderDbUrl.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
+            renderDbUrl.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+        {
+            var uri = new Uri(renderDbUrl);
+            var userInfo = uri.UserInfo.Split(':');
+            var user = Uri.UnescapeDataString(userInfo[0]);
+            var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+            var port = uri.Port > 0 ? uri.Port : 5432;
+            var database = uri.AbsolutePath.TrimStart('/');
+            pgConn = $"Host={uri.Host};Port={port};Database={database};Username={user};Password={password};SSL Mode=Require;Trust Server Certificate=true;";
+        }
+        else
+        {
+            pgConn = renderDbUrl;
+        }
     }
     catch
     {
@@ -161,40 +173,47 @@ using (var scope = app.Services.CreateScope())
     {
         await dbContext.Database.EnsureCreatedAsync();
 
-        // Migrate users table columns if needed
-        try
+        if (dbContext.Database.IsSqlite())
         {
-            await dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE users ADD COLUMN username TEXT;");
-        }
-        catch { /* Column may already exist */ }
+            // Migrate users table columns if needed (SQLite legacy support)
+            try
+            {
+                await dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE users ADD COLUMN username TEXT;");
+            }
+            catch { /* Column may already exist */ }
 
-        try
-        {
-            await dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE users ADD COLUMN work_mode TEXT DEFAULT 'IN_OFFICE';");
-        }
-        catch { /* Column may already exist */ }
+            try
+            {
+                await dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE users ADD COLUMN work_mode TEXT DEFAULT 'IN_OFFICE';");
+            }
+            catch { /* Column may already exist */ }
 
-        // Ensure leave_requests table exists if running on an existing database
-        await dbContext.Database.ExecuteSqlRawAsync(@"
-            CREATE TABLE IF NOT EXISTS leave_requests (
-                id TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL,
-                leave_type TEXT NOT NULL,
-                start_date TEXT NOT NULL,
-                end_date TEXT NOT NULL,
-                total_days INTEGER NOT NULL DEFAULT 1,
-                reason TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'PENDING',
-                reviewed_by TEXT,
-                reviewed_at TEXT,
-                review_comments TEXT,
-                created_at TEXT NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
-            );
-            CREATE INDEX IF NOT EXISTS ix_leave_requests_user_status ON leave_requests (user_id, status);
-            CREATE INDEX IF NOT EXISTS ix_leave_requests_dates ON leave_requests (start_date, end_date);
-        ");
+            // Ensure leave_requests table exists if running on an existing SQLite database
+            try
+            {
+                await dbContext.Database.ExecuteSqlRawAsync(@"
+                    CREATE TABLE IF NOT EXISTS leave_requests (
+                        id TEXT PRIMARY KEY,
+                        user_id TEXT NOT NULL,
+                        leave_type TEXT NOT NULL,
+                        start_date TEXT NOT NULL,
+                        end_date TEXT NOT NULL,
+                        total_days INTEGER NOT NULL DEFAULT 1,
+                        reason TEXT NOT NULL,
+                        status TEXT NOT NULL DEFAULT 'PENDING',
+                        reviewed_by TEXT,
+                        reviewed_at TEXT,
+                        review_comments TEXT,
+                        created_at TEXT NOT NULL,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS ix_leave_requests_user_status ON leave_requests (user_id, status);
+                    CREATE INDEX IF NOT EXISTS ix_leave_requests_dates ON leave_requests (start_date, end_date);
+                ");
+            }
+            catch { }
+        }
 
         await dbContext.EnsureSeedDataAsync();
     }
