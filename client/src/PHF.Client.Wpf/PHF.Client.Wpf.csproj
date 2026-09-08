@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\PHF.Client.Core\PHF.Client.Core.csproj" />
@@ -12,6 +12,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <AssemblyName>PunnyaHeartDesk</AssemblyName>
+    <AssemblyTitle>Punnya Heart Desk</AssemblyTitle>
+    <Product>Punnya Heart Foundation Work Management System</Product>
+    <Company>Punnya Heart Foundation</Company>
+    <Description>Workstation Telemetry and Task Desk for Punnya Heart Foundation</Description>
+    <Version>1.0.0-beta</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
   </PropertyGroup>
 
 </Project>

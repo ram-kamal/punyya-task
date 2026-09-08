@@ -1846,7 +1846,7 @@ export default function AdminDashboardPage() {
                     <div>
                       <h2 className="text-base font-bold text-white tracking-tight">Staff &amp; Workforce Directory</h2>
                       <p className="text-xs text-slate-400 mt-0.5">
-                        Enroll staff with personal emails (Gmail/Yahoo/Outlook) or simple usernames • Seamless WFH device pairing • $0 Cost
+                        Enroll staff with email or username • Seamless Work-from-Home device pairing
                       </p>
                     </div>
                   </div>

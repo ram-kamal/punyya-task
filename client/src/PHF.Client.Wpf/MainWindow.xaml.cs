@@ -26,7 +26,7 @@ public partial class MainWindow : Window
     private readonly RealtimeClient _realtimeClient;
 
     private UserProfileDto? _currentUser;
-    private string _stationId = "ST-101";
+    private string _stationId = $"WFH-{Environment.MachineName}";
     private Guid? _activeTaskId = null;
     private string? _activeTaskCode = null;
     private Guid? _modalTargetTaskId = null;
@@ -401,8 +401,6 @@ public partial class MainWindow : Window
             var candidateUrls = new List<string>();
             if (!string.IsNullOrWhiteSpace(currentUrl)) candidateUrls.Add(currentUrl);
             if (!candidateUrls.Contains(DefaultCloudRenderUrl)) candidateUrls.Add(DefaultCloudRenderUrl);
-            if (!candidateUrls.Contains("http://localhost:5020")) candidateUrls.Add("http://localhost:5020");
-            if (!candidateUrls.Contains("http://localhost:5000")) candidateUrls.Add("http://localhost:5000");
 
             AuthResponse? auth = null;
             string? workingUrl = null;
@@ -441,7 +439,7 @@ public partial class MainWindow : Window
             if (auth != null)
             {
                 _currentUser = auth.User;
-                _stationId = !string.IsNullOrWhiteSpace(station) ? station : (auth.User.StationId ?? "ST-101");
+                _stationId = !string.IsNullOrWhiteSpace(station) ? station : (auth.User.StationId ?? $"WFH-{Environment.MachineName}");
                 await InitializeWorkstationSessionAsync();
             }
             else if (lastEx != null && workingUrl == null)

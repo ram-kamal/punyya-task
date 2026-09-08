@@ -107,12 +107,12 @@
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="SHIFT MANAGEMENT" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextTertiary}" />
 
                             <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,8,0,0">
-                                <TextBlock x:Name="TxtShiftState" Text="Clocked In" FontSize="17" FontWeight="Bold" Foreground="{StaticResource AccentGreenSoft}" />
-                                <TextBlock x:Name="TxtShiftHours" Text="Logged Today: 4h 22m" FontSize="12.5" Foreground="{StaticResource TextSecondary}" Margin="0,3,0,0" />
+                                <TextBlock x:Name="TxtShiftState" Text="Clocked Out" FontSize="17" FontWeight="Bold" Foreground="{StaticResource AccentAmber}" />
+                                <TextBlock x:Name="TxtShiftHours" Text="Logged Today: --" FontSize="12.5" Foreground="{StaticResource TextSecondary}" Margin="0,3,0,0" />
                             </StackPanel>
 
-                            <Button x:Name="BtnClockToggle" Grid.Row="1" Grid.Column="1" Content="Clock Out" VerticalAlignment="Center"
-                                    Background="{StaticResource AccentAmber}" Padding="16,7" Click="BtnClockToggle_Click"
+                            <Button x:Name="BtnClockToggle" Grid.Row="1" Grid.Column="1" Content="Clock In" VerticalAlignment="Center"
+                                    Background="{StaticResource AccentGreen}" Padding="16,7" Click="BtnClockToggle_Click"
                                     AutomationProperties.Name="Clock Toggle Button" AutomationProperties.HelpText="Clock In or Clock Out from your daily shift" />
                         </Grid>
                     </Border>
@@ -131,19 +131,19 @@
 
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="WORKSTATION TELEMETRY" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextTertiary}" />
                             <Border Grid.Row="0" Grid.Column="1" Background="#1AE11D48" CornerRadius="4" Padding="6,2">
-                                <TextBlock Text="near-0% CPU mode" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource AccentRoseLight}" />
+                                <TextBlock Text="Active Telemetry" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource AccentRoseLight}" />
                             </Border>
 
                             <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,8,0,0">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <Ellipse Width="6" Height="6" Fill="{StaticResource AccentGreenSoft}" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Listening (Win32 Event Hook)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AccentGreenSoft}" />
+                                    <TextBlock Text="Active Monitoring Hook" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AccentGreenSoft}" />
                                 </StackPanel>
-                                <TextBlock x:Name="TxtActiveApp" Text="Active App: Google Chrome" FontSize="13.5" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="TxtActiveApp" Text="Active App: Ready" FontSize="13.5" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
 
                             <Border Grid.Row="1" Grid.Column="1" Background="#1A10B981" BorderBrush="#3310B981" BorderThickness="1" CornerRadius="6" Padding="10,5" VerticalAlignment="Center">
-                                <TextBlock x:Name="TxtActiveTaskBadge" Text="Linked: TASK-101" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentGreenSoft}" />
+                                <TextBlock x:Name="TxtActiveTaskBadge" Text="No task linked" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentGreenSoft}" />
                             </Border>
                         </Grid>
                     </Border>
@@ -274,8 +274,8 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock x:Name="TxtStatusBar" Text="Ready • Win32 Hook active (SetWinEventHook 0x0003)" FontSize="11.5" Foreground="{StaticResource TextTertiary}" />
-                    <TextBlock x:Name="TxtSyncInfo" Grid.Column="1" Text="Tamper-locked SQLite buffer: Synced" FontSize="11.5" Foreground="{StaticResource AccentGreenSoft}" />
+                    <TextBlock x:Name="TxtStatusBar" Text="Workstation Active • Telemetry Hook Ready" FontSize="11.5" Foreground="{StaticResource TextTertiary}" />
+                    <TextBlock x:Name="TxtSyncInfo" Grid.Column="1" Text="Local Buffer: Synced" FontSize="11.5" Foreground="{StaticResource AccentGreenSoft}" />
                 </Grid>
             </Border>
         </Grid>

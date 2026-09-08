@@ -17,7 +17,9 @@ public class RealtimeClient : IAsyncDisposable
 
     public bool IsConnected => _hubConnection?.State == HubConnectionState.Connected;
 
-    public RealtimeClient(string baseUrl = "http://localhost:5020", Func<string?>? tokenProvider = null)
+    public const string DefaultBaseUrl = "https://punnya-api.onrender.com";
+
+    public RealtimeClient(string baseUrl = DefaultBaseUrl, Func<string?>? tokenProvider = null)
     {
         _hubUrl = $"{baseUrl.TrimEnd('/')}/hubs/workstation";
         _tokenProvider = tokenProvider;

@@ -100,7 +100,6 @@ public class LeavesController : ControllerBase
             return guid;
         }
 
-        // Fallback for testing/unauthenticated dev
-        return Guid.Parse("a0000000-0000-0000-0000-000000000003"); // Default st101
+        throw new UnauthorizedAccessException("Authentication token does not contain a valid user identity claim.");
     }
 }

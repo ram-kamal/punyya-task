@@ -16,11 +16,12 @@ public class ApiClient
     private string? _authToken;
     private readonly JsonSerializerOptions _jsonOptions;
 
+    public const string DefaultBaseUrl = "https://punnya-api.onrender.com";
     public string BaseUrl { get; private set; }
     public bool IsAuthenticated => !string.IsNullOrWhiteSpace(_authToken);
     public string? AuthToken => _authToken;
 
-    public ApiClient(string baseUrl = "http://localhost:5020")
+    public ApiClient(string baseUrl = DefaultBaseUrl)
     {
         BaseUrl = baseUrl.TrimEnd('/');
         _httpClient = CreateHttpClient(BaseUrl, _authToken);
