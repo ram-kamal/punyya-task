@@ -44,12 +44,13 @@ public partial class MainWindow : Window
         TasksItemsControl.ItemsSource = _tasks;
         LeavesItemsControl.ItemsSource = _leaves;
 
-        // Initialize Services (default port 5020)
-        _apiClient = new ApiClient("http://localhost:5020");
+        // Initialize Services (default production Render or saved config)
+        var initialUrl = !string.IsNullOrWhiteSpace(TxtServerUrl.Text) ? TxtServerUrl.Text.Trim() : DefaultCloudRenderUrl;
+        _apiClient = new ApiClient(initialUrl);
         _database = new TamperProofDatabase();
         _engine = new WorkstationTelemetryEngine(idleThresholdSeconds: 300);
         _syncWorker = new TelemetrySyncWorker(_database, _apiClient, _engine, syncIntervalSeconds: 30);
-        _realtimeClient = new RealtimeClient("http://localhost:5020", () => _apiClient.AuthToken);
+        _realtimeClient = new RealtimeClient(initialUrl, () => _apiClient.AuthToken);
 
         // Hook engine telemetry updates to UI
         _engine.FocusChanged += OnForegroundFocusChanged;
@@ -399,8 +400,8 @@ public partial class MainWindow : Window
             // Auto-candidate URLs to try silently so employees never need to type any URL
             var candidateUrls = new List<string>();
             if (!string.IsNullOrWhiteSpace(currentUrl)) candidateUrls.Add(currentUrl);
-            if (!candidateUrls.Contains("http://localhost:5020")) candidateUrls.Add("http://localhost:5020");
             if (!candidateUrls.Contains(DefaultCloudRenderUrl)) candidateUrls.Add(DefaultCloudRenderUrl);
+            if (!candidateUrls.Contains("http://localhost:5020")) candidateUrls.Add("http://localhost:5020");
             if (!candidateUrls.Contains("http://localhost:5000")) candidateUrls.Add("http://localhost:5000");
 
             AuthResponse? auth = null;
@@ -421,6 +422,14 @@ public partial class MainWindow : Window
                         SaveServerConfig(url);
                         break;
                     }
+                }
+                catch (InvalidOperationException ex)
+                {
+                    // Account suspended or explicit business failure
+                    TxtLoginError.Text = ex.Message;
+                    TxtLoginError.Visibility = Visibility.Visible;
+                    BtnDoLogin.IsEnabled = true;
+                    return;
                 }
                 catch (Exception ex)
                 {

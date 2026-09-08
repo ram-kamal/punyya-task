@@ -26,10 +26,13 @@ public class AuthService : IAuthService
     {
         var identifier = (request.Email ?? string.Empty).Trim().ToLower();
         var user = await _dbContext.Users
-            .FirstOrDefaultAsync(u => (u.Email.ToLower() == identifier || (u.Username != null && u.Username.ToLower() == identifier)) && u.IsActive, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == identifier || (u.Username != null && u.Username.ToLower() == identifier), cancellationToken);
 
         if (user == null)
             return null;
+
+        if (!user.IsActive)
+            throw new InvalidOperationException("This account is suspended or inactive. Please contact your system administrator.");
 
         if (!VerifyPassword(request.Password, user.PasswordHash))
             return null;

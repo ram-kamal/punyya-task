@@ -51,7 +51,26 @@ public class ApiClient
             StationId = stationId
         }, _jsonOptions, ct);
 
-        if (!response.IsSuccessStatusCode) return null;
+        if (!response.IsSuccessStatusCode)
+        {
+            if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                try
+                {
+                    var err = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>(_jsonOptions, ct);
+                    if (err != null && err.TryGetValue("message", out var msg) && !string.IsNullOrWhiteSpace(msg))
+                    {
+                        throw new InvalidOperationException(msg);
+                    }
+                }
+                catch (InvalidOperationException) { throw; }
+                catch { }
+
+                throw new InvalidOperationException("This account is suspended or inactive. Please contact your system administrator.");
+            }
+
+            return null;
+        }
 
         var auth = await response.Content.ReadFromJsonAsync<AuthResponse>(_jsonOptions, ct);
         if (auth != null && !string.IsNullOrWhiteSpace(auth.Token))

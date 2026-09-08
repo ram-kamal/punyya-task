@@ -356,7 +356,7 @@
                     <Expander Header="⚙ Advanced Connection Settings (Optional)" Foreground="{StaticResource TextSecondary}" FontSize="11" Margin="0,0,0,14" IsExpanded="False">
                         <StackPanel Margin="4,8,4,0">
                             <TextBlock Text="Server API URL (Auto-Resolved)" FontSize="10.5" Foreground="{StaticResource TextSecondary}" />
-                            <TextBox x:Name="TxtServerUrl" Text="http://localhost:5020" FontSize="11" Margin="0,2,0,8" />
+                            <TextBox x:Name="TxtServerUrl" Text="https://punnya-api.onrender.com" FontSize="11" Margin="0,2,0,8" />
                             <TextBlock Text="Station Identifier" FontSize="10.5" Foreground="{StaticResource TextSecondary}" />
                             <TextBox x:Name="TxtLoginStation" Text="WFH-DESK" FontSize="11" Margin="0,2,0,4" />
                         </StackPanel>

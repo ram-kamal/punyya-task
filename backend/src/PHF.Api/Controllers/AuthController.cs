@@ -20,13 +20,20 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
-        var response = await _authService.LoginAsync(request, cancellationToken);
-        if (response == null)
+        try
         {
-            return Unauthorized(new { message = "Invalid email or password." });
-        }
+            var response = await _authService.LoginAsync(request, cancellationToken);
+            if (response == null)
+            {
+                return Unauthorized(new { message = "Invalid email or password." });
+            }
 
-        return Ok(response);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
     }
 
     [Authorize]
