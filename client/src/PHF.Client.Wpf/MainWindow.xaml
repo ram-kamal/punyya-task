@@ -32,17 +32,23 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <!-- App Emblem -->
-                        <Border Width="38" Height="38" CornerRadius="8" Background="{StaticResource AccentBlue}" Margin="0,0,14,0">
-                            <TextBlock Text="PHF" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <!-- Punnya Heart App Emblem -->
+                        <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,14,0">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#E11D48" Offset="0" />
+                                    <GradientStop Color="#BE123C" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <TextBlock Text="♥" FontSize="18" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
 
                         <StackPanel VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="Punnya Task Desk" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" />
+                                <TextBlock Text="Punnya Heart Desk" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" />
                                 
                                 <!-- Online Status Pill -->
-                                <Border x:Name="StatusBadgeBorder" Background="#1A22C55E" BorderBrush="#3322C55E" BorderThickness="1" CornerRadius="12" Padding="9,2.5" Margin="14,0,0,0">
+                                <Border x:Name="StatusBadgeBorder" Background="#1A10B981" BorderBrush="#3310B981" BorderThickness="1" CornerRadius="12" Padding="9,2.5" Margin="14,0,0,0">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <Ellipse Width="6" Height="6" Fill="{StaticResource AccentGreenSoft}" Margin="0,0,6,0" VerticalAlignment="Center" />
                                         <TextBlock x:Name="TxtConnectionStatus" Text="LIVE CONNECTED" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentGreenSoft}" 
@@ -50,7 +56,7 @@
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
-                            <TextBlock x:Name="TxtSubHeader" Text="PHF Work Management System • Background Event Telemetry" FontSize="11.5" Foreground="{StaticResource TextSecondary}" Margin="0,2,0,0" />
+                            <TextBlock x:Name="TxtSubHeader" Text="Punnya Heart Foundation • Workstation Telemetry &amp; Task Desk" FontSize="11.5" Foreground="{StaticResource TextSecondary}" Margin="0,2,0,0" />
                         </StackPanel>
                     </StackPanel>
 
@@ -124,8 +130,8 @@
                             </Grid.ColumnDefinitions>
 
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="WORKSTATION TELEMETRY" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextTertiary}" />
-                            <Border Grid.Row="0" Grid.Column="1" Background="#1A60CDFF" CornerRadius="4" Padding="6,2">
-                                <TextBlock Text="near-0% CPU mode" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource AccentBlueLight}" />
+                            <Border Grid.Row="0" Grid.Column="1" Background="#1AE11D48" CornerRadius="4" Padding="6,2">
+                                <TextBlock Text="near-0% CPU mode" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource AccentRoseLight}" />
                             </Border>
 
                             <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,8,0,0">
@@ -136,7 +142,7 @@
                                 <TextBlock x:Name="TxtActiveApp" Text="Active App: Google Chrome" FontSize="13.5" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
 
-                            <Border Grid.Row="1" Grid.Column="1" Background="#1A22C55E" BorderBrush="#3322C55E" BorderThickness="1" CornerRadius="6" Padding="10,5" VerticalAlignment="Center">
+                            <Border Grid.Row="1" Grid.Column="1" Background="#1A10B981" BorderBrush="#3310B981" BorderThickness="1" CornerRadius="6" Padding="10,5" VerticalAlignment="Center">
                                 <TextBlock x:Name="TxtActiveTaskBadge" Text="Linked: TASK-101" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentGreenSoft}" />
                             </Border>
                         </Grid>
@@ -175,10 +181,10 @@
                                         BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
                                     <Grid>
                                         <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
+                                             <RowDefinition Height="Auto" />
+                                             <RowDefinition Height="Auto" />
+                                             <RowDefinition Height="Auto" />
+                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -187,8 +193,8 @@
 
                                         <!-- Top Row: Task Code Chip & Title -->
                                         <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Border Background="#260078D4" BorderBrush="#400078D4" BorderThickness="1" CornerRadius="4" Padding="7,2" Margin="0,0,10,0">
-                                                <TextBlock Text="{Binding TaskCode}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource AccentBlueLight}" />
+                                            <Border Background="#26E11D48" BorderBrush="#40E11D48" BorderThickness="1" CornerRadius="4" Padding="7,2" Margin="0,0,10,0">
+                                                <TextBlock Text="{Binding TaskCode}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource AccentRoseLight}" />
                                             </Border>
                                             <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" />
                                         </StackPanel>
@@ -247,9 +253,9 @@
                                         <!-- Completed State Banner (Shown only when task is COMPLETED) -->
                                         <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right"
                                                     Visibility="{Binding CompletedBadgeVisibility}">
-                                            <Border Background="#14532D" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="6" Padding="12,6">
+                                            <Border Background="#14532D" BorderBrush="#10B981" BorderThickness="1" CornerRadius="6" Padding="12,6">
                                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <TextBlock Text="✓ Task Completed &amp; Archived" FontSize="11.5" FontWeight="Bold" Foreground="#86EFAC" />
+                                                    <TextBlock Text="✓ Task Completed &amp; Archived" FontSize="11.5" FontWeight="Bold" Foreground="#6EE7B7" />
                                                 </StackPanel>
                                             </Border>
                                         </StackPanel>
@@ -275,7 +281,7 @@
         </Grid>
 
         <!-- Deliverable Attachment Modal Overlay (Windows 11 ContentDialog style) -->
-        <Grid x:Name="AttachDeliverableModal" Visibility="Collapsed" Background="#D9000000">
+        <Grid x:Name="AttachDeliverableModal" Visibility="Collapsed" Background="#E60D0E12">
             <Border Background="{StaticResource BgSurfaceCard}" CornerRadius="10" Width="520" Padding="24"
                     HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="{StaticResource BorderSubtleHover}" BorderThickness="1">
                 <StackPanel>
@@ -283,11 +289,11 @@
                     <TextBlock Text="Deliverable Gate: A task cannot be marked completed without proof of output." FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,4,0,16" />
 
                     <!-- Drag and drop zone -->
-                    <Border x:Name="DropZoneBorder" Background="{StaticResource BgSurfaceInset}" BorderBrush="{StaticResource AccentBlue}" BorderThickness="1.5" 
+                    <Border x:Name="DropZoneBorder" Background="{StaticResource BgSurfaceInset}" BorderBrush="{StaticResource AccentRose}" BorderThickness="1.5" 
                             CornerRadius="8" Height="110" AllowDrop="True" 
                             Drop="DropZone_Drop" DragOver="DropZone_DragOver" Margin="0,0,0,14">
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <TextBlock Text="📁 Drag and Drop Deliverable File Here" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource AccentBlueLight}" HorizontalAlignment="Center" />
+                            <TextBlock Text="📁 Drag and Drop Deliverable File Here" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource AccentRoseLight}" HorizontalAlignment="Center" />
                             <TextBlock Text="ZIP, PDF, DOCX, MP4, SQL, code, etc." FontSize="11" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" />
                         </StackPanel>
                     </Border>
@@ -314,16 +320,22 @@
         </Grid>
 
         <!-- Employee Login Overlay (Windows 11 ContentDialog style) -->
-        <Grid x:Name="LoginModal" Visibility="Collapsed" Background="#F2181818">
+        <Grid x:Name="LoginModal" Visibility="Collapsed" Background="#F20D0E12">
             <Border Background="{StaticResource BgSurfaceCard}" CornerRadius="10" Width="440" Padding="28"
                     HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="{StaticResource BorderSubtleHover}" BorderThickness="1">
                 <StackPanel>
-                    <Border Width="42" Height="42" CornerRadius="8" Background="{StaticResource AccentBlue}" HorizontalAlignment="Center" Margin="0,0,0,12">
-                        <TextBlock Text="PHF" FontSize="15" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Border Width="46" Height="46" CornerRadius="12" HorizontalAlignment="Center" Margin="0,0,0,14">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="#E11D48" Offset="0" />
+                                <GradientStop Color="#BE123C" Offset="1" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <TextBlock Text="♥" FontSize="22" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
 
-                    <TextBlock Text="PHF Work Management System" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" HorizontalAlignment="Center" />
-                    <TextBlock Text="Sign in with your username or personal email" FontSize="12.5" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,20" />
+                    <TextBlock Text="Punnya Heart Foundation" FontSize="19" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" HorizontalAlignment="Center" />
+                    <TextBlock Text="Sign in to your workstation to log shift telemetry and tasks" FontSize="12.5" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,20" />
 
                     <TextBlock Text="Username or Email" FontSize="11.5" Foreground="{StaticResource TextSecondary}" />
                     <TextBox x:Name="TxtLoginEmail" Text="dhvaj" Margin="0,4,0,12" />
@@ -332,11 +344,11 @@
                     <PasswordBox x:Name="TxtLoginPassword" Password="Admin0246" Margin="0,4,0,12" />
 
                     <!-- Work From Home Toggle & Auto-Device Pairing -->
-                    <Border Background="#1A3B82F6" BorderBrush="#333B82F6" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,14">
+                    <Border Background="#1A10B981" BorderBrush="#3310B981" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,14">
                         <StackPanel>
                             <CheckBox x:Name="ChkWorkFromHome" Content="Working from Home (Remote)" Foreground="{StaticResource TextPrimary}" 
                                       FontSize="12" FontWeight="SemiBold" IsChecked="True" Checked="ChkWorkFromHome_Changed" Unchecked="ChkWorkFromHome_Changed" />
-                            <TextBlock x:Name="TxtDevicePreview" Text="Paired Device: WFH-PC" FontSize="11" Foreground="{StaticResource AccentBlue}" Margin="20,4,0,0" />
+                            <TextBlock x:Name="TxtDevicePreview" Text="Paired Device: WFH-PC" FontSize="11" Foreground="{StaticResource AccentGreenSoft}" Margin="20,4,0,0" />
                         </StackPanel>
                     </Border>
 
@@ -352,13 +364,13 @@
 
                     <TextBlock x:Name="TxtLoginError" Text="" FontSize="11.5" Foreground="{StaticResource AccentRed}" Margin="0,0,0,10" Visibility="Collapsed" />
 
-                    <Button x:Name="BtnDoLogin" Content="Clock In &amp; Launch Desk" Background="{StaticResource AccentBlue}" Height="38" Click="BtnDoLogin_Click" />
+                    <Button x:Name="BtnDoLogin" Content="Clock In &amp; Launch Desk" Background="{StaticResource AccentRose}" Height="38" Click="BtnDoLogin_Click" />
                 </StackPanel>
             </Border>
         </Grid>
 
         <!-- Leave Center Modal (Windows 11 ContentDialog style) -->
-        <Grid x:Name="LeaveCenterModal" Visibility="Collapsed" Background="#D9000000">
+        <Grid x:Name="LeaveCenterModal" Visibility="Collapsed" Background="#E60D0E12">
             <Border Background="{StaticResource BgSurfaceCard}" CornerRadius="10" Width="680" MaxHeight="640" Padding="24"
                     HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="{StaticResource BorderSubtleHover}" BorderThickness="1">
                 <Grid>
@@ -394,7 +406,7 @@
                                 <TextBlock Text="APPLY FOR LEAVE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextTertiary}" Margin="0,0,0,10" />
 
                                 <TextBlock Text="Leave Type" FontSize="11.5" Foreground="{StaticResource TextSecondary}" />
-                                <ComboBox x:Name="CmbLeaveType" Margin="0,4,0,10" SelectedIndex="0" Background="#1C1C1C" Foreground="{StaticResource TextPrimary}" Padding="8,6">
+                                <ComboBox x:Name="CmbLeaveType" Margin="0,4,0,10" SelectedIndex="0" Background="{StaticResource BgSurfaceInset}" Foreground="{StaticResource TextPrimary}" Padding="8,6">
                                     <ComboBoxItem Content="CASUAL — Casual Leave" Tag="CASUAL" />
                                     <ComboBoxItem Content="SICK — Sick Leave" Tag="SICK" />
                                     <ComboBoxItem Content="MEDICAL — Medical Leave" Tag="MEDICAL" />
@@ -413,7 +425,7 @@
 
                                 <TextBlock x:Name="TxtLeaveFormMessage" Text="" FontSize="11" Foreground="{StaticResource AccentGreenSoft}" Margin="0,0,0,8" Visibility="Collapsed" TextWrapping="Wrap" />
 
-                                <Button x:Name="BtnSubmitLeaveApplication" Content="Submit Application ✓" Background="{StaticResource AccentBlue}" Height="34" Click="BtnSubmitLeaveApplication_Click" />
+                                <Button x:Name="BtnSubmitLeaveApplication" Content="Submit Application ✓" Background="{StaticResource AccentRose}" Height="34" Click="BtnSubmitLeaveApplication_Click" />
                             </StackPanel>
                         </Border>
 
@@ -432,8 +444,8 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Text="MY SUBMITTED REQUESTS" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextTertiary}" VerticalAlignment="Center" />
-                                        <Border Background="#14532D" CornerRadius="4" Padding="6,1.5" Margin="8,0,0,0" VerticalAlignment="Center">
-                                            <TextBlock Text="● LIVE AUTO-SYNC" FontSize="9.5" FontWeight="Bold" Foreground="#86EFAC" />
+                                        <Border Background="#14532D" BorderBrush="#10B981" BorderThickness="1" CornerRadius="4" Padding="6,1.5" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="● LIVE AUTO-SYNC" FontSize="9.5" FontWeight="Bold" Foreground="#6EE7B7" />
                                         </Border>
                                     </StackPanel>
                                     <Button Grid.Column="1" Content="↻" Style="{StaticResource SecondaryButton}" Padding="6,2" Click="BtnRefreshLeaves_Click" ToolTip="Manual Refresh" />
@@ -450,7 +462,7 @@
                                                                 <ColumnDefinition Width="*" />
                                                                 <ColumnDefinition Width="Auto" />
                                                             </Grid.ColumnDefinitions>
-                                                            <TextBlock Text="{Binding LeaveType}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource AccentBlueLight}" />
+                                                            <TextBlock Text="{Binding LeaveType}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource AccentRoseLight}" />
                                                             <Border Grid.Column="1" Background="{Binding StatusBgBrush}" CornerRadius="4" Padding="6,2">
                                                                 <TextBlock Text="{Binding Status}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding StatusFgBrush}" />
                                                             </Border>
@@ -460,7 +472,7 @@
                                                         <TextBlock Text="{Binding Reason}" FontSize="11" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" />
 
                                                         <!-- Reviewer feedback if reviewed -->
-                                                        <Border Visibility="{Binding ReviewSectionVisibility}" Background="#1F2937" CornerRadius="4" Padding="6" Margin="0,6,0,0">
+                                                        <Border Visibility="{Binding ReviewSectionVisibility}" Background="{StaticResource BgSurfaceCard}" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,6,0,0">
                                                             <TextBlock Text="{Binding ReviewText}" FontSize="10.5" Foreground="{StaticResource AccentGreenSoft}" TextWrapping="Wrap" />
                                                         </Border>
                                                     </StackPanel>
@@ -478,7 +490,7 @@
 
         <!-- Windows 11 Floating In-App Toast Banner (Auto-Update Live Alerts) -->
         <Border x:Name="NotificationToast" Visibility="Collapsed" VerticalAlignment="Top" HorizontalAlignment="Right" 
-                Margin="0,55,24,0" Background="#1E293B" CornerRadius="8" Padding="14,10" BorderBrush="{StaticResource AccentBlue}" BorderThickness="1.5"
+                Margin="0,55,24,0" Background="{StaticResource BgSurfaceCard}" CornerRadius="8" Padding="14,10" BorderBrush="{StaticResource AccentRose}" BorderThickness="1.5"
                 MaxWidth="380">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="16" Direction="270" ShadowDepth="4" Opacity="0.5" Color="#000000" />

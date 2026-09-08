@@ -305,14 +305,16 @@ public partial class MainWindow : Window
             if (isConnected)
             {
                 TxtConnectionStatus.Text = "● ONLINE";
-                StatusBadgeBorder.Background = new SolidColorBrush(Color.FromRgb(22, 101, 52));
-                TxtConnectionStatus.Foreground = new SolidColorBrush(Color.FromRgb(134, 239, 172));
+                StatusBadgeBorder.Background = new SolidColorBrush(Color.FromArgb(40, 16, 185, 129));
+                StatusBadgeBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(70, 16, 185, 129));
+                TxtConnectionStatus.Foreground = new SolidColorBrush(Color.FromRgb(52, 211, 153));
             }
             else
             {
-                TxtConnectionStatus.Text = "○ OFFLINE";
-                StatusBadgeBorder.Background = new SolidColorBrush(Color.FromRgb(127, 29, 29));
-                TxtConnectionStatus.Foreground = new SolidColorBrush(Color.FromRgb(252, 165, 165));
+                TxtConnectionStatus.Text = "○ RECONNECTING";
+                StatusBadgeBorder.Background = new SolidColorBrush(Color.FromArgb(40, 225, 29, 72));
+                StatusBadgeBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(70, 225, 29, 72));
+                TxtConnectionStatus.Foreground = new SolidColorBrush(Color.FromRgb(251, 113, 133));
             }
         });
     }
@@ -835,8 +837,8 @@ public class TaskItemViewModel : INotifyPropertyChanged
 
     public SolidColorBrush StatusColorBrush => _dto.Status switch
     {
-        "COMPLETED" => new SolidColorBrush(Color.FromRgb(34, 197, 94)),
-        "IN_PROGRESS" => new SolidColorBrush(Color.FromRgb(59, 130, 246)),
+        "COMPLETED" => new SolidColorBrush(Color.FromRgb(16, 185, 129)),
+        "IN_PROGRESS" => new SolidColorBrush(Color.FromRgb(225, 29, 72)),
         _ => new SolidColorBrush(Color.FromRgb(148, 163, 184))
     };
 
@@ -886,25 +888,25 @@ public class TaskItemViewModel : INotifyPropertyChanged
 
     public SolidColorBrush PriorityBgBrush => _dto.Priority switch
     {
-        "CRITICAL" => new SolidColorBrush(Color.FromArgb(50, 239, 68, 68)),
+        "CRITICAL" => new SolidColorBrush(Color.FromArgb(50, 225, 29, 72)),
         "HIGH" => new SolidColorBrush(Color.FromArgb(50, 245, 158, 11)),
-        "MEDIUM" => new SolidColorBrush(Color.FromArgb(40, 96, 205, 255)),
-        _ => new SolidColorBrush(Color.FromArgb(30, 163, 163, 163))
+        "MEDIUM" => new SolidColorBrush(Color.FromArgb(40, 244, 63, 94)),
+        _ => new SolidColorBrush(Color.FromArgb(30, 148, 163, 184))
     };
 
     public SolidColorBrush PriorityFgBrush => _dto.Priority switch
     {
-        "CRITICAL" => new SolidColorBrush(Color.FromRgb(252, 165, 165)),
+        "CRITICAL" => new SolidColorBrush(Color.FromRgb(251, 113, 133)),
         "HIGH" => new SolidColorBrush(Color.FromRgb(252, 211, 77)),
-        "MEDIUM" => new SolidColorBrush(Color.FromRgb(96, 205, 255)),
-        _ => new SolidColorBrush(Color.FromRgb(212, 212, 212))
+        "MEDIUM" => new SolidColorBrush(Color.FromRgb(253, 164, 175)),
+        _ => new SolidColorBrush(Color.FromRgb(203, 213, 225))
     };
 
     public SolidColorBrush StatusBgBrush => _dto.Status switch
     {
-        "COMPLETED" => new SolidColorBrush(Color.FromArgb(40, 34, 197, 94)),
-        "IN_PROGRESS" => new SolidColorBrush(Color.FromArgb(40, 96, 205, 255)),
-        _ => new SolidColorBrush(Color.FromArgb(25, 163, 163, 163))
+        "COMPLETED" => new SolidColorBrush(Color.FromArgb(40, 16, 185, 129)),
+        "IN_PROGRESS" => new SolidColorBrush(Color.FromArgb(40, 225, 29, 72)),
+        _ => new SolidColorBrush(Color.FromArgb(25, 148, 163, 184))
     };
 
     public SolidColorBrush DeliverableBgBrush
@@ -912,7 +914,7 @@ public class TaskItemViewModel : INotifyPropertyChanged
         get
         {
             if (HasDeliverable || _dto.Status == "COMPLETED")
-                return new SolidColorBrush(Color.FromArgb(35, 34, 197, 94));
+                return new SolidColorBrush(Color.FromArgb(35, 16, 185, 129));
             if (_dto.Status == "IN_PROGRESS")
                 return new SolidColorBrush(Color.FromArgb(35, 245, 158, 11));
             return new SolidColorBrush(Color.FromArgb(20, 255, 255, 255));
@@ -923,7 +925,7 @@ public class TaskItemViewModel : INotifyPropertyChanged
 
     public SolidColorBrush StartPauseButtonBrush => _isCurrentActive
         ? new SolidColorBrush(Color.FromRgb(245, 158, 11))  // Amber for Pause
-        : new SolidColorBrush(Color.FromRgb(59, 130, 246));  // Blue for Start
+        : new SolidColorBrush(Color.FromRgb(225, 29, 72));  // Rose for Start
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? name = null)
