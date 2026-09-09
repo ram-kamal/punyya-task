@@ -206,6 +206,10 @@ public class TelemetryService : ITelemetryService
             .Where(l => l.LoggedAt >= today)
             .ToListAsync(cancellationToken);
 
+        var todayShifts = await _dbContext.Shifts
+            .Where(s => s.ClockIn >= today)
+            .ToListAsync(cancellationToken);
+
         var result = new List<WorkstationStatusDto>();
 
         foreach (var emp in employees)
@@ -242,8 +246,26 @@ public class TelemetryService : ITelemetryService
             }
 
             var empLogs = todayLogs.Where(l => l.UserId == emp.Id).ToList();
+            var empShifts = todayShifts.Where(s => s.UserId == emp.Id).ToList();
+            var activeShift = empShifts.FirstOrDefault(s => s.Status == ShiftStatus.ACTIVE.ToString());
+
             var activeMinutes = empLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds) / 60;
             var idleMinutes = empLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds) / 60;
+
+            if (activeMinutes == 0 && empShifts.Any())
+            {
+                activeMinutes = empShifts.Sum(s => s.TotalActiveSeconds) / 60;
+                idleMinutes = empShifts.Sum(s => s.TotalIdleSeconds) / 60;
+            }
+
+            if (activeShift != null)
+            {
+                var elapsedMins = (int)(now - activeShift.ClockIn).TotalMinutes;
+                if (elapsedMins > activeMinutes + idleMinutes)
+                {
+                    activeMinutes = Math.Max(activeMinutes, elapsedMins - idleMinutes);
+                }
+            }
 
             result.Add(new WorkstationStatusDto
             {
