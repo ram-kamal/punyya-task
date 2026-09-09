@@ -206,7 +206,18 @@ public partial class MainWindow : Window
             {
                 TxtShiftState.Text = "Clocked In";
                 TxtShiftState.Foreground = (SolidColorBrush)FindResource("AccentGreen");
-                TxtShiftHours.Text = $"Logged Today: {shift.TotalHoursToday:F1}h";
+
+                var elapsed = (int)(DateTime.UtcNow - shift.ClockIn).TotalSeconds;
+                var activeSec = shift.TotalActiveSeconds > 0 ? shift.TotalActiveSeconds : elapsed;
+                var totalSec = Math.Max(activeSec, (int)Math.Round(shift.TotalHoursToday * 3600));
+
+                int actH = activeSec / 3600;
+                int actM = (activeSec % 3600) / 60;
+
+                int totH = totalSec / 3600;
+                int totM = (totalSec % 3600) / 60;
+
+                TxtShiftHours.Text = $"Active: {actH}h {actM}m • Total Logged: {totH}h {totM}m";
                 BtnClockToggle.Content = "Clock Out";
                 BtnClockToggle.Background = (SolidColorBrush)FindResource("AccentAmber");
             }
@@ -214,7 +225,23 @@ public partial class MainWindow : Window
             {
                 TxtShiftState.Text = "Clocked Out";
                 TxtShiftState.Foreground = (SolidColorBrush)FindResource("AccentAmber");
-                TxtShiftHours.Text = "Shift not currently active";
+
+                if (shift != null && (shift.TotalHoursToday > 0 || shift.TotalActiveSeconds > 0))
+                {
+                    int actH = shift.TotalActiveSeconds / 3600;
+                    int actM = (shift.TotalActiveSeconds % 3600) / 60;
+
+                    int totalSec = (int)Math.Round(shift.TotalHoursToday * 3600);
+                    int totH = totalSec / 3600;
+                    int totM = (totalSec % 3600) / 60;
+
+                    TxtShiftHours.Text = $"Today's Total: {totH}h {totM}m (Active: {actH}h {actM}m)";
+                }
+                else
+                {
+                    TxtShiftHours.Text = "Shift not active (0h 0m logged)";
+                }
+
                 BtnClockToggle.Content = "Clock In";
                 BtnClockToggle.Background = (SolidColorBrush)FindResource("AccentGreen");
             }

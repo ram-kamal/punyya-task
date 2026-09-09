@@ -102,10 +102,24 @@ public class ShiftService : IShiftService
             .ToListAsync(cancellationToken);
 
         var totalSecondsToday = todayLogs.Sum(l => l.DurationSeconds);
-        if (totalSecondsToday == 0 && shift.Status == ShiftStatus.ACTIVE.ToString())
+        var activeSecondsToday = todayLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds);
+        var idleSecondsToday = todayLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds);
+
+        if (shift.Status == ShiftStatus.ACTIVE.ToString())
         {
-            totalSecondsToday = (int)(DateTime.UtcNow - shift.ClockIn).TotalSeconds;
+            var elapsedShiftSeconds = (int)(DateTime.UtcNow - shift.ClockIn).TotalSeconds;
+            if (elapsedShiftSeconds > totalSecondsToday)
+            {
+                totalSecondsToday = elapsedShiftSeconds;
+            }
+            if (activeSecondsToday == 0 && totalSecondsToday > 0)
+            {
+                activeSecondsToday = Math.Max(0, totalSecondsToday - idleSecondsToday);
+            }
         }
+
+        var finalActiveSec = activeSecondsToday > 0 ? activeSecondsToday : shift.TotalActiveSeconds;
+        var finalIdleSec = idleSecondsToday > 0 ? idleSecondsToday : shift.TotalIdleSeconds;
 
         return new ShiftResponseDto
         {
@@ -114,10 +128,21 @@ public class ShiftService : IShiftService
             StationId = shift.StationId,
             ClockIn = shift.ClockIn,
             ClockOut = shift.ClockOut,
-            TotalActiveSeconds = shift.TotalActiveSeconds,
-            TotalIdleSeconds = shift.TotalIdleSeconds,
+            TotalActiveSeconds = finalActiveSec,
+            TotalIdleSeconds = finalIdleSec,
             Status = shift.Status,
-            TotalHoursToday = Math.Round(totalSecondsToday / 3600.0, 2)
+            TotalHoursToday = Math.Round(totalSecondsToday / 3600.0, 2),
+            ActiveTimeFormatted = FormatHoursMinutes(finalActiveSec),
+            TotalTimeFormatted = FormatHoursMinutes(totalSecondsToday)
         };
+    }
+
+    private static string FormatHoursMinutes(int totalSeconds)
+    {
+        if (totalSeconds <= 0) return "0h 0m";
+        var totalMinutes = totalSeconds / 60;
+        var h = totalMinutes / 60;
+        var m = totalMinutes % 60;
+        return $"{h}h {m}m";
     }
 }

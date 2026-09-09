@@ -74,6 +74,9 @@ export interface TimesheetRow {
   totalHours: number;
   activeHours: number;
   idleHours: number;
+  totalTimeFormatted?: string;
+  activeTimeFormatted?: string;
+  idleTimeFormatted?: string;
   efficiencyPercentage: number;
   tasksCompleted: number;
 }

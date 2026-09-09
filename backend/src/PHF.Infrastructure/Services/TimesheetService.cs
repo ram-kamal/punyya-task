@@ -68,6 +68,16 @@ public class TimesheetService : ITimesheetService
                 idleSec = empShifts.Sum(s => s.TotalIdleSeconds);
             }
 
+            var activeShift = empShifts.FirstOrDefault(s => s.Status == ShiftStatus.ACTIVE.ToString());
+            if (activeShift != null)
+            {
+                var elapsed = (int)(DateTime.UtcNow - activeShift.ClockIn).TotalSeconds;
+                if (elapsed > activeSec + idleSec)
+                {
+                    activeSec = Math.Max(activeSec, elapsed - idleSec);
+                }
+            }
+
             var totalSec = activeSec + idleSec;
             totalActiveSecondsAll += activeSec;
             totalSecondsAll += totalSec;
@@ -83,10 +93,13 @@ public class TimesheetService : ITimesheetService
                 EmployeeName = emp.FullName,
                 Email = emp.Email,
                 ClockIn = firstClockIn?.ToString("HH:mm:ss") ?? "—",
-                ClockOut = lastClockOut?.ToString("HH:mm:ss") ?? (empShifts.Any(s => s.Status == ShiftStatus.ACTIVE.ToString()) ? "Active" : "—"),
+                ClockOut = lastClockOut?.ToString("HH:mm:ss") ?? (activeShift != null ? "Active" : "—"),
                 TotalHours = Math.Round(totalSec / 3600.0, 2),
                 ActiveHours = Math.Round(activeSec / 3600.0, 2),
                 IdleHours = Math.Round(idleSec / 3600.0, 2),
+                TotalTimeFormatted = FormatHoursMinutes(totalSec),
+                ActiveTimeFormatted = FormatHoursMinutes(activeSec),
+                IdleTimeFormatted = FormatHoursMinutes(idleSec),
                 EfficiencyPercentage = efficiency,
                 TasksCompleted = empCompleted
             });
@@ -114,14 +127,14 @@ public class TimesheetService : ITimesheetService
         var summary = await GetSummaryAsync(startDate, cancellationToken);
         var csv = new StringBuilder();
 
-        // Header
-        csv.AppendLine("Date,Station,Employee Name,Email,Clock In,Clock Out,Total Hours,Active Hours,Idle Hours,Efficiency %,Tasks Completed");
+        // Header with both decimal and human-readable Hours & Minutes
+        csv.AppendLine("Date,Station,Employee Name,Email,Clock In,Clock Out,Total Hours,Total Time (HH:MM),Active Hours,Active Time (HH:MM),Idle Hours,Idle Time (HH:MM),Efficiency %,Tasks Completed");
 
         foreach (var row in summary.Rows)
         {
             csv.AppendLine(string.Format(
                 CultureInfo.InvariantCulture,
-                "\"{0}\",\"{1}\",\"{2}\",\"{3}\",\"{4}\",\"{5}\",{6:F2},{7:F2},{8:F2},{9:F1}%,{10}",
+                "\"{0}\",\"{1}\",\"{2}\",\"{3}\",\"{4}\",\"{5}\",{6:F2},\"{7}\",{8:F2},\"{9}\",{10:F2},\"{11}\",{12:F1}%,{13}",
                 row.Date,
                 row.StationId,
                 row.EmployeeName.Replace("\"", "\"\""),
@@ -129,8 +142,11 @@ public class TimesheetService : ITimesheetService
                 row.ClockIn,
                 row.ClockOut,
                 row.TotalHours,
+                row.TotalTimeFormatted,
                 row.ActiveHours,
+                row.ActiveTimeFormatted,
                 row.IdleHours,
+                row.IdleTimeFormatted,
                 row.EfficiencyPercentage,
                 row.TasksCompleted
             ));
@@ -139,5 +155,14 @@ public class TimesheetService : ITimesheetService
         // Return with UTF-8 BOM so Excel opens it with proper formatting
         var utf8WithBom = new UTF8Encoding(true);
         return utf8WithBom.GetBytes(csv.ToString());
+    }
+
+    private static string FormatHoursMinutes(int totalSeconds)
+    {
+        if (totalSeconds <= 0) return "0h 0m";
+        var totalMinutes = totalSeconds / 60;
+        var h = totalMinutes / 60;
+        var m = totalMinutes % 60;
+        return $"{h}h {m}m";
     }
 }

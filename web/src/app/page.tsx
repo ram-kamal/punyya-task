@@ -75,6 +75,14 @@ import { signalRClient } from '@/lib/signalr';
 
 type ActivityCategory = 'tasks' | 'all' | 'focus' | 'security';
 
+function formatHoursMinutes(decimalHours: number): string {
+  if (!decimalHours || isNaN(decimalHours) || decimalHours <= 0) return '0h 0m';
+  const totalMins = Math.round(decimalHours * 60);
+  const hrs = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  return `${hrs}h ${mins}m`;
+}
+
 export default function AdminDashboardPage() {
   // Authentication & Mobile Menu State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -596,7 +604,7 @@ export default function AdminDashboardPage() {
   const approvedLeavesCount = leaves.filter((l) => l.status === 'APPROVED').length;
   const rejectedLeavesCount = leaves.filter((l) => l.status === 'REJECTED').length;
   const avgEfficiency = timesheet?.averageEfficiencyPercentage ?? 92;
-  const hoursLoggedToday = timesheet?.totalHoursLoggedToday ?? 18.5;
+  const hoursLoggedToday = timesheet?.totalHoursLoggedToday ?? 0;
 
   // Session verification loader
   if (authChecking) {
@@ -1013,8 +1021,8 @@ export default function AdminDashboardPage() {
               <span className="text-[11px] font-bold tracking-wider uppercase">Hours Logged Today</span>
               <Clock className="w-4 h-4 text-amber-400" />
             </div>
-            <div className="text-2xl font-black text-white">{hoursLoggedToday}h</div>
-            <div className="text-[11px] text-slate-400 mt-2 font-medium">Across all clocked-in workstation shifts</div>
+            <div className="text-2xl font-black text-white">{formatHoursMinutes(hoursLoggedToday)}</div>
+            <div className="text-[11px] text-slate-400 mt-2 font-medium">{hoursLoggedToday.toFixed(1)}h across clocked-in workstation shifts</div>
           </div>
         </div>
 
@@ -1124,7 +1132,7 @@ export default function AdminDashboardPage() {
                       <th className="px-5 py-3">Assignee</th>
                       <th className="px-5 py-3">Current Task</th>
                       <th className="px-5 py-3">Foreground App</th>
-                      <th className="px-5 py-3">Logged Today</th>
+                      <th className="px-5 py-3">Active Time Today</th>
                       <th className="px-5 py-3 text-right">Station State</th>
                     </tr>
                   </thead>
@@ -1545,9 +1553,9 @@ export default function AdminDashboardPage() {
                       <th className="px-5 py-3">Employee Name</th>
                       <th className="px-5 py-3">Clock In</th>
                       <th className="px-5 py-3">Clock Out</th>
-                      <th className="px-5 py-3">Total Hours</th>
-                      <th className="px-5 py-3">Active Hours</th>
-                      <th className="px-5 py-3">Idle Hours</th>
+                      <th className="px-5 py-3">Total Time</th>
+                      <th className="px-5 py-3">Active Time</th>
+                      <th className="px-5 py-3">Idle Time</th>
                       <th className="px-5 py-3">Efficiency</th>
                       <th className="px-5 py-3 text-right">Tasks Done</th>
                     </tr>
@@ -1560,9 +1568,18 @@ export default function AdminDashboardPage() {
                         <td className="px-5 py-3.5 text-white">{row.employeeName}</td>
                         <td className="px-5 py-3.5 text-slate-300 font-mono text-xs">{row.clockIn}</td>
                         <td className="px-5 py-3.5 text-slate-300 font-mono text-xs">{row.clockOut}</td>
-                        <td className="px-5 py-3.5 text-white font-semibold">{row.totalHours.toFixed(2)}h</td>
-                        <td className="px-5 py-3.5 text-emerald-400 font-semibold">{row.activeHours.toFixed(2)}h</td>
-                        <td className="px-5 py-3.5 text-amber-400 font-semibold">{row.idleHours.toFixed(2)}h</td>
+                        <td className="px-5 py-3.5 text-white font-semibold">
+                          <span className="font-mono">{row.totalTimeFormatted || formatHoursMinutes(row.totalHours)}</span>
+                          <span className="text-[10px] text-slate-400 font-normal ml-1.5">({row.totalHours.toFixed(2)}h)</span>
+                        </td>
+                        <td className="px-5 py-3.5 text-emerald-400 font-semibold">
+                          <span className="font-mono">{row.activeTimeFormatted || formatHoursMinutes(row.activeHours)}</span>
+                          <span className="text-[10px] text-emerald-500/70 font-normal ml-1.5">({row.activeHours.toFixed(2)}h)</span>
+                        </td>
+                        <td className="px-5 py-3.5 text-amber-400 font-semibold">
+                          <span className="font-mono">{row.idleTimeFormatted || formatHoursMinutes(row.idleHours)}</span>
+                          <span className="text-[10px] text-amber-500/70 font-normal ml-1.5">({row.idleHours.toFixed(2)}h)</span>
+                        </td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center space-x-2">
                             <div className="w-16 h-2 bg-[#0D0E12] rounded-full overflow-hidden border border-[#262938]">

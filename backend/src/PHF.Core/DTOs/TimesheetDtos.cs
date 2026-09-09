@@ -21,6 +21,8 @@ public record ShiftResponseDto
     public int TotalIdleSeconds { get; init; }
     public string Status { get; init; } = string.Empty;
     public double TotalHoursToday { get; init; }
+    public string ActiveTimeFormatted { get; init; } = string.Empty;
+    public string TotalTimeFormatted { get; init; } = string.Empty;
 }
 
 public record TimesheetRowDto
@@ -34,6 +36,9 @@ public record TimesheetRowDto
     public double TotalHours { get; init; }
     public double ActiveHours { get; init; }
     public double IdleHours { get; init; }
+    public string TotalTimeFormatted { get; init; } = string.Empty;
+    public string ActiveTimeFormatted { get; init; } = string.Empty;
+    public string IdleTimeFormatted { get; init; } = string.Empty;
     public double EfficiencyPercentage { get; init; }
     public int TasksCompleted { get; init; }
 }
