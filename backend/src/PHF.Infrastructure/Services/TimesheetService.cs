@@ -92,8 +92,8 @@ public class TimesheetService : ITimesheetService
                 StationId = emp.StationId ?? "—",
                 EmployeeName = emp.FullName,
                 Email = emp.Email,
-                ClockIn = firstClockIn?.ToString("HH:mm:ss") ?? "—",
-                ClockOut = lastClockOut?.ToString("HH:mm:ss") ?? (activeShift != null ? "Active" : "—"),
+                ClockIn = FormatTimeAmPm(firstClockIn),
+                ClockOut = activeShift != null ? "Active" : FormatTimeAmPm(lastClockOut),
                 TotalHours = Math.Round(totalSec / 3600.0, 2),
                 ActiveHours = Math.Round(activeSec / 3600.0, 2),
                 IdleHours = Math.Round(idleSec / 3600.0, 2),
@@ -164,5 +164,13 @@ public class TimesheetService : ITimesheetService
         var h = totalMinutes / 60;
         var m = totalMinutes % 60;
         return $"{h}h {m}m";
+    }
+
+    private static string FormatTimeAmPm(DateTime? utcTime)
+    {
+        if (!utcTime.HasValue) return "—";
+        // Convert UTC to IST (+5:30)
+        var ist = utcTime.Value.AddHours(5.5);
+        return ist.ToString("hh:mm:ss tt"); // e.g. "04:03:49 PM"
     }
 }
