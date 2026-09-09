@@ -97,13 +97,27 @@ public class ApiClient
         return auth;
     }
 
-    public async Task<List<TaskResponseDto>> GetAssignedTasksAsync(Guid? assignedTo = null, CancellationToken ct = default)
+    public async Task<List<TaskResponseDto>> GetAssignedTasksAsync(
+        Guid? assignedTo = null, 
+        string? stationId = null, 
+        bool includeUnassigned = true, 
+        CancellationToken ct = default)
     {
-        var url = "/api/v1/tasks";
+        var queryParams = new List<string>();
         if (assignedTo.HasValue)
         {
-            url += $"?assignedTo={assignedTo.Value}";
+            queryParams.Add($"assignedTo={assignedTo.Value}");
         }
+        if (!string.IsNullOrWhiteSpace(stationId))
+        {
+            queryParams.Add($"stationId={Uri.EscapeDataString(stationId)}");
+        }
+        if (includeUnassigned)
+        {
+            queryParams.Add("includeUnassigned=true");
+        }
+
+        var url = "/api/v1/tasks" + (queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "");
 
         var response = await _httpClient.GetAsync(url, ct);
         if (!response.IsSuccessStatusCode) return new List<TaskResponseDto>();

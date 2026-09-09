@@ -56,6 +56,7 @@ public partial class MainWindow : Window
         _engine.FocusChanged += OnForegroundFocusChanged;
         _syncWorker.OnBatchSynced += OnBatchSynced;
         _realtimeClient.OnTaskAssigned += OnRealtimeTaskAssigned;
+        _realtimeClient.OnTaskStatusChanged += OnRealtimeTaskStatusChanged;
         _realtimeClient.OnWorkstationEventReceived += OnRealtimeWorkstationEventReceived;
         _realtimeClient.OnLeaveUpdated += OnRealtimeLeaveUpdated;
         _realtimeClient.OnConnectionStateChanged += OnRealtimeConnectionChanged;
@@ -164,29 +165,36 @@ public partial class MainWindow : Window
         _engine.Start();
         _syncWorker.Start();
 
-        // Connect Realtime SignalR
-        await _realtimeClient.StartAsync(_stationId);
-
-        // Load tasks, shift status, and leaves
-        await RefreshShiftStatusAsync();
-        await RefreshTasksAsync();
-        await RefreshLeavesAsync();
-
-        // 15-second gentle periodic auto-refresh timer as robust fallback
+        // 10-second periodic auto-refresh timer as robust background sync
         _autoRefreshTimer?.Stop();
         _autoRefreshTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(15)
+            Interval = TimeSpan.FromSeconds(10)
         };
         _autoRefreshTimer.Tick += async (s, e) =>
         {
-            await RefreshLeavesAsync();
             await RefreshTasksAsync();
+            await RefreshLeavesAsync();
             await RefreshShiftStatusAsync();
         };
         _autoRefreshTimer.Start();
 
-        TxtStatusBar.Text = $"Active Workstation: {_stationId} • Telemetry hook listening on user32.dll";
+        // Connect Realtime SignalR (graceful fallback if server is waking up)
+        try
+        {
+            await _realtimeClient.StartAsync(_stationId, _currentUser?.Id.ToString());
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"SignalR init warning: {ex.Message}");
+        }
+
+        // Load tasks, shift status, and leaves immediately
+        await RefreshTasksAsync();
+        await RefreshShiftStatusAsync();
+        await RefreshLeavesAsync();
+
+        TxtStatusBar.Text = $"Active Workstation: {_stationId} • Real-time Task & Telemetry Sync Active";
     }
 
     private async Task RefreshShiftStatusAsync()
@@ -221,7 +229,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            var tasks = await _apiClient.GetAssignedTasksAsync(_currentUser?.Id);
+            var tasks = await _apiClient.GetAssignedTasksAsync(_currentUser?.Id, _stationId, includeUnassigned: true);
             _tasks.Clear();
 
             foreach (var task in tasks)
@@ -286,17 +294,56 @@ public partial class MainWindow : Window
         });
     }
 
-    private void OnRealtimeTaskAssigned(TaskResponseDto task)
+    private void OnRealtimeTaskAssigned(TaskResponseDto? task)
     {
         Dispatcher.Invoke(async () =>
         {
             await RefreshTasksAsync();
-            MessageBox.Show(
-                $"New Task Dispatched by Manager!\n\n[{task.TaskCode}] {task.Title}\nPriority: {task.Priority}",
-                "Task Assigned — PHF Work Management",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            if (task != null)
+            {
+                bool isRelevant = task.AssignedTo == null || 
+                                  task.AssignedTo == _currentUser?.Id || 
+                                  (!string.IsNullOrWhiteSpace(_stationId) && task.AssignedToStation == _stationId);
+
+                if (isRelevant)
+                {
+                    ShowTaskToastNotification(task);
+                }
+            }
         });
+    }
+
+    private void OnRealtimeTaskStatusChanged(Guid taskId, string newStatus, string? deliverableUrl)
+    {
+        Dispatcher.Invoke(async () =>
+        {
+            await RefreshTasksAsync();
+        });
+    }
+
+    private void ShowTaskToastNotification(TaskResponseDto task)
+    {
+        try
+        {
+            TxtToastIcon.Text = "⚡";
+            TxtToastTitle.Text = $"New Task: {task.TaskCode}";
+            TxtToastTitle.Foreground = (SolidColorBrush)FindResource("AccentRoseLight");
+            TxtToastMessage.Text = $"{task.Title}\nPriority: {task.Priority} • Deliverable: {(task.DeliverableRequired ? "Required" : "Optional")}";
+            NotificationToast.Visibility = Visibility.Visible;
+
+            _toastDismissTimer?.Stop();
+            _toastDismissTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(8)
+            };
+            _toastDismissTimer.Tick += (s, e) =>
+            {
+                NotificationToast.Visibility = Visibility.Collapsed;
+                _toastDismissTimer?.Stop();
+            };
+            _toastDismissTimer.Start();
+        }
+        catch { }
     }
 
     private void OnRealtimeConnectionChanged(bool isConnected)
@@ -339,6 +386,14 @@ public partial class MainWindow : Window
                 await RefreshLeavesAsync();
                 ShowLeaveToastNotification(evt);
                 TxtStatusBar.Text = $"Leave Update: {evt.Details}";
+            });
+        }
+        else if (evt.EventType != null && evt.EventType.StartsWith("TASK_"))
+        {
+            Dispatcher.Invoke(async () =>
+            {
+                await RefreshTasksAsync();
+                TxtStatusBar.Text = $"Task Update: {evt.Details}";
             });
         }
     }

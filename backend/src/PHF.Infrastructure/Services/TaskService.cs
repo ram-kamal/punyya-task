@@ -21,6 +21,8 @@ public class TaskService : ITaskService
     public async Task<List<TaskResponseDto>> GetTasksAsync(
         string? status = null, 
         Guid? assignedTo = null, 
+        string? stationId = null,
+        bool includeUnassigned = false,
         string? priority = null, 
         CancellationToken cancellationToken = default)
     {
@@ -38,7 +40,43 @@ public class TaskService : ITaskService
 
         if (assignedTo.HasValue)
         {
-            query = query.Where(t => t.AssignedTo == assignedTo.Value);
+            if (includeUnassigned)
+            {
+                if (!string.IsNullOrWhiteSpace(stationId))
+                {
+                    query = query.Where(t => t.AssignedTo == assignedTo.Value || t.AssignedTo == null || (t.AssignedToUser != null && t.AssignedToUser.StationId == stationId));
+                }
+                else
+                {
+                    query = query.Where(t => t.AssignedTo == assignedTo.Value || t.AssignedTo == null);
+                }
+            }
+            else
+            {
+                if (!string.IsNullOrWhiteSpace(stationId))
+                {
+                    query = query.Where(t => t.AssignedTo == assignedTo.Value || (t.AssignedToUser != null && t.AssignedToUser.StationId == stationId));
+                }
+                else
+                {
+                    query = query.Where(t => t.AssignedTo == assignedTo.Value);
+                }
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(stationId))
+        {
+            if (includeUnassigned)
+            {
+                query = query.Where(t => (t.AssignedToUser != null && t.AssignedToUser.StationId == stationId) || t.AssignedTo == null);
+            }
+            else
+            {
+                query = query.Where(t => t.AssignedToUser != null && t.AssignedToUser.StationId == stationId);
+            }
+        }
+        else if (includeUnassigned)
+        {
+            query = query.Where(t => t.AssignedTo == null);
         }
 
         if (!string.IsNullOrWhiteSpace(priority))

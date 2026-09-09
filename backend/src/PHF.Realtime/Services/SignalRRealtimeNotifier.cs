@@ -43,7 +43,14 @@ public class SignalRRealtimeNotifier : IRealtimeNotifier
 
     public async Task NotifyTaskAssignedAsync(Guid userId, TaskResponseDto taskDto)
     {
-        // Notify specific user
+        // Broadcast to ALL connected clients (employee desks + manager console) for instant real-time sync
+        await _hubContext.Clients.All
+            .SendAsync("TaskAssigned", taskDto);
+
+        await _hubContext.Clients.All
+            .SendAsync("TaskUpdated", taskDto);
+
+        // Notify specific user group
         await _hubContext.Clients.Group($"User_{userId}")
             .SendAsync("TaskAssigned", taskDto);
 
@@ -63,5 +70,8 @@ public class SignalRRealtimeNotifier : IRealtimeNotifier
     {
         await _hubContext.Clients.All
             .SendAsync("TaskStatusChanged", new { TaskId = taskId, NewStatus = newStatus, DeliverableUrl = deliverableUrl });
+
+        await _hubContext.Clients.All
+            .SendAsync("TaskUpdated", new { TaskId = taskId, NewStatus = newStatus, DeliverableUrl = deliverableUrl });
     }
 }

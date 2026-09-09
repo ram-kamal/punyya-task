@@ -43,6 +43,10 @@ class SignalRManager {
         if (this.onTaskUpdated) this.onTaskUpdated();
       });
 
+      this.connection.on('TaskUpdated', () => {
+        if (this.onTaskUpdated) this.onTaskUpdated();
+      });
+
       this.connection.on('TaskStatusChanged', () => {
         if (this.onTaskUpdated) this.onTaskUpdated();
       });

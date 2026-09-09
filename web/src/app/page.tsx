@@ -2146,11 +2146,11 @@ export default function AdminDashboardPage() {
                 >
                   <option value="">Unassigned (Awaiting employee claim)</option>
                   {users
-                    .filter((u) => u.role === 'EMPLOYEE')
+                    .filter((u) => u.role !== 'ADMIN')
                     .map((u) => (
                       <option key={u.id} value={u.id}>
                         {u.stationId ? `${u.stationId} — ` : ''}
-                        {u.fullName} ({u.email})
+                        {u.fullName || u.username} ({u.email || u.username})
                       </option>
                     ))}
                 </select>

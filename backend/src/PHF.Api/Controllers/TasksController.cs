@@ -21,12 +21,14 @@ public class TasksController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> GetTasks(
-        [FromQuery] string? status,
-        [FromQuery] Guid? assignedTo,
-        [FromQuery] string? priority,
-        CancellationToken cancellationToken)
+        [FromQuery] string? status = null,
+        [FromQuery] Guid? assignedTo = null,
+        [FromQuery] string? stationId = null,
+        [FromQuery] bool includeUnassigned = false,
+        [FromQuery] string? priority = null,
+        CancellationToken cancellationToken = default)
     {
-        var tasks = await _taskService.GetTasksAsync(status, assignedTo, priority, cancellationToken);
+        var tasks = await _taskService.GetTasksAsync(status, assignedTo, stationId, includeUnassigned, priority, cancellationToken);
         return Ok(tasks);
     }
 

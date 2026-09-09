@@ -4,7 +4,7 @@ namespace PHF.Core.Interfaces;
 
 public interface ITaskService
 {
-    Task<List<TaskResponseDto>> GetTasksAsync(string? status = null, Guid? assignedTo = null, string? priority = null, CancellationToken cancellationToken = default);
+    Task<List<TaskResponseDto>> GetTasksAsync(string? status = null, Guid? assignedTo = null, string? stationId = null, bool includeUnassigned = false, string? priority = null, CancellationToken cancellationToken = default);
     Task<TaskResponseDto?> GetTaskByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<TaskResponseDto> CreateTaskAsync(CreateTaskRequest request, Guid assignedBy, CancellationToken cancellationToken = default);
     Task<TaskResponseDto?> UpdateTaskStatusAsync(Guid id, UpdateTaskStatusRequest request, Guid updatedBy, CancellationToken cancellationToken = default);

@@ -35,7 +35,7 @@ public class RealtimeClient : IAsyncDisposable
         _tokenProvider = tokenProvider;
     }
 
-    public async Task StartAsync(string? stationId = null, CancellationToken ct = default)
+    public async Task StartAsync(string? stationId = null, string? userId = null, CancellationToken ct = default)
     {
         if (_hubConnection != null)
         {
@@ -47,10 +47,15 @@ public class RealtimeClient : IAsyncDisposable
             {
                 options.AccessTokenProvider = () => Task.FromResult(_tokenProvider?.Invoke());
             })
-            .WithAutomaticReconnect(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30) })
+            .WithAutomaticReconnect(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30) })
             .Build();
 
         _hubConnection.On<TaskResponseDto>("TaskAssigned", task =>
+        {
+            OnTaskAssigned?.Invoke(task);
+        });
+
+        _hubConnection.On<TaskResponseDto>("TaskUpdated", task =>
         {
             OnTaskAssigned?.Invoke(task);
         });
@@ -82,10 +87,20 @@ public class RealtimeClient : IAsyncDisposable
         _hubConnection.Reconnected += async _ =>
         {
             OnConnectionStateChanged?.Invoke(true);
-            if (!string.IsNullOrWhiteSpace(stationId))
+            try
             {
-                await _hubConnection.InvokeAsync("JoinStation", stationId);
+                if (!string.IsNullOrWhiteSpace(stationId))
+                {
+                    await _hubConnection.InvokeAsync("JoinStation", stationId);
+                }
+                if (!string.IsNullOrWhiteSpace(userId))
+                {
+                    await _hubConnection.InvokeAsync("JoinUserGroup", userId);
+                }
+                // Automatically notify client to reload assignments upon reconnection
+                OnTaskAssigned?.Invoke(null!);
             }
+            catch { }
         };
 
         _hubConnection.Closed += _ =>
@@ -102,6 +117,10 @@ public class RealtimeClient : IAsyncDisposable
             if (!string.IsNullOrWhiteSpace(stationId))
             {
                 await _hubConnection.InvokeAsync("JoinStation", stationId, ct);
+            }
+            if (!string.IsNullOrWhiteSpace(userId))
+            {
+                await _hubConnection.InvokeAsync("JoinUserGroup", userId, ct);
             }
         }
         catch
