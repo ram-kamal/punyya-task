@@ -68,9 +68,77 @@ public class TimesheetServiceTests
         // Assert
         Assert.NotNull(csvBytes);
         Assert.True(csvBytes.Length > 0);
-        Assert.Contains("Date,Station,Employee Name,Email,Clock In,Clock Out,Total Hours,Active Hours,Idle Hours,Efficiency %,Tasks Completed", csvContent);
+        Assert.Contains("Date,Station,Employee Name,Email,Clock In,Clock Out,Total Hours,Total Time (HH:MM),Active Hours,Active Time (HH:MM),Idle Hours,Idle Time (HH:MM),Efficiency %,Tasks Completed", csvContent);
         Assert.Contains("ST-101", csvContent);
         Assert.Contains("Aarav Sharma", csvContent);
         Assert.Contains("st101@punnyaheart.org", csvContent);
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_MonthlyPeriod_ComputesAggregatesAndDailyBreakdown()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var mockTelemetry = new Mock<ITelemetryService>();
+
+        var testUser = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "priya@punnyaheart.org",
+            FullName = "Priya Patel",
+            Role = UserRole.EMPLOYEE.ToString(),
+            StationId = "ST-102",
+            PasswordHash = "hash"
+        };
+        context.Users.Add(testUser);
+
+        var firstOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 9, 0, 0, DateTimeKind.Utc);
+        var secondOfMonth = firstOfMonth.AddDays(1);
+
+        context.Shifts.AddRange(
+            new Shift
+            {
+                Id = Guid.NewGuid(),
+                UserId = testUser.Id,
+                StationId = "ST-102",
+                ClockIn = firstOfMonth,
+                ClockOut = firstOfMonth.AddHours(8),
+                TotalActiveSeconds = 25200,
+                TotalIdleSeconds = 3600,
+                Status = ShiftStatus.COMPLETED.ToString()
+            },
+            new Shift
+            {
+                Id = Guid.NewGuid(),
+                UserId = testUser.Id,
+                StationId = "ST-102",
+                ClockIn = secondOfMonth,
+                ClockOut = secondOfMonth.AddHours(8),
+                TotalActiveSeconds = 25200,
+                TotalIdleSeconds = 3600,
+                Status = ShiftStatus.COMPLETED.ToString()
+            }
+        );
+        await context.SaveChangesAsync();
+
+        mockTelemetry.Setup(t => t.GetWorkstationsStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<WorkstationStatusDto>());
+
+        var timesheetService = new TimesheetService(context, mockTelemetry.Object);
+
+        // Act
+        var summary = await timesheetService.GetSummaryAsync(firstOfMonth, null, "MONTH");
+
+        // Assert
+        Assert.NotNull(summary);
+        Assert.Equal("MONTH", summary.Period);
+        Assert.NotEmpty(summary.Rows);
+        Assert.NotEmpty(summary.DailyBreakdown);
+
+        var empRow = summary.Rows.First(r => r.Email == "priya@punnyaheart.org");
+        Assert.Equal(2, empRow.DaysWorked);
+        Assert.Equal(16.0, empRow.TotalHours);
+        Assert.Equal(14.0, empRow.ActiveHours);
+        Assert.Equal(2.0, empRow.IdleHours);
     }
 }

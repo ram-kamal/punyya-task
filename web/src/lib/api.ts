@@ -195,10 +195,19 @@ export async function updateTaskStatus(
   }
 }
 
-export async function fetchTimesheetSummary(date?: string): Promise<TimesheetSummary | null> {
+export async function fetchTimesheetSummary(
+  period?: string,
+  startDate?: string,
+  endDate?: string
+): Promise<TimesheetSummary | null> {
   try {
     const authHeaders = await getAuthHeader();
-    const url = `${API_BASE}/api/v1/timesheet/summary${date ? `?date=${date}` : ''}`;
+    const params = new URLSearchParams();
+    if (period) params.append('period', period);
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+
+    const url = `${API_BASE}/api/v1/timesheet/summary${params.toString() ? `?${params.toString()}` : ''}`;
     const res = await fetch(url, { 
       cache: 'no-store',
       headers: { ...authHeaders }
@@ -211,19 +220,25 @@ export async function fetchTimesheetSummary(date?: string): Promise<TimesheetSum
   }
 }
 
-export function getTimesheetCsvDownloadUrl(startDate?: string, endDate?: string): string {
+export function getTimesheetCsvDownloadUrl(startDate?: string, endDate?: string, viewType?: string): string {
   const params = new URLSearchParams();
   if (startDate) params.append('startDate', startDate);
   if (endDate) params.append('endDate', endDate);
+  if (viewType) params.append('viewType', viewType);
   return `${API_BASE}/api/v1/timesheet/export/csv${params.toString() ? `?${params.toString()}` : ''}`;
 }
 
-export async function downloadTimesheetCsv(startDate?: string, endDate?: string): Promise<{ success: boolean; error?: string }> {
+export async function downloadTimesheetCsv(
+  startDate?: string, 
+  endDate?: string,
+  viewType?: string
+): Promise<{ success: boolean; error?: string }> {
   try {
     const authHeaders = await getAuthHeader();
     const params = new URLSearchParams();
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
+    if (viewType) params.append('viewType', viewType);
     const url = `${API_BASE}/api/v1/timesheet/export/csv${params.toString() ? `?${params.toString()}` : ''}`;
     
     const res = await fetch(url, {
@@ -238,7 +253,8 @@ export async function downloadTimesheetCsv(startDate?: string, endDate?: string)
     const blobUrl = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = blobUrl;
-    link.download = `timesheet_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    const periodLabel = startDate && endDate ? `${startDate}_to_${endDate}` : (startDate || 'latest');
+    link.download = `timesheet_${periodLabel}_${viewType || 'daily'}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

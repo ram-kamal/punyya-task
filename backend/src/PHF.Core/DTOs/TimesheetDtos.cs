@@ -41,14 +41,20 @@ public record TimesheetRowDto
     public string IdleTimeFormatted { get; init; } = string.Empty;
     public double EfficiencyPercentage { get; init; }
     public int TasksCompleted { get; init; }
+    public int DaysWorked { get; init; } = 1;
 }
 
 public record TimesheetSummaryDto
 {
+    public string Period { get; init; } = "DAY";
+    public string StartDate { get; init; } = string.Empty;
+    public string EndDate { get; init; } = string.Empty;
     public int ActiveStationsCount { get; init; }
     public int TotalStationsCount { get; init; }
     public int TasksInProgressCount { get; init; }
     public double AverageEfficiencyPercentage { get; init; }
     public double TotalHoursLoggedToday { get; init; }
+    public double TotalHoursLogged => TotalHoursLoggedToday;
     public List<TimesheetRowDto> Rows { get; init; } = new();
+    public List<TimesheetRowDto> DailyBreakdown { get; init; } = new();
 }

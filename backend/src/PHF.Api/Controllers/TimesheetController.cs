@@ -17,16 +17,26 @@ public class TimesheetController : ControllerBase
     }
 
     [HttpGet("summary")]
-    public async Task<IActionResult> GetSummary([FromQuery] DateTime? date, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetSummary(
+        [FromQuery] DateTime? date,
+        [FromQuery] DateTime? startDate,
+        [FromQuery] DateTime? endDate,
+        [FromQuery] string? period,
+        CancellationToken cancellationToken)
     {
-        var summary = await _timesheetService.GetSummaryAsync(date, cancellationToken);
+        var start = startDate ?? date;
+        var summary = await _timesheetService.GetSummaryAsync(start, endDate, period, cancellationToken);
         return Ok(summary);
     }
 
     [HttpGet("export/csv")]
-    public async Task<IActionResult> ExportCsv([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, CancellationToken cancellationToken)
+    public async Task<IActionResult> ExportCsv(
+        [FromQuery] DateTime? startDate, 
+        [FromQuery] DateTime? endDate, 
+        [FromQuery] string? viewType,
+        CancellationToken cancellationToken)
     {
-        var bytes = await _timesheetService.ExportTimesheetCsvAsync(startDate, endDate, cancellationToken);
+        var bytes = await _timesheetService.ExportTimesheetCsvAsync(startDate, endDate, viewType, cancellationToken);
         var filename = $"timesheet_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
 
         return File(bytes, "text/csv", filename);

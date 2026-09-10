@@ -56,12 +56,16 @@ export interface TaskItem {
 }
 
 export interface TimesheetSummary {
+  period?: string;
+  startDate?: string;
+  endDate?: string;
   activeStationsCount: number;
   totalStationsCount: number;
   tasksInProgressCount: number;
   averageEfficiencyPercentage: number;
   totalHoursLoggedToday: number;
   rows: TimesheetRow[];
+  dailyBreakdown?: TimesheetRow[];
 }
 
 export interface TimesheetRow {
@@ -79,6 +83,7 @@ export interface TimesheetRow {
   idleTimeFormatted?: string;
   efficiencyPercentage: number;
   tasksCompleted: number;
+  daysWorked?: number;
 }
 
 export interface User {

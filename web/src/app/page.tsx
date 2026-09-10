@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import {
   Monitor,
   CheckCircle2,
@@ -31,6 +31,7 @@ import {
   Activity,
   UserCheck,
   CalendarDays,
+  Calendar,
   Check,
   XCircle,
   UserPlus,
@@ -118,6 +119,12 @@ export default function AdminDashboardPage() {
   const [events, setEvents] = useState<LiveWorkstationEvent[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [timesheet, setTimesheet] = useState<TimesheetSummary | null>(null);
+  const [timesheetPeriod, setTimesheetPeriod] = useState<'today' | 'yesterday' | 'week' | 'month' | 'last_month' | 'year' | 'custom'>('today');
+  const [timesheetStartDate, setTimesheetStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [timesheetEndDate, setTimesheetEndDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [timesheetViewMode, setTimesheetViewMode] = useState<'summary' | 'daily'>('daily');
+  const [timesheetSearchQuery, setTimesheetSearchQuery] = useState<string>('');
+  const [isTimesheetLoading, setIsTimesheetLoading] = useState<boolean>(false);
   const [users, setUsers] = useState<User[]>([]);
 
   // Leave Management State
@@ -302,14 +309,68 @@ export default function AdminDashboardPage() {
 
   const [isExportingCsv, setIsExportingCsv] = useState(false);
 
+  const loadTimesheet = useCallback(async (
+    period?: 'today' | 'yesterday' | 'week' | 'month' | 'last_month' | 'year' | 'custom',
+    startDate?: string,
+    endDate?: string
+  ) => {
+    setIsTimesheetLoading(true);
+    try {
+      const p = period || timesheetPeriod;
+      const s = startDate !== undefined ? startDate : (p === 'custom' ? timesheetStartDate : undefined);
+      const e = endDate !== undefined ? endDate : (p === 'custom' ? timesheetEndDate : undefined);
+      const data = await fetchTimesheetSummary(p, s, e);
+      if (data) {
+        setTimesheet(data);
+      }
+    } finally {
+      setIsTimesheetLoading(false);
+    }
+  }, [timesheetPeriod, timesheetStartDate, timesheetEndDate]);
+
+  const handleSelectPeriod = (period: 'today' | 'yesterday' | 'week' | 'month' | 'last_month' | 'year' | 'custom') => {
+    setTimesheetPeriod(period);
+    if (period === 'today' || period === 'yesterday') {
+      setTimesheetViewMode('daily');
+    } else {
+      setTimesheetViewMode('summary');
+    }
+    loadTimesheet(period);
+  };
+
+  const handleApplyCustomDateRange = (e: React.FormEvent) => {
+    e.preventDefault();
+    setTimesheetPeriod('custom');
+    loadTimesheet('custom', timesheetStartDate, timesheetEndDate);
+  };
+
   const handleDownloadCsv = async () => {
     setIsExportingCsv(true);
     try {
-      await downloadTimesheetCsv();
+      const isCustom = timesheetPeriod === 'custom';
+      const start = isCustom ? timesheetStartDate : undefined;
+      const end = isCustom ? timesheetEndDate : undefined;
+      await downloadTimesheetCsv(start, end, timesheetViewMode);
     } finally {
       setIsExportingCsv(false);
     }
   };
+
+  const displayedTimesheetRows = useMemo(() => {
+    if (!timesheet) return [];
+    const rows = (timesheetViewMode === 'daily' && timesheet.dailyBreakdown && timesheet.dailyBreakdown.length > 0)
+      ? timesheet.dailyBreakdown
+      : timesheet.rows;
+
+    if (!timesheetSearchQuery.trim()) return rows;
+    const q = timesheetSearchQuery.toLowerCase().trim();
+    return rows.filter(r => 
+      (r.employeeName && r.employeeName.toLowerCase().includes(q)) ||
+      (r.stationId && r.stationId.toLowerCase().includes(q)) ||
+      (r.email && r.email.toLowerCase().includes(q)) ||
+      (r.date && r.date.toLowerCase().includes(q))
+    );
+  }, [timesheet, timesheetViewMode, timesheetSearchQuery]);
 
   // Handle Quick Task Dispatch
   const handleDispatchTask = async (e: React.FormEvent) => {
@@ -1552,81 +1613,327 @@ export default function AdminDashboardPage() {
         {/* TAB 3: PAYROLL TIMESHEETS */}
         {activeTab === 'timesheets' && (
           <div className="space-y-5">
-            <div className="flex items-center justify-between bg-[#151720] p-4 rounded-xl border border-[#262938]">
+            {/* Header & Export Bar */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#151720] p-4 rounded-xl border border-[#262938]">
               <div>
-                <h2 className="text-sm font-bold text-white">Consolidated Workstation Timesheet</h2>
-                <p className="text-xs text-slate-400">
-                  Accurate down to the second; exportable directly to payroll CSV without touching raw logs
+                <h2 className="text-sm font-bold text-white flex items-center space-x-2">
+                  <CalendarDays className="w-4 h-4 text-rose-500" />
+                  <span>Workstation Timesheets & Analytics</span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Accurate down to the second; view daily, weekly, monthly, and yearly historical records with instant payroll CSV export
                 </p>
               </div>
 
-              <button
-                onClick={handleDownloadCsv}
-                disabled={isExportingCsv}
-                className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition disabled:opacity-50"
-              >
-                <Download className="w-4 h-4" />
-                <span>{isExportingCsv ? 'EXPORTING...' : 'EXPORT CSV FOR PAYROLL'}</span>
-              </button>
+              <div className="flex items-center space-x-2 shrink-0">
+                <button
+                  onClick={() => loadTimesheet()}
+                  disabled={isTimesheetLoading}
+                  className="p-2 rounded-lg bg-[#1C1F2B] hover:bg-[#252A3A] text-slate-300 hover:text-white transition disabled:opacity-50"
+                  title="Refresh Timesheet Data"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isTimesheetLoading ? 'animate-spin text-rose-400' : ''}`} />
+                </button>
+
+                <button
+                  onClick={handleDownloadCsv}
+                  disabled={isExportingCsv}
+                  className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition disabled:opacity-50"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>{isExportingCsv ? 'EXPORTING...' : `EXPORT ${timesheetViewMode === 'summary' && timesheetPeriod !== 'today' && timesheetPeriod !== 'yesterday' ? 'SUMMARY' : 'DAILY'} CSV`}</span>
+                </button>
+              </div>
             </div>
 
+            {/* Range Preset Selector & Search Filters */}
+            <div className="bg-[#151720] p-4 rounded-xl border border-[#262938] space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* Period Presets */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Period:</span>
+                  {[
+                    { id: 'today', label: 'Today' },
+                    { id: 'yesterday', label: 'Yesterday' },
+                    { id: 'week', label: 'This Week' },
+                    { id: 'month', label: 'This Month' },
+                    { id: 'last_month', label: 'Last Month' },
+                    { id: 'year', label: 'This Year' },
+                    { id: 'custom', label: 'Custom Range' },
+                  ].map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => handleSelectPeriod(p.id as any)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                        timesheetPeriod === p.id
+                          ? 'bg-rose-600 text-white shadow-sm font-bold'
+                          : 'bg-[#1C1F2B] text-slate-300 hover:bg-[#242838] hover:text-white'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* View Mode Toggle (Summary vs Daily) */}
+                <div className="inline-flex items-center bg-[#0F1117] p-1 rounded-lg border border-[#262938]">
+                  <button
+                    onClick={() => setTimesheetViewMode('summary')}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition ${
+                      timesheetViewMode === 'summary'
+                        ? 'bg-[#1F2333] text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Employee Summary
+                  </button>
+                  <button
+                    onClick={() => setTimesheetViewMode('daily')}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition ${
+                      timesheetViewMode === 'daily'
+                        ? 'bg-[#1F2333] text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Daily Breakdown
+                  </button>
+                </div>
+              </div>
+
+              {/* Custom Date Picker Bar (when custom range is active) */}
+              {timesheetPeriod === 'custom' && (
+                <form onSubmit={handleApplyCustomDateRange} className="flex flex-wrap items-center gap-3 pt-2 border-t border-[#262938]">
+                  <div className="flex items-center space-x-2 text-xs text-slate-300">
+                    <span className="font-semibold text-slate-400">From:</span>
+                    <input
+                      type="date"
+                      value={timesheetStartDate}
+                      onChange={(e) => setTimesheetStartDate(e.target.value)}
+                      className="bg-[#0F1117] border border-[#262938] rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2 text-xs text-slate-300">
+                    <span className="font-semibold text-slate-400">To:</span>
+                    <input
+                      type="date"
+                      value={timesheetEndDate}
+                      onChange={(e) => setTimesheetEndDate(e.target.value)}
+                      className="bg-[#0F1117] border border-[#262938] rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-sm"
+                  >
+                    Apply Range
+                  </button>
+                </form>
+              )}
+
+              {/* Search Bar */}
+              <div className="relative pt-1">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3.5" />
+                <input
+                  type="text"
+                  placeholder="Filter timesheet by employee name, station ID, or date (e.g. 2026-09)..."
+                  value={timesheetSearchQuery}
+                  onChange={(e) => setTimesheetSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-1.5 rounded-lg bg-[#0F1117] border border-[#262938] text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500 transition"
+                />
+              </div>
+            </div>
+
+            {/* KPI Summary Cards for Selected Period */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-[#151720] border border-[#262938] rounded-xl p-4 flex items-center space-x-3.5">
+                <div className="w-10 h-10 rounded-lg bg-rose-950/60 border border-rose-700/40 flex items-center justify-center shrink-0">
+                  <Calendar className="w-5 h-5 text-rose-400" />
+                </div>
+                <div className="overflow-hidden">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Active Period</div>
+                  <div className="text-sm font-extrabold text-white truncate font-mono">
+                    {timesheet?.startDate && timesheet?.endDate
+                      ? (timesheet.startDate === timesheet.endDate ? timesheet.startDate : `${timesheet.startDate} → ${timesheet.endDate}`)
+                      : 'Current'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#151720] border border-[#262938] rounded-xl p-4 flex items-center space-x-3.5">
+                <div className="w-10 h-10 rounded-lg bg-emerald-950/60 border border-emerald-700/40 flex items-center justify-center shrink-0">
+                  <Clock className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Logged Time</div>
+                  <div className="text-sm font-extrabold text-white font-mono">
+                    {formatHoursMinutes(timesheet?.totalHoursLoggedToday ?? 0)}
+                    <span className="text-xs text-slate-400 font-normal ml-1">
+                      ({(timesheet?.totalHoursLoggedToday ?? 0).toFixed(1)}h)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#151720] border border-[#262938] rounded-xl p-4 flex items-center space-x-3.5">
+                <div className="w-10 h-10 rounded-lg bg-indigo-950/60 border border-indigo-700/40 flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-5 h-5 text-indigo-400" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Team Efficiency</div>
+                  <div className="text-sm font-extrabold text-white font-mono">
+                    {(timesheet?.averageEfficiencyPercentage ?? 0) > 0 ? (
+                      <span className="text-emerald-400">
+                        {(timesheet?.averageEfficiencyPercentage ?? 0).toFixed(1)}%
+                      </span>
+                    ) : (
+                      <span className="text-slate-500">—</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#151720] border border-[#262938] rounded-xl p-4 flex items-center space-x-3.5">
+                <div className="w-10 h-10 rounded-lg bg-amber-950/60 border border-amber-700/40 flex items-center justify-center shrink-0">
+                  <Users className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Matching Entries</div>
+                  <div className="text-sm font-extrabold text-white font-mono">
+                    {displayedTimesheetRows.length} <span className="text-xs text-slate-400 font-normal">{timesheetViewMode === 'summary' ? 'employees' : 'day records'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Timesheet Data Table */}
             <div className="bg-[#151720] rounded-xl border border-[#262938] overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-[#0F1117] text-[11px] uppercase tracking-wider text-slate-400 border-b border-[#262938]">
                     <tr>
-                      <th className="px-5 py-3">Date</th>
-                      <th className="px-5 py-3">Station</th>
-                      <th className="px-5 py-3">Employee Name</th>
-                      <th className="px-5 py-3">Clock In</th>
-                      <th className="px-5 py-3">Clock Out</th>
-                      <th className="px-5 py-3">Total Time</th>
-                      <th className="px-5 py-3">Active Time</th>
-                      <th className="px-5 py-3">Idle Time</th>
-                      <th className="px-5 py-3">Efficiency</th>
-                      <th className="px-5 py-3 text-right">Tasks Done</th>
+                      {timesheetViewMode === 'summary' ? (
+                        <>
+                          <th className="px-5 py-3">Employee Name</th>
+                          <th className="px-5 py-3">Station</th>
+                          <th className="px-5 py-3">Days Worked</th>
+                          <th className="px-5 py-3">Total Time</th>
+                          <th className="px-5 py-3">Active Time</th>
+                          <th className="px-5 py-3">Idle Time</th>
+                          <th className="px-5 py-3">Efficiency</th>
+                          <th className="px-5 py-3 text-right">Tasks Completed</th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="px-5 py-3">Date</th>
+                          <th className="px-5 py-3">Station</th>
+                          <th className="px-5 py-3">Employee Name</th>
+                          <th className="px-5 py-3">Clock In</th>
+                          <th className="px-5 py-3">Clock Out</th>
+                          <th className="px-5 py-3">Total Time</th>
+                          <th className="px-5 py-3">Active Time</th>
+                          <th className="px-5 py-3">Idle Time</th>
+                          <th className="px-5 py-3">Efficiency</th>
+                          <th className="px-5 py-3 text-right">Tasks Done</th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#1C1F2B] font-medium text-xs">
-                    {timesheet?.rows.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-[#1A1D27]/60 transition">
-                        <td className="px-5 py-3.5 text-slate-300 font-mono text-xs">{row.date}</td>
-                        <td className="px-5 py-3.5 font-bold text-white">{row.stationId}</td>
-                        <td className="px-5 py-3.5 text-white">{row.employeeName}</td>
-                        <td className="px-5 py-3.5 text-slate-300 font-mono text-xs">{row.clockIn}</td>
-                        <td className="px-5 py-3.5 text-slate-300 font-mono text-xs">{row.clockOut}</td>
-                        <td className="px-5 py-3.5 text-white font-semibold">
-                          <span className="font-mono">{row.totalTimeFormatted || formatHoursMinutes(row.totalHours)}</span>
-                          <span className="text-[10px] text-slate-400 font-normal ml-1.5">({row.totalHours.toFixed(2)}h)</span>
+                    {displayedTimesheetRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="px-5 py-12 text-center text-slate-400">
+                          <CalendarDays className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                          <p className="font-semibold text-white">No timesheet records found</p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            No workstation activity or shifts recorded for the selected period ({timesheetPeriod}).
+                          </p>
                         </td>
-                        <td className="px-5 py-3.5 text-emerald-400 font-semibold">
-                          <span className="font-mono">{row.activeTimeFormatted || formatHoursMinutes(row.activeHours)}</span>
-                          <span className="text-[10px] text-emerald-500/70 font-normal ml-1.5">({row.activeHours.toFixed(2)}h)</span>
-                        </td>
-                        <td className="px-5 py-3.5 text-amber-400 font-semibold">
-                          <span className="font-mono">{row.idleTimeFormatted || formatHoursMinutes(row.idleHours)}</span>
-                          <span className="text-[10px] text-amber-500/70 font-normal ml-1.5">({row.idleHours.toFixed(2)}h)</span>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          {row.totalHours > 0 ? (
-                            <div className="flex items-center space-x-2">
-                              <div className="w-16 h-2 bg-[#0D0E12] rounded-full overflow-hidden border border-[#262938]">
-                                <div
-                                  className="h-full bg-emerald-500 rounded-full"
-                                  style={{ width: `${Math.min(100, Math.max(0, row.efficiencyPercentage))}%` }}
-                                />
-                              </div>
-                              <span className="text-xs font-bold text-emerald-400">
-                                {row.efficiencyPercentage.toFixed(1)}%
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-500 font-medium">—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5 text-right font-bold text-white">{row.tasksCompleted}</td>
                       </tr>
-                    ))}
+                    ) : (
+                      displayedTimesheetRows.map((row, idx) => (
+                        <tr key={idx} className="hover:bg-[#1A1D27]/60 transition">
+                          {timesheetViewMode === 'summary' ? (
+                            <>
+                              <td className="px-5 py-3.5 text-white font-semibold">{row.employeeName}</td>
+                              <td className="px-5 py-3.5 font-bold text-slate-300">{row.stationId}</td>
+                              <td className="px-5 py-3.5">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-950/70 text-indigo-300 border border-indigo-700/40">
+                                  {row.daysWorked || 0} {row.daysWorked === 1 ? 'day' : 'days'}
+                                </span>
+                              </td>
+                              <td className="px-5 py-3.5 text-white font-semibold">
+                                <span className="font-mono">{row.totalTimeFormatted || formatHoursMinutes(row.totalHours)}</span>
+                                <span className="text-[10px] text-slate-400 font-normal ml-1.5">({row.totalHours.toFixed(2)}h)</span>
+                              </td>
+                              <td className="px-5 py-3.5 text-emerald-400 font-semibold">
+                                <span className="font-mono">{row.activeTimeFormatted || formatHoursMinutes(row.activeHours)}</span>
+                                <span className="text-[10px] text-emerald-500/70 font-normal ml-1.5">({row.activeHours.toFixed(2)}h)</span>
+                              </td>
+                              <td className="px-5 py-3.5 text-amber-400 font-semibold">
+                                <span className="font-mono">{row.idleTimeFormatted || formatHoursMinutes(row.idleHours)}</span>
+                                <span className="text-[10px] text-amber-500/70 font-normal ml-1.5">({row.idleHours.toFixed(2)}h)</span>
+                              </td>
+                              <td className="px-5 py-3.5">
+                                {row.totalHours > 0 ? (
+                                  <div className="flex items-center space-x-2">
+                                    <div className="w-16 h-2 bg-[#0D0E12] rounded-full overflow-hidden border border-[#262938]">
+                                      <div
+                                        className="h-full bg-emerald-500 rounded-full"
+                                        style={{ width: `${Math.min(100, Math.max(0, row.efficiencyPercentage))}%` }}
+                                      />
+                                    </div>
+                                    <span className="text-xs font-bold text-emerald-400">
+                                      {row.efficiencyPercentage.toFixed(1)}%
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-slate-500 font-medium">—</span>
+                                )}
+                              </td>
+                              <td className="px-5 py-3.5 text-right font-bold text-white">{row.tasksCompleted}</td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-5 py-3.5 text-slate-300 font-mono text-xs">{row.date}</td>
+                              <td className="px-5 py-3.5 font-bold text-white">{row.stationId}</td>
+                              <td className="px-5 py-3.5 text-white">{row.employeeName}</td>
+                              <td className="px-5 py-3.5 text-slate-300 font-mono text-xs">{row.clockIn}</td>
+                              <td className="px-5 py-3.5 text-slate-300 font-mono text-xs">{row.clockOut}</td>
+                              <td className="px-5 py-3.5 text-white font-semibold">
+                                <span className="font-mono">{row.totalTimeFormatted || formatHoursMinutes(row.totalHours)}</span>
+                                <span className="text-[10px] text-slate-400 font-normal ml-1.5">({row.totalHours.toFixed(2)}h)</span>
+                              </td>
+                              <td className="px-5 py-3.5 text-emerald-400 font-semibold">
+                                <span className="font-mono">{row.activeTimeFormatted || formatHoursMinutes(row.activeHours)}</span>
+                                <span className="text-[10px] text-emerald-500/70 font-normal ml-1.5">({row.activeHours.toFixed(2)}h)</span>
+                              </td>
+                              <td className="px-5 py-3.5 text-amber-400 font-semibold">
+                                <span className="font-mono">{row.idleTimeFormatted || formatHoursMinutes(row.idleHours)}</span>
+                                <span className="text-[10px] text-amber-500/70 font-normal ml-1.5">({row.idleHours.toFixed(2)}h)</span>
+                              </td>
+                              <td className="px-5 py-3.5">
+                                {row.totalHours > 0 ? (
+                                  <div className="flex items-center space-x-2">
+                                    <div className="w-16 h-2 bg-[#0D0E12] rounded-full overflow-hidden border border-[#262938]">
+                                      <div
+                                        className="h-full bg-emerald-500 rounded-full"
+                                        style={{ width: `${Math.min(100, Math.max(0, row.efficiencyPercentage))}%` }}
+                                      />
+                                    </div>
+                                    <span className="text-xs font-bold text-emerald-400">
+                                      {row.efficiencyPercentage.toFixed(1)}%
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-slate-500 font-medium">—</span>
+                                )}
+                              </td>
+                              <td className="px-5 py-3.5 text-right font-bold text-white">{row.tasksCompleted}</td>
+                            </>
+                          )}
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
