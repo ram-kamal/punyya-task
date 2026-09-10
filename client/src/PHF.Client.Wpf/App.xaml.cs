@@ -16,12 +16,24 @@ public partial class App : Application
 
         DispatcherUnhandledException += (s, args) =>
         {
-            File.AppendAllText("wpf_error.log", $"[{DateTime.UtcNow:O}] Dispatcher Exception: {args.Exception}\n");
+            try
+            {
+                var logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PHFWorkManagement", "logs");
+                Directory.CreateDirectory(logDir);
+                File.AppendAllText(Path.Combine(logDir, "wpf_error.log"), $"[{DateTime.UtcNow:O}] Dispatcher Exception: {args.Exception}\n");
+            }
+            catch { }
         };
 
         AppDomain.CurrentDomain.UnhandledException += (s, args) =>
         {
-            File.AppendAllText("wpf_error.log", $"[{DateTime.UtcNow:O}] AppDomain Exception: {args.ExceptionObject}\n");
+            try
+            {
+                var logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PHFWorkManagement", "logs");
+                Directory.CreateDirectory(logDir);
+                File.AppendAllText(Path.Combine(logDir, "wpf_error.log"), $"[{DateTime.UtcNow:O}] AppDomain Exception: {args.ExceptionObject}\n");
+            }
+            catch { }
         };
     }
 }
