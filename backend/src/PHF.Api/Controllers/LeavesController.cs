@@ -6,6 +6,7 @@ using PHF.Core.Interfaces;
 
 namespace PHF.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/v1/[controller]")]
 public class LeavesController : ControllerBase
@@ -17,6 +18,7 @@ public class LeavesController : ControllerBase
         _leaveService = leaveService;
     }
 
+    [Authorize(Roles = "ADMIN,MANAGER")]
     [HttpGet]
     public async Task<IActionResult> GetAllLeaves([FromQuery] string? status, CancellationToken cancellationToken)
     {
@@ -24,7 +26,6 @@ public class LeavesController : ControllerBase
         return Ok(leaves);
     }
 
-    [Authorize]
     [HttpGet("my")]
     public async Task<IActionResult> GetMyLeaves(CancellationToken cancellationToken)
     {
@@ -38,10 +39,17 @@ public class LeavesController : ControllerBase
     {
         var leave = await _leaveService.GetLeaveByIdAsync(id, cancellationToken);
         if (leave == null) return NotFound(new { message = $"Leave request {id} not found." });
+
+        var userId = GetCurrentUserId();
+        var isManagerOrAdmin = User.IsInRole("ADMIN") || User.IsInRole("MANAGER");
+        if (!isManagerOrAdmin && leave.UserId != userId)
+        {
+            return Forbid();
+        }
+
         return Ok(leave);
     }
 
-    [Authorize]
     [HttpPost]
     public async Task<IActionResult> Apply([FromBody] CreateLeaveRequestDto request, CancellationToken cancellationToken)
     {
@@ -66,7 +74,7 @@ public class LeavesController : ControllerBase
         }
     }
 
-    [Authorize]
+    [Authorize(Roles = "ADMIN,MANAGER")]
     [HttpPatch("{id:guid}/approve")]
     public async Task<IActionResult> ApproveLeave(
         Guid id, 
@@ -79,7 +87,7 @@ public class LeavesController : ControllerBase
         return Ok(updated);
     }
 
-    [Authorize]
+    [Authorize(Roles = "ADMIN,MANAGER")]
     [HttpPatch("{id:guid}/reject")]
     public async Task<IActionResult> RejectLeave(
         Guid id, 

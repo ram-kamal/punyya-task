@@ -1,5 +1,6 @@
 import * as signalR from '@microsoft/signalr';
 import { LiveWorkstationEvent, WorkstationStatus } from './types';
+import { getStoredAuthToken } from './api';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL !== undefined && process.env.NEXT_PUBLIC_API_URL !== '' 
   ? process.env.NEXT_PUBLIC_API_URL 
@@ -26,7 +27,9 @@ class SignalRManager {
 
     try {
       this.connection = new signalR.HubConnectionBuilder()
-        .withUrl(`${API_BASE}/hubs/workstation`)
+        .withUrl(`${API_BASE}/hubs/workstation`, {
+          accessTokenFactory: () => getStoredAuthToken() || '',
+        })
         .withAutomaticReconnect([0, 2000, 5000, 15000, 30000])
         .configureLogging(signalR.LogLevel.Warning)
         .build();

@@ -1,10 +1,12 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PHF.Core.DTOs;
 using PHF.Core.Interfaces;
 
 namespace PHF.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/v1/[controller]")]
 public class TelemetryController : ControllerBase
@@ -24,11 +26,17 @@ public class TelemetryController : ControllerBase
             return BadRequest(new { message = "Invalid telemetry payload." });
         }
 
-        // Extract user id from token if not in payload
-        if (!request.UserId.HasValue)
+        var userClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!string.IsNullOrWhiteSpace(userClaim) && Guid.TryParse(userClaim, out var parsedGuid))
         {
-            var userClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (!string.IsNullOrWhiteSpace(userClaim) && Guid.TryParse(userClaim, out var parsedGuid))
+            var isManagerOrAdmin = User.IsInRole("ADMIN") || User.IsInRole("MANAGER");
+            // If standard employee tries to spoof another user ID, reject
+            if (!isManagerOrAdmin && request.UserId.HasValue && request.UserId.Value != parsedGuid)
+            {
+                return Forbid();
+            }
+
+            if (!request.UserId.HasValue)
             {
                 request = request with { UserId = parsedGuid };
             }
@@ -55,6 +63,7 @@ public class TelemetryController : ControllerBase
         return Ok(new { success = true });
     }
 
+    [Authorize(Roles = "ADMIN,MANAGER")]
     [HttpGet("stations")]
     public async Task<IActionResult> GetStations(CancellationToken cancellationToken)
     {
@@ -62,6 +71,7 @@ public class TelemetryController : ControllerBase
         return Ok(stations);
     }
 
+    [Authorize(Roles = "ADMIN,MANAGER")]
     [HttpGet("events")]
     public async Task<IActionResult> GetRecentEvents([FromQuery] int limit = 50, CancellationToken cancellationToken = default)
     {

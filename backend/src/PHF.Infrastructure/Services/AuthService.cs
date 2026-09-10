@@ -88,20 +88,22 @@ public class AuthService : IAuthService
 
     public bool VerifyPassword(string password, string passwordHash)
     {
+        if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(passwordHash))
+            return false;
+
         try
         {
             return BCrypt.Net.BCrypt.Verify(password, passwordHash);
         }
         catch
         {
-            // Fallback for demo plain text during tests if needed
-            return password == passwordHash;
+            return false;
         }
     }
 
     private string GenerateJwtToken(User user, DateTime expiresAt)
     {
-        var jwtSecret = _configuration["Jwt:Secret"] ?? "PHF_Enterprise_Secret_Key_For_Jwt_Authentication_Must_Be_256_Bits_Long!";
+        var jwtSecret = _configuration["Jwt:Secret"] ?? "PHF_Work_Management_Enterprise_Super_Secret_Key_2026_Secure_HMAC_SHA256_Auth!";
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 

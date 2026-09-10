@@ -55,6 +55,7 @@ import {
   createTask,
   fetchTimesheetSummary,
   getTimesheetCsvDownloadUrl,
+  downloadTimesheetCsv,
   fetchLeaves,
   reviewLeave,
   fetchStaff,
@@ -286,6 +287,16 @@ export default function AdminDashboardPage() {
     setMobileMenuOpen(false);
   };
 
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
+
+  const handleDownloadCsv = async () => {
+    setIsExportingCsv(true);
+    try {
+      await downloadTimesheetCsv();
+    } finally {
+      setIsExportingCsv(false);
+    }
+  };
 
   // Handle Quick Task Dispatch
   const handleDispatchTask = async (e: React.FormEvent) => {
@@ -772,15 +783,14 @@ export default function AdminDashboardPage() {
             </button>
 
             {/* Timesheet CSV Export */}
-            <a
-              href={getTimesheetCsvDownloadUrl()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-200 hover:text-white text-xs font-semibold transition-all"
+            <button
+              onClick={handleDownloadCsv}
+              disabled={isExportingCsv}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-200 hover:text-white text-xs font-semibold transition-all disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5 text-emerald-400" />
-              <span>CSV</span>
-            </a>
+              <span>{isExportingCsv ? 'EXPORTING...' : 'CSV'}</span>
+            </button>
 
             {/* Refresh */}
             <button
@@ -875,15 +885,14 @@ export default function AdminDashboardPage() {
                 <Plus className="w-4 h-4" />
                 <span>Dispatch Task</span>
               </button>
-              <a
-                href={getTimesheetCsvDownloadUrl()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl bg-[#1C1F2B] border border-[#32364A] text-slate-200 active:bg-[#262938] text-xs font-semibold"
+              <button
+                onClick={handleDownloadCsv}
+                disabled={isExportingCsv}
+                className="flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl bg-[#1C1F2B] border border-[#32364A] text-slate-200 active:bg-[#262938] text-xs font-semibold disabled:opacity-50"
               >
                 <Download className="w-4 h-4 text-emerald-400" />
-                <span>Export CSV</span>
-              </a>
+                <span>{isExportingCsv ? 'Exporting...' : 'Export CSV'}</span>
+              </button>
             </div>
 
             {/* Navigation Tabs in Drawer */}
@@ -1532,15 +1541,14 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
 
-              <a
-                href={getTimesheetCsvDownloadUrl()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition"
+              <button
+                onClick={handleDownloadCsv}
+                disabled={isExportingCsv}
+                className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition disabled:opacity-50"
               >
                 <Download className="w-4 h-4" />
-                <span>EXPORT CSV FOR PAYROLL</span>
-              </a>
+                <span>{isExportingCsv ? 'EXPORTING...' : 'EXPORT CSV FOR PAYROLL'}</span>
+              </button>
             </div>
 
             <div className="bg-[#151720] rounded-xl border border-[#262938] overflow-hidden shadow-sm">

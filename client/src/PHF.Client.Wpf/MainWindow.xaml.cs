@@ -182,6 +182,11 @@ public partial class MainWindow : Window
         // Connect Realtime SignalR (graceful fallback if server is waking up)
         try
         {
+            _realtimeClient.SetTokenProvider(() => _apiClient.AuthToken);
+            if (!string.IsNullOrWhiteSpace(_apiClient.BaseUrl))
+            {
+                _realtimeClient.SetBaseUrl(_apiClient.BaseUrl);
+            }
             await _realtimeClient.StartAsync(_stationId, _currentUser?.Id.ToString());
         }
         catch (Exception ex)

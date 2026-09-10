@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PHF.Core.DTOs;
 using PHF.Core.Interfaces;
 
 namespace PHF.Api.Controllers;
 
+[Authorize(Roles = "ADMIN,MANAGER")]
 [ApiController]
 [Route("api/v1/[controller]")]
 public class StaffController : ControllerBase

@@ -109,19 +109,9 @@ public class ApplicationDbContext : DbContext
 
     public async Task EnsureSeedDataAsync()
     {
-        var dhvajAdmin = await Users.FirstOrDefaultAsync(u => u.Email.ToLower() == "dhyanidhvaj@gmail.com" || u.Username == "dhvaj");
-        if (dhvajAdmin == null || !BCrypt.Net.BCrypt.Verify("Admin0246", dhvajAdmin.PasswordHash))
+        var hasAdmin = await Users.AnyAsync(u => u.Role == UserRole.ADMIN.ToString() || u.Username == "dhvaj" || u.Email.ToLower() == "dhyanidhvaj@gmail.com");
+        if (!hasAdmin)
         {
-            // Clear all old demo data and users
-            AppActivityLogs.RemoveRange(AppActivityLogs);
-            UserSessions.RemoveRange(UserSessions);
-            TaskAttachments.RemoveRange(TaskAttachments);
-            Tasks.RemoveRange(Tasks);
-            LeaveRequests.RemoveRange(LeaveRequests);
-            Shifts.RemoveRange(Shifts);
-            Users.RemoveRange(Users);
-            await SaveChangesAsync();
-
             var admin = new User
             {
                 Id = Guid.Parse("a0000000-0000-0000-0000-000000000001"),

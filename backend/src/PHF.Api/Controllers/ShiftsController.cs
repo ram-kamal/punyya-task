@@ -6,6 +6,7 @@ using PHF.Core.Interfaces;
 
 namespace PHF.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/v1/[controller]")]
 public class ShiftsController : ControllerBase
@@ -62,6 +63,6 @@ public class ShiftsController : ControllerBase
             return guid;
         }
 
-        return Guid.Parse("a0000000-0000-0000-0000-000000000003"); // fallback st101
+        throw new UnauthorizedAccessException("Authentication token does not contain a valid user identity claim.");
     }
 }

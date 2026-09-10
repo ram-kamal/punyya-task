@@ -72,7 +72,11 @@ export async function getAuthHeader(): Promise<Record<string, string>> {
 
 export async function fetchStations(): Promise<WorkstationStatus[]> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/telemetry/stations`, { cache: 'no-store' });
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/telemetry/stations`, { 
+      cache: 'no-store',
+      headers: { ...authHeaders }
+    });
     if (!res.ok) return [];
     return await res.json();
   } catch (err) {
@@ -83,7 +87,11 @@ export async function fetchStations(): Promise<WorkstationStatus[]> {
 
 export async function fetchRecentEvents(limit = 40): Promise<LiveWorkstationEvent[]> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/telemetry/events?limit=${limit}`, { cache: 'no-store' });
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/telemetry/events?limit=${limit}`, { 
+      cache: 'no-store',
+      headers: { ...authHeaders }
+    });
     if (!res.ok) return [];
     return await res.json();
   } catch (err) {
@@ -94,13 +102,17 @@ export async function fetchRecentEvents(limit = 40): Promise<LiveWorkstationEven
 
 export async function fetchTasks(status?: string, assignedTo?: string, priority?: string): Promise<TaskItem[]> {
   try {
+    const authHeaders = await getAuthHeader();
     const params = new URLSearchParams();
     if (status) params.append('status', status);
     if (assignedTo) params.append('assignedTo', assignedTo);
     if (priority) params.append('priority', priority);
 
     const url = `${API_BASE}/api/v1/tasks${params.toString() ? `?${params.toString()}` : ''}`;
-    const res = await fetch(url, { cache: 'no-store' });
+    const res = await fetch(url, { 
+      cache: 'no-store',
+      headers: { ...authHeaders }
+    });
     if (!res.ok) return [];
     return await res.json();
   } catch (err) {
@@ -111,7 +123,11 @@ export async function fetchTasks(status?: string, assignedTo?: string, priority?
 
 export async function fetchUsers(): Promise<User[]> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/users`, { cache: 'no-store' });
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/users`, { 
+      cache: 'no-store',
+      headers: { ...authHeaders }
+    });
     if (!res.ok) return [];
     return await res.json();
   } catch (err) {
@@ -181,8 +197,12 @@ export async function updateTaskStatus(
 
 export async function fetchTimesheetSummary(date?: string): Promise<TimesheetSummary | null> {
   try {
+    const authHeaders = await getAuthHeader();
     const url = `${API_BASE}/api/v1/timesheet/summary${date ? `?date=${date}` : ''}`;
-    const res = await fetch(url, { cache: 'no-store' });
+    const res = await fetch(url, { 
+      cache: 'no-store',
+      headers: { ...authHeaders }
+    });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -198,12 +218,47 @@ export function getTimesheetCsvDownloadUrl(startDate?: string, endDate?: string)
   return `${API_BASE}/api/v1/timesheet/export/csv${params.toString() ? `?${params.toString()}` : ''}`;
 }
 
+export async function downloadTimesheetCsv(startDate?: string, endDate?: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const authHeaders = await getAuthHeader();
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    const url = `${API_BASE}/api/v1/timesheet/export/csv${params.toString() ? `?${params.toString()}` : ''}`;
+    
+    const res = await fetch(url, {
+      headers: { ...authHeaders }
+    });
+
+    if (!res.ok) {
+      return { success: false, error: `Failed to download CSV: HTTP ${res.status}` };
+    }
+
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = `timesheet_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(blobUrl);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Download failed' };
+  }
+}
+
 export async function fetchLeaves(status?: string): Promise<LeaveRequestItem[]> {
   try {
+    const authHeaders = await getAuthHeader();
     const url = status && status !== 'ALL'
       ? `${API_BASE}/api/v1/leaves?status=${status}`
       : `${API_BASE}/api/v1/leaves`;
-    const res = await fetch(url, { cache: 'no-store' });
+    const res = await fetch(url, { 
+      cache: 'no-store',
+      headers: { ...authHeaders }
+    });
     if (!res.ok) return [];
     return await res.json();
   } catch (err) {
@@ -242,7 +297,11 @@ export async function reviewLeave(
 
 export async function fetchStaff(): Promise<StaffMember[]> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/staff`, { cache: 'no-store' });
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/staff`, { 
+      cache: 'no-store',
+      headers: { ...authHeaders }
+    });
     if (!res.ok) return [];
     return await res.json();
   } catch (err) {

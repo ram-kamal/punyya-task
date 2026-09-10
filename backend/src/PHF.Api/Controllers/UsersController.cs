@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PHF.Core.DTOs;
@@ -5,6 +6,7 @@ using PHF.Infrastructure.Data;
 
 namespace PHF.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/v1/[controller]")]
 public class UsersController : ControllerBase

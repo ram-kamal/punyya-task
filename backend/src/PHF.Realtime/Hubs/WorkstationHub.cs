@@ -1,8 +1,11 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using PHF.Core.DTOs;
 
 namespace PHF.Realtime.Hubs;
 
+[Authorize]
 public class WorkstationHub : Hub
 {
     public const string ManagerGroup = "Managers";
@@ -25,14 +28,27 @@ public class WorkstationHub : Hub
 
     public async Task JoinUserGroup(string userId)
     {
-        if (!string.IsNullOrWhiteSpace(userId))
+        if (string.IsNullOrWhiteSpace(userId)) return;
+
+        var currentUserId = Context.UserIdentifier ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var isManagerOrAdmin = Context.User?.IsInRole("ADMIN") == true || Context.User?.IsInRole("MANAGER") == true;
+
+        if (!isManagerOrAdmin && !string.Equals(currentUserId, userId, StringComparison.OrdinalIgnoreCase))
         {
-            await Groups.AddToGroupAsync(Context.ConnectionId, $"User_{userId}");
+            throw new HubException("Access denied to user feed.");
         }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"User_{userId}");
     }
 
     public async Task JoinManagerFeed()
     {
+        var isManagerOrAdmin = Context.User?.IsInRole("ADMIN") == true || Context.User?.IsInRole("MANAGER") == true;
+        if (!isManagerOrAdmin)
+        {
+            throw new HubException("Access denied. Admin or Manager role required.");
+        }
+
         await Groups.AddToGroupAsync(Context.ConnectionId, ManagerGroup);
     }
 

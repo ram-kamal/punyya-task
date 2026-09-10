@@ -6,6 +6,7 @@ using PHF.Core.Interfaces;
 
 namespace PHF.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/v1/[controller]")]
 public class TasksController : ControllerBase
@@ -28,6 +29,18 @@ public class TasksController : ControllerBase
         [FromQuery] string? priority = null,
         CancellationToken cancellationToken = default)
     {
+        var isManagerOrAdmin = User.IsInRole("ADMIN") || User.IsInRole("MANAGER");
+        var currentUserId = GetCurrentUserId();
+
+        if (!isManagerOrAdmin)
+        {
+            // Non-managers can only query tasks assigned to themselves or unassigned tasks
+            if (!assignedTo.HasValue || assignedTo.Value != currentUserId)
+            {
+                assignedTo = currentUserId;
+            }
+        }
+
         var tasks = await _taskService.GetTasksAsync(status, assignedTo, stationId, includeUnassigned, priority, cancellationToken);
         return Ok(tasks);
     }
@@ -41,7 +54,7 @@ public class TasksController : ControllerBase
         return Ok(task);
     }
 
-    [Authorize]
+    [Authorize(Roles = "ADMIN,MANAGER")]
     [HttpPost]
     public async Task<IActionResult> CreateTask([FromBody] CreateTaskRequest request, CancellationToken cancellationToken)
     {
@@ -50,7 +63,6 @@ public class TasksController : ControllerBase
         return CreatedAtAction(nameof(GetTaskById), new { id = task.Id }, task);
     }
 
-    [Authorize]
     [HttpPatch("{id:guid}/status")]
     public async Task<IActionResult> UpdateStatus(
         Guid id, 
@@ -81,20 +93,27 @@ public class TasksController : ControllerBase
             return BadRequest(new { message = "No file provided." });
         }
 
-        var userId = GetCurrentUserId();
-        using var stream = file.OpenReadStream();
-        var storagePath = await _storageService.SaveFileAsync(file.FileName, stream, file.ContentType, cancellationToken);
-
-        var attachment = await _taskService.AttachDeliverableAsync(new AttachDeliverableRequest
+        try
         {
-            TaskId = id,
-            DeliverableUrl = storagePath,
-            FileName = file.FileName,
-            FileSizeBytes = file.Length,
-            MimeType = file.ContentType
-        }, userId, cancellationToken);
+            var userId = GetCurrentUserId();
+            using var stream = file.OpenReadStream();
+            var storagePath = await _storageService.SaveFileAsync(file.FileName, stream, file.ContentType, cancellationToken);
 
-        return Ok(attachment);
+            var attachment = await _taskService.AttachDeliverableAsync(new AttachDeliverableRequest
+            {
+                TaskId = id,
+                DeliverableUrl = storagePath,
+                FileName = file.FileName,
+                FileSizeBytes = file.Length,
+                MimeType = file.ContentType
+            }, userId, cancellationToken);
+
+            return Ok(attachment);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [Authorize]
@@ -152,7 +171,7 @@ public class TasksController : ControllerBase
         return File(fileResult.Value.Stream, fileResult.Value.ContentType, fileResult.Value.FileName);
     }
 
-    [Authorize]
+    [Authorize(Roles = "ADMIN,MANAGER")]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteTask(Guid id, CancellationToken cancellationToken)
     {
