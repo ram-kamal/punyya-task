@@ -21,9 +21,16 @@ public class ApiClient
     public bool IsAuthenticated => !string.IsNullOrWhiteSpace(_authToken);
     public string? AuthToken => _authToken;
 
-    public ApiClient(string baseUrl = DefaultBaseUrl)
+    public static string ResolveBaseUrl(string? url = null)
     {
-        BaseUrl = baseUrl.TrimEnd('/');
+        if (!string.IsNullOrWhiteSpace(url)) return url.TrimEnd('/');
+        var envUrl = Environment.GetEnvironmentVariable("PHF_API_URL");
+        return (!string.IsNullOrWhiteSpace(envUrl) ? envUrl : DefaultBaseUrl).TrimEnd('/');
+    }
+
+    public ApiClient(string? baseUrl = null)
+    {
+        BaseUrl = ResolveBaseUrl(baseUrl);
         _httpClient = CreateHttpClient(BaseUrl, _authToken);
 
         _jsonOptions = new JsonSerializerOptions

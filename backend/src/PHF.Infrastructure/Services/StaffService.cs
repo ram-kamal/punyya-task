@@ -114,8 +114,9 @@ public class StaffService : IStaffService
             Role = string.IsNullOrWhiteSpace(request.Role) ? "EMPLOYEE" : request.Role.Trim().ToUpper(),
             WorkMode = string.IsNullOrWhiteSpace(request.WorkMode) ? "IN_OFFICE" : request.WorkMode.Trim().ToUpper(),
             StationId = defaultStation,
-            IsActive = true,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(string.IsNullOrWhiteSpace(request.Password) ? "PHF-Welcome@2026" : request.Password),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(string.IsNullOrWhiteSpace(request.Password) 
+                ? (Environment.GetEnvironmentVariable("DEFAULT_STAFF_PASSWORD") ?? "PHF-Welcome@2026") 
+                : request.Password),
             CreatedAt = DateTime.UtcNow
         };
 

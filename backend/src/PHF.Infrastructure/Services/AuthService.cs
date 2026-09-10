@@ -103,7 +103,9 @@ public class AuthService : IAuthService
 
     private string GenerateJwtToken(User user, DateTime expiresAt)
     {
-        var jwtSecret = _configuration["Jwt:Secret"] ?? "PHF_Work_Management_Enterprise_Super_Secret_Key_2026_Secure_HMAC_SHA256_Auth!";
+        var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET") 
+                     ?? _configuration["Jwt:Secret"] 
+                     ?? "PHF_Work_Management_Enterprise_Super_Secret_Key_2026_Secure_HMAC_SHA256_Auth!";
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 

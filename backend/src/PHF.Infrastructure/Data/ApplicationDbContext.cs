@@ -109,20 +109,27 @@ public class ApplicationDbContext : DbContext
 
     public async Task EnsureSeedDataAsync()
     {
-        var hasAdmin = await Users.AnyAsync(u => u.Role == UserRole.ADMIN.ToString() || u.Username == "dhvaj" || u.Email.ToLower() == "dhyanidhvaj@gmail.com");
+        var adminEmail = (Environment.GetEnvironmentVariable("DEFAULT_ADMIN_EMAIL") ?? "dhyanidhvaj@gmail.com").Trim().ToLowerInvariant();
+        var adminUsername = (Environment.GetEnvironmentVariable("DEFAULT_ADMIN_USERNAME") ?? "dhvaj").Trim();
+        var adminPassword = Environment.GetEnvironmentVariable("DEFAULT_ADMIN_PASSWORD") ?? "Admin0246";
+        var adminFullName = (Environment.GetEnvironmentVariable("DEFAULT_ADMIN_NAME") ?? adminUsername).Trim();
+
+        var hasAdmin = await Users.AnyAsync(u => u.Role == UserRole.ADMIN.ToString() 
+                                              || (u.Username != null && u.Username.ToLower() == adminUsername.ToLower()) 
+                                              || u.Email.ToLower() == adminEmail);
         if (!hasAdmin)
         {
             var admin = new User
             {
                 Id = Guid.Parse("a0000000-0000-0000-0000-000000000001"),
-                Email = "dhyanidhvaj@gmail.com",
-                Username = "dhvaj",
-                FullName = "dhvaj",
+                Email = adminEmail,
+                Username = adminUsername,
+                FullName = adminFullName,
                 Role = UserRole.ADMIN.ToString(),
                 StationId = "ST-ADMIN",
                 WorkMode = "IN_OFFICE",
                 IsActive = true,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin0246"),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword),
                 CreatedAt = DateTime.UtcNow
             };
 

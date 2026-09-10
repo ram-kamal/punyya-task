@@ -147,7 +147,7 @@ export default function AdminDashboardPage() {
   const [newStaffEmail, setNewStaffEmail] = useState<string>('');
   const [newStaffRole, setNewStaffRole] = useState<string>('EMPLOYEE');
   const [newStaffWorkMode, setNewStaffWorkMode] = useState<string>('REMOTE_WFH');
-  const [newStaffPassword, setNewStaffPassword] = useState<string>('PHF-Welcome@2026');
+  const [newStaffPassword, setNewStaffPassword] = useState<string>('');
   const [isCreatingStaff, setIsCreatingStaff] = useState<boolean>(false);
   const [addStaffMessage, setAddStaffMessage] = useState<string | null>(null);
 
@@ -560,6 +560,16 @@ export default function AdminDashboardPage() {
     });
   }, [staff, staffSearchQuery, staffFilter]);
 
+  // Password generation helper
+  const generateRandomPassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*';
+    let pass = '';
+    for (let i = 0; i < 12; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setNewStaffPassword(pass);
+  };
+
   // Handle Create Staff Member
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -572,7 +582,7 @@ export default function AdminDashboardPage() {
       email: newStaffEmail.trim(),
       role: newStaffRole,
       workMode: newStaffWorkMode,
-      password: newStaffPassword.trim() || 'PHF-Welcome@2026',
+      password: newStaffPassword.trim() || undefined,
     });
 
     setIsCreatingStaff(false);
@@ -585,7 +595,7 @@ export default function AdminDashboardPage() {
         setNewStaffFullName('');
         setNewStaffUsername('');
         setNewStaffEmail('');
-        setNewStaffPassword('PHF-Welcome@2026');
+        setNewStaffPassword('');
         setAddStaffMessage(null);
       }, 1200);
     } else {
@@ -2808,15 +2818,24 @@ export default function AdminDashboardPage() {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-300 mb-1">Initial Temporary Password</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-bold text-slate-300">Initial Temporary Password</label>
+                  <button
+                    type="button"
+                    onClick={generateRandomPassword}
+                    className="text-[11px] text-rose-400 hover:text-rose-300 transition font-semibold"
+                  >
+                    🎲 Generate Secure
+                  </button>
+                </div>
                 <input
                   type="text"
-                  required
+                  placeholder="Enter temporary password or click Generate"
                   value={newStaffPassword}
                   onChange={(e) => setNewStaffPassword(e.target.value)}
                   className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-rose-500"
                 />
-                <span className="text-[10px] text-slate-500">Share this with the employee for first-time login</span>
+                <span className="text-[10px] text-slate-500">Leave blank to use default onboarding password or click Generate Secure</span>
               </div>
 
               {addStaffMessage && (

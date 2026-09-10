@@ -1,10 +1,6 @@
 import * as signalR from '@microsoft/signalr';
 import { LiveWorkstationEvent, WorkstationStatus } from './types';
-import { getStoredAuthToken } from './api';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL !== undefined && process.env.NEXT_PUBLIC_API_URL !== '' 
-  ? process.env.NEXT_PUBLIC_API_URL 
-  : (typeof window !== 'undefined' ? (window.location.port === '3000' ? 'https://punnya-api.onrender.com' : '') : 'https://punnya-api.onrender.com');
+import { getStoredAuthToken, API_BASE } from './api';
 
 
 class SignalRManager {

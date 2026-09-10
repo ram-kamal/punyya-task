@@ -103,7 +103,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 });
 
 // 4. JWT Authentication
-var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "PHF_Work_Management_Enterprise_Super_Secret_Key_2026_Secure_HMAC_SHA256_Auth!";
+var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET") 
+             ?? builder.Configuration["Jwt:Secret"] 
+             ?? "PHF_Work_Management_Enterprise_Super_Secret_Key_2026_Secure_HMAC_SHA256_Auth!";
 var key = Encoding.UTF8.GetBytes(jwtSecret);
 
 builder.Services.AddAuthentication(options =>

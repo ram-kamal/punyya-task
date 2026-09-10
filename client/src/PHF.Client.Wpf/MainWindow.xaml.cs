@@ -65,7 +65,8 @@ public partial class MainWindow : Window
         Closing += MainWindow_Closing;
     }
 
-    private const string DefaultCloudRenderUrl = "https://punnya-api.onrender.com";
+    private static readonly string DefaultCloudRenderUrl = 
+        Environment.GetEnvironmentVariable("PHF_API_URL") ?? "https://punnya-api.onrender.com";
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {

@@ -19,9 +19,12 @@ public class RealtimeClient : IAsyncDisposable
 
     public const string DefaultBaseUrl = "https://punnya-api.onrender.com";
 
-    public RealtimeClient(string baseUrl = DefaultBaseUrl, Func<string?>? tokenProvider = null)
+    public RealtimeClient(string? baseUrl = null, Func<string?>? tokenProvider = null)
     {
-        _hubUrl = $"{baseUrl.TrimEnd('/')}/hubs/workstation";
+        var resolved = !string.IsNullOrWhiteSpace(baseUrl) 
+            ? baseUrl.TrimEnd('/') 
+            : (Environment.GetEnvironmentVariable("PHF_API_URL") ?? DefaultBaseUrl).TrimEnd('/');
+        _hubUrl = $"{resolved}/hubs/workstation";
         _tokenProvider = tokenProvider;
     }
 
