@@ -609,12 +609,12 @@ export default function AdminDashboardPage() {
   // Counts
   const taskChangesCount = events.filter((e) => isTaskEvent(e.eventType)).length;
   const activeStationsCount = stations.filter((s) => s.state === 'ACTIVE').length;
-  const totalStationsCount = stations.length || 5;
+  const totalStationsCount = stations.length;
   const tasksInProgressCount = tasks.filter((t) => t.status === 'IN_PROGRESS').length;
   const pendingLeavesCount = leaves.filter((l) => l.status === 'PENDING').length;
   const approvedLeavesCount = leaves.filter((l) => l.status === 'APPROVED').length;
   const rejectedLeavesCount = leaves.filter((l) => l.status === 'REJECTED').length;
-  const avgEfficiency = timesheet?.averageEfficiencyPercentage ?? 92;
+  const avgEfficiency = timesheet?.averageEfficiencyPercentage ?? 0;
   const hoursLoggedToday = timesheet?.totalHoursLoggedToday ?? 0;
 
   // Session verification loader
@@ -1021,8 +1021,12 @@ export default function AdminDashboardPage() {
               <span className="text-[11px] font-bold tracking-wider uppercase">Avg Team Efficiency</span>
               <TrendingUp className="w-4 h-4 text-emerald-400" />
             </div>
-            <div className="text-2xl font-black text-emerald-400">{avgEfficiency}%</div>
-            <div className="text-[11px] text-slate-400 mt-2 font-medium">Active-to-idle ratio computed automatically</div>
+            <div className="text-2xl font-black text-emerald-400">
+              {hoursLoggedToday > 0 ? `${avgEfficiency.toFixed(1)}%` : '—'}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-2 font-medium">
+              {hoursLoggedToday > 0 ? 'Active-to-idle ratio computed automatically' : 'No active workstation hours logged today'}
+            </div>
           </div>
 
           <div className="bg-[#151720] rounded-xl p-4 border border-[#262938] relative overflow-hidden group shadow-sm">
@@ -1589,17 +1593,21 @@ export default function AdminDashboardPage() {
                           <span className="text-[10px] text-amber-500/70 font-normal ml-1.5">({row.idleHours.toFixed(2)}h)</span>
                         </td>
                         <td className="px-5 py-3.5">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-16 h-2 bg-[#0D0E12] rounded-full overflow-hidden border border-[#262938]">
-                              <div
-                                className="h-full bg-emerald-500 rounded-full"
-                                style={{ width: `${Math.min(100, row.efficiencyPercentage)}%` }}
-                              />
+                          {row.totalHours > 0 ? (
+                            <div className="flex items-center space-x-2">
+                              <div className="w-16 h-2 bg-[#0D0E12] rounded-full overflow-hidden border border-[#262938]">
+                                <div
+                                  className="h-full bg-emerald-500 rounded-full"
+                                  style={{ width: `${Math.min(100, Math.max(0, row.efficiencyPercentage))}%` }}
+                                />
+                              </div>
+                              <span className="text-xs font-bold text-emerald-400">
+                                {row.efficiencyPercentage.toFixed(1)}%
+                              </span>
                             </div>
-                            <span className="text-xs font-bold text-emerald-400">
-                              {row.efficiencyPercentage.toFixed(1)}%
-                            </span>
-                          </div>
+                          ) : (
+                            <span className="text-xs text-slate-500 font-medium">—</span>
+                          )}
                         </td>
                         <td className="px-5 py-3.5 text-right font-bold text-white">{row.tasksCompleted}</td>
                       </tr>

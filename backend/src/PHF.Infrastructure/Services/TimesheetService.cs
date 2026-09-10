@@ -71,18 +71,20 @@ public class TimesheetService : ITimesheetService
             var activeShift = empShifts.FirstOrDefault(s => s.Status == ShiftStatus.ACTIVE.ToString());
             if (activeShift != null)
             {
-                var elapsed = (int)(DateTime.UtcNow - activeShift.ClockIn).TotalSeconds;
+                var elapsed = Math.Max(0, (int)(DateTime.UtcNow - activeShift.ClockIn).TotalSeconds);
                 if (elapsed > activeSec + idleSec)
                 {
                     activeSec = Math.Max(activeSec, elapsed - idleSec);
                 }
             }
 
+            activeSec = Math.Max(0, activeSec);
+            idleSec = Math.Max(0, idleSec);
             var totalSec = activeSec + idleSec;
             totalActiveSecondsAll += activeSec;
             totalSecondsAll += totalSec;
 
-            var efficiency = totalSec > 0 ? Math.Round((double)activeSec / totalSec * 100, 1) : 100.0;
+            var efficiency = totalSec > 0 ? Math.Clamp(Math.Round((double)activeSec / totalSec * 100, 1), 0.0, 100.0) : 0.0;
             var firstClockIn = empShifts.OrderBy(s => s.ClockIn).FirstOrDefault()?.ClockIn;
             var lastClockOut = empShifts.OrderByDescending(s => s.ClockOut).FirstOrDefault()?.ClockOut;
 
@@ -106,8 +108,8 @@ public class TimesheetService : ITimesheetService
         }
 
         var avgEfficiency = totalSecondsAll > 0 
-            ? Math.Round((double)totalActiveSecondsAll / totalSecondsAll * 100, 1) 
-            : 92.0;
+            ? Math.Clamp(Math.Round((double)totalActiveSecondsAll / totalSecondsAll * 100, 1), 0.0, 100.0) 
+            : 0.0;
 
         var totalHoursLoggedToday = Math.Round(totalSecondsAll / 3600.0, 1);
 

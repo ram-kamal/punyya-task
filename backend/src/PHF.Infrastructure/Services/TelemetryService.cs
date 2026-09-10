@@ -260,12 +260,15 @@ public class TelemetryService : ITelemetryService
 
             if (activeShift != null)
             {
-                var elapsedMins = (int)(now - activeShift.ClockIn).TotalMinutes;
+                var elapsedMins = Math.Max(0, (int)(now - activeShift.ClockIn).TotalMinutes);
                 if (elapsedMins > activeMinutes + idleMinutes)
                 {
                     activeMinutes = Math.Max(activeMinutes, elapsedMins - idleMinutes);
                 }
             }
+
+            activeMinutes = Math.Max(0, activeMinutes);
+            idleMinutes = Math.Max(0, idleMinutes);
 
             result.Add(new WorkstationStatusDto
             {
