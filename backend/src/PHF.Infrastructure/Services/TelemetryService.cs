@@ -111,12 +111,14 @@ public class TelemetryService : ITelemetryService
                     }
                 }
 
+                var (sanitizedProc, sanitizedTitle) = SanitizeProcessAndTitle(logDto.ProcessName, logDto.WindowTitle);
+
                 var activityLog = new AppActivityLog
                 {
                     UserId = userId,
                     TaskId = resolvedTaskId,
-                    ProcessName = logDto.ProcessName,
-                    WindowTitle = logDto.WindowTitle,
+                    ProcessName = sanitizedProc,
+                    WindowTitle = sanitizedTitle,
                     DurationSeconds = logDto.DurationSeconds,
                     IsIdle = logDto.IsIdle,
                     LoggedAt = logDto.LoggedAt != default ? logDto.LoggedAt : DateTime.UtcNow,
@@ -127,15 +129,15 @@ public class TelemetryService : ITelemetryService
                 count++;
 
                 // Broadcast live focus change if not idle and has valid process
-                if (!logDto.IsIdle && !string.IsNullOrWhiteSpace(logDto.ProcessName))
+                if (!logDto.IsIdle && !string.IsNullOrWhiteSpace(sanitizedProc))
                 {
                     var taskSuffix = !string.IsNullOrWhiteSpace(logDto.TaskCode) ? $" ({logDto.TaskCode})" : "";
                     var liveEvent = new LiveWorkstationEventDto
                     {
                         StationId = request.StationId ?? "STATION",
                         EventType = "FOCUS_CHANGED",
-                        Details = $"focus changed → {logDto.ProcessName}{taskSuffix}",
-                        ProcessName = logDto.ProcessName,
+                        Details = $"focus changed → {sanitizedProc}{taskSuffix}",
+                        ProcessName = sanitizedProc,
                         TaskCode = logDto.TaskCode
                     };
 
@@ -159,10 +161,18 @@ public class TelemetryService : ITelemetryService
             StationId = id
         });
 
+        var (sanitizedProc, sanitizedTitle) = SanitizeProcessAndTitle(heartbeat.ActiveProcess, heartbeat.WindowTitle);
+
         state.LastSeen = now;
         state.State = heartbeat.State;
-        state.FocusedApp = heartbeat.ActiveProcess ?? state.FocusedApp;
-        state.WindowTitle = heartbeat.WindowTitle ?? state.WindowTitle;
+        if (!string.IsNullOrWhiteSpace(sanitizedProc))
+        {
+            state.FocusedApp = sanitizedProc;
+        }
+        if (!string.IsNullOrWhiteSpace(sanitizedTitle))
+        {
+            state.WindowTitle = sanitizedTitle;
+        }
         state.CurrentTaskCode = heartbeat.CurrentTaskCode ?? state.CurrentTaskCode;
         state.CurrentTaskTitle = heartbeat.CurrentTaskTitle ?? state.CurrentTaskTitle;
 
@@ -227,9 +237,10 @@ public class TelemetryService : ITelemetryService
 
             if (hasLive && (now - live!.LastSeen).TotalMinutes <= 3)
             {
+                var (sanitizedProc, sanitizedTitle) = SanitizeProcessAndTitle(live.FocusedApp, live.WindowTitle);
                 state = live.State;
-                focusedApp = live.FocusedApp ?? "—";
-                windowTitle = live.WindowTitle ?? "";
+                focusedApp = string.IsNullOrWhiteSpace(sanitizedProc) ? "—" : sanitizedProc;
+                windowTitle = sanitizedTitle;
                 taskCode = live.CurrentTaskCode;
                 taskTitle = live.CurrentTaskTitle;
             }
@@ -302,5 +313,23 @@ public class TelemetryService : ITelemetryService
         {
             _recentEvents.TryDequeue(out _);
         }
+    }
+
+    private static (string ProcessName, string WindowTitle) SanitizeProcessAndTitle(string? processName, string? windowTitle)
+    {
+        var proc = processName?.Trim() ?? "";
+        var title = windowTitle?.Trim() ?? "";
+
+        if (proc.Contains("UnlockingWindow", StringComparison.OrdinalIgnoreCase) ||
+            proc.Contains("Program Manager", StringComparison.OrdinalIgnoreCase) ||
+            proc.Equals("lockapp", StringComparison.OrdinalIgnoreCase) ||
+            proc.Equals("logonui", StringComparison.OrdinalIgnoreCase) ||
+            title.Contains("UnlockingWindow", StringComparison.OrdinalIgnoreCase) ||
+            title.Contains("Program Manager", StringComparison.OrdinalIgnoreCase))
+        {
+            return ("Windows Desktop", "Windows Desktop");
+        }
+
+        return (proc, title);
     }
 }

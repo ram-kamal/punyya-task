@@ -100,6 +100,26 @@ public class WindowTracker : IDisposable
         ProcessForegroundChange(hwnd);
     }
 
+    private static readonly HashSet<string> ShellWindowTitles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Program Manager",
+        "UnlockingWindow",
+        "WorkerW",
+        "Shell_TrayWnd",
+        "Desktop",
+        "Task Switching",
+        "Windows Shell Experience Host",
+        "Snap Assist"
+    };
+
+    private static readonly HashSet<string> ShellProcesses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "shellexperiencehost",
+        "searchhost",
+        "searchapp",
+        "startmenuexperiencehost"
+    };
+
     private void ProcessForegroundChange(IntPtr hwnd)
     {
         lock (_lock)
@@ -134,9 +154,23 @@ public class WindowTracker : IDisposable
                 // Retrieve Window Title
                 var titleBuilder = new StringBuilder(512);
                 Win32Native.GetWindowText(hwnd, titleBuilder, titleBuilder.Capacity);
-                var windowTitle = titleBuilder.ToString();
+                var windowTitle = titleBuilder.ToString().Trim();
 
                 var friendlyName = FormatFriendlyName(rawProcessName, windowTitle);
+
+                // Sanitize window title if it's a shell/unlocking transition
+                var sanitizedTitle = windowTitle;
+                if (friendlyName == "Windows Desktop" ||
+                    sanitizedTitle.IndexOf("UnlockingWindow", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    ShellWindowTitles.Contains(sanitizedTitle))
+                {
+                    friendlyName = "Windows Desktop";
+                    sanitizedTitle = "Windows Desktop";
+                }
+                else if (string.IsNullOrWhiteSpace(sanitizedTitle))
+                {
+                    sanitizedTitle = friendlyName;
+                }
 
                 // Fire focus change event with previous application duration
                 if (!string.IsNullOrWhiteSpace(prevProcess))
@@ -149,7 +183,7 @@ public class WindowTracker : IDisposable
                 }
 
                 _currentProcessName = friendlyName;
-                _currentWindowTitle = !string.IsNullOrWhiteSpace(windowTitle) ? windowTitle : friendlyName;
+                _currentWindowTitle = sanitizedTitle;
                 _lastHwnd = hwnd;
                 _lastFocusChange = now;
             }
@@ -163,11 +197,25 @@ public class WindowTracker : IDisposable
     private static string FormatFriendlyName(string process, string title)
     {
         var p = process.ToLowerInvariant();
+        var t = title.Trim();
+
+        // Handle known lock screen or unlocking windows
+        if (t.IndexOf("UnlockingWindow", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            p is "lockapp" or "logonui")
+        {
+            return "Windows Desktop";
+        }
+
+        if (ShellProcesses.Contains(p))
+        {
+            return "Windows Desktop";
+        }
+
         return p switch
         {
-            "explorer" => string.IsNullOrWhiteSpace(title) || title.Equals("Program Manager", StringComparison.OrdinalIgnoreCase)
+            "explorer" => string.IsNullOrWhiteSpace(t) || ShellWindowTitles.Contains(t)
                 ? "Windows Desktop"
-                : (title.Equals("File Explorer", StringComparison.OrdinalIgnoreCase) ? "File Explorer" : $"File Explorer ({title})"),
+                : "File Explorer",
             "chrome" => "Google Chrome",
             "msedge" => "Microsoft Edge",
             "firefox" => "Mozilla Firefox",

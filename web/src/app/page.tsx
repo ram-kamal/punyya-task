@@ -84,6 +84,19 @@ function formatHoursMinutes(decimalHours: number): string {
   return `${hrs}h ${mins}m`;
 }
 
+function formatAppName(app?: string | null): string {
+  if (!app || app === '—') return '—';
+  if (
+    app.includes('UnlockingWindow') ||
+    app.includes('Program Manager') ||
+    app.toLowerCase() === 'lockapp' ||
+    app.toLowerCase() === 'logonui'
+  ) {
+    return 'Windows Desktop';
+  }
+  return app;
+}
+
 export default function AdminDashboardPage() {
   // Authentication & Mobile Menu State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -1186,7 +1199,7 @@ export default function AdminDashboardPage() {
                         </td>
                         <td className="px-5 py-3.5 text-slate-200">
                           <span className="font-mono text-[11px] bg-[#101218] px-2 py-1 rounded border border-[#262938] text-slate-300">
-                            {st.focusedApp || '—'}
+                            {formatAppName(st.focusedApp)}
                           </span>
                         </td>
                         <td className="px-5 py-3.5 text-slate-300 font-mono">
@@ -1361,7 +1374,9 @@ export default function AdminDashboardPage() {
                                   {evt.taskCode}
                                 </span>
                               )}
-                              <span className="font-semibold text-white">{evt.details}</span>
+                              <span className="font-semibold text-white">
+                                {evt.details?.replace(/File Explorer \(UnlockingWindow\)|UnlockingWindow|Program Manager/g, 'Windows Desktop')}
+                              </span>
                               {evt.repeatCount && evt.repeatCount > 1 && (
                                 <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-full">
                                   {evt.repeatCount}×
@@ -1373,7 +1388,7 @@ export default function AdminDashboardPage() {
                               <span className="font-semibold text-slate-300">{evt.stationId}</span>
                               {evt.userName && <span>• {evt.userName}</span>}
                               {evt.processName && (
-                                <span className="font-mono text-slate-400">• {evt.processName}</span>
+                                <span className="font-mono text-slate-400">• {formatAppName(evt.processName)}</span>
                               )}
                             </div>
                           </div>
