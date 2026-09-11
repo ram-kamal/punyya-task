@@ -75,7 +75,7 @@ public class TimesheetService : ITimesheetService
         }
         else
         {
-            normalizedPeriod = "DAY";
+            normalizedPeriod = (normalizedPeriod == "TODAY") ? "TODAY" : "DAY";
             rangeStart = now.Date;
             rangeEnd = rangeStart.AddDays(1);
         }
@@ -108,8 +108,10 @@ public class TimesheetService : ITimesheetService
             .ToListAsync(cancellationToken);
 
         var employees = await _dbContext.Users
-            .Where(u => u.Role == UserRole.EMPLOYEE.ToString())
-            .OrderBy(u => u.StationId)
+            .Where(u => u.Role == UserRole.EMPLOYEE.ToString() 
+                     || _dbContext.Shifts.Any(s => s.UserId == u.Id) 
+                     || _dbContext.AppActivityLogs.Any(l => l.UserId == u.Id))
+            .OrderBy(u => u.FullName)
             .ToListAsync(cancellationToken);
 
         var isSingleDay = (rangeEnd - rangeStart).TotalDays <= 1.0;
@@ -149,23 +151,58 @@ public class TimesheetService : ITimesheetService
                     continue;
                 }
 
-                var activeSec = empLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds);
-                var idleSec = empLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds);
+                var loggedActiveSec = empLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds);
+                var loggedIdleSec = empLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds);
 
-                if (activeSec == 0 && empShifts.Any())
+                var shiftTotalSec = 0;
+                var shiftActiveSec = 0;
+                var shiftIdleSec = 0;
+
+                foreach (var s in empShifts)
                 {
-                    activeSec = empShifts.Sum(s => s.TotalActiveSeconds);
-                    idleSec = empShifts.Sum(s => s.TotalIdleSeconds);
+                    DateTime sEnd;
+                    if (s.Status == ShiftStatus.ACTIVE.ToString())
+                    {
+                        sEnd = (day == now.Date) ? now : s.ClockIn.Date.AddDays(1);
+                    }
+                    else
+                    {
+                        sEnd = s.ClockOut ?? s.ClockIn;
+                    }
+
+                    var sElapsed = Math.Max(0, (int)(sEnd - s.ClockIn).TotalSeconds);
+                    var sIdle = s.TotalIdleSeconds;
+                    var sAct = s.TotalActiveSeconds > 0 ? s.TotalActiveSeconds : Math.Max(0, sElapsed - sIdle);
+                    if (sAct + sIdle < sElapsed)
+                    {
+                        sAct = Math.Max(sAct, sElapsed - sIdle);
+                    }
+
+                    shiftTotalSec += sElapsed;
+                    shiftActiveSec += sAct;
+                    shiftIdleSec += sIdle;
                 }
 
-                var activeShift = empShifts.FirstOrDefault(s => s.Status == ShiftStatus.ACTIVE.ToString());
-                if (activeShift != null && day == now.Date)
+                int activeSec;
+                int idleSec;
+
+                if (empShifts.Any())
                 {
-                    var elapsed = Math.Max(0, (int)(now - activeShift.ClockIn).TotalSeconds);
-                    if (elapsed > activeSec + idleSec)
+                    if (loggedActiveSec + loggedIdleSec > 0)
                     {
-                        activeSec = Math.Max(activeSec, elapsed - idleSec);
+                        idleSec = Math.Max(loggedIdleSec, shiftIdleSec);
+                        activeSec = Math.Max(loggedActiveSec, Math.Max(0, shiftTotalSec - idleSec));
                     }
+                    else
+                    {
+                        activeSec = shiftActiveSec;
+                        idleSec = shiftIdleSec;
+                    }
+                }
+                else
+                {
+                    activeSec = loggedActiveSec;
+                    idleSec = loggedIdleSec;
                 }
 
                 activeSec = Math.Max(0, activeSec);
@@ -175,6 +212,7 @@ public class TimesheetService : ITimesheetService
                 var efficiency = totalSec > 0 ? Math.Clamp(Math.Round((double)activeSec / totalSec * 100, 1), 0.0, 100.0) : 0.0;
                 var firstClockIn = empShifts.OrderBy(s => s.ClockIn).FirstOrDefault()?.ClockIn;
                 var lastClockOut = empShifts.OrderByDescending(s => s.ClockOut).FirstOrDefault()?.ClockOut;
+                var activeShift = empShifts.FirstOrDefault(s => s.Status == ShiftStatus.ACTIVE.ToString());
 
                 dailyRows.Add(new TimesheetRowDto
                 {
@@ -205,66 +243,44 @@ public class TimesheetService : ITimesheetService
             var empDailyRows = dailyRows.Where(r => r.Email == emp.Email && r.TotalHours > 0).ToList();
             var daysWorked = empDailyRows.Count;
 
-            var empShifts = shifts.Where(s => s.UserId == emp.Id).ToList();
-            var empLogs = logs.Where(l => l.UserId == emp.Id).ToList();
-            var empCompleted = completedTasks.Count(t => t.AssignedTo == emp.Id);
-
-            var totalActiveSec = empDailyRows.Any()
-                ? (int)Math.Round(empDailyRows.Sum(r => r.ActiveHours * 3600))
-                : empLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds);
-            var totalIdleSec = empDailyRows.Any()
-                ? (int)Math.Round(empDailyRows.Sum(r => r.IdleHours * 3600))
-                : empLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds);
-
-            if (totalActiveSec == 0 && empShifts.Any())
-            {
-                totalActiveSec = empShifts.Sum(s => s.TotalActiveSeconds);
-                totalIdleSec = empShifts.Sum(s => s.TotalIdleSeconds);
-            }
-
-            var activeShift = empShifts.FirstOrDefault(s => s.Status == ShiftStatus.ACTIVE.ToString());
-            if (activeShift != null)
-            {
-                var elapsed = Math.Max(0, (int)(now - activeShift.ClockIn).TotalSeconds);
-                if (elapsed > totalActiveSec + totalIdleSec)
-                {
-                    totalActiveSec = Math.Max(totalActiveSec, elapsed - totalIdleSec);
-                }
-            }
-
-            totalActiveSec = Math.Max(0, totalActiveSec);
-            totalIdleSec = Math.Max(0, totalIdleSec);
+            var totalActiveSec = (int)Math.Round(empDailyRows.Sum(r => r.ActiveHours * 3600));
+            var totalIdleSec = (int)Math.Round(empDailyRows.Sum(r => r.IdleHours * 3600));
             var totalSec = totalActiveSec + totalIdleSec;
 
             var efficiency = totalSec > 0 
                 ? Math.Clamp(Math.Round((double)totalActiveSec / totalSec * 100, 1), 0.0, 100.0) 
                 : 0.0;
 
+            var empShifts = shifts.Where(s => s.UserId == emp.Id).ToList();
             var firstClockIn = empShifts.OrderBy(s => s.ClockIn).FirstOrDefault()?.ClockIn;
             var lastClockOut = empShifts.OrderByDescending(s => s.ClockOut).FirstOrDefault()?.ClockOut;
+            var activeShift = empShifts.FirstOrDefault(s => s.Status == ShiftStatus.ACTIVE.ToString());
 
             var periodLabel = isSingleDay
                 ? rangeStart.ToString("yyyy-MM-dd")
                 : $"{rangeStart:yyyy-MM-dd} to {rangeEnd.AddDays(-1):yyyy-MM-dd}";
 
-            summaryRows.Add(new TimesheetRowDto
+            if (totalSec > 0 || isSingleDay)
             {
-                Date = periodLabel,
-                StationId = emp.StationId ?? "—",
-                EmployeeName = emp.FullName,
-                Email = emp.Email,
-                ClockIn = FormatTimeAmPm(firstClockIn),
-                ClockOut = activeShift != null ? "Active" : FormatTimeAmPm(lastClockOut),
-                TotalHours = Math.Round(totalSec / 3600.0, 2),
-                ActiveHours = Math.Round(totalActiveSec / 3600.0, 2),
-                IdleHours = Math.Round(totalIdleSec / 3600.0, 2),
-                TotalTimeFormatted = FormatHoursMinutes(totalSec),
-                ActiveTimeFormatted = FormatHoursMinutes(totalActiveSec),
-                IdleTimeFormatted = FormatHoursMinutes(totalIdleSec),
-                EfficiencyPercentage = efficiency,
-                TasksCompleted = empCompleted,
-                DaysWorked = isSingleDay ? (totalSec > 0 ? 1 : 0) : daysWorked
-            });
+                summaryRows.Add(new TimesheetRowDto
+                {
+                    Date = periodLabel,
+                    StationId = emp.StationId ?? "—",
+                    EmployeeName = emp.FullName,
+                    Email = emp.Email,
+                    ClockIn = FormatTimeAmPm(firstClockIn),
+                    ClockOut = activeShift != null ? "Active" : FormatTimeAmPm(lastClockOut),
+                    TotalHours = Math.Round(totalSec / 3600.0, 2),
+                    ActiveHours = Math.Round(totalActiveSec / 3600.0, 2),
+                    IdleHours = Math.Round(totalIdleSec / 3600.0, 2),
+                    TotalTimeFormatted = FormatHoursMinutes(totalSec),
+                    ActiveTimeFormatted = FormatHoursMinutes(totalActiveSec),
+                    IdleTimeFormatted = FormatHoursMinutes(totalIdleSec),
+                    EfficiencyPercentage = efficiency,
+                    TasksCompleted = empDailyRows.Sum(r => r.TasksCompleted),
+                    DaysWorked = isSingleDay ? (totalSec > 0 ? 1 : 0) : daysWorked
+                });
+            }
         }
 
         var totalSecAll = summaryRows.Sum(r => (int)Math.Round(r.TotalHours * 3600));

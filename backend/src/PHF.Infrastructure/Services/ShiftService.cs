@@ -22,13 +22,30 @@ public class ShiftService : IShiftService
     {
         var user = await _dbContext.Users.FindAsync(new object[] { userId }, cancellationToken);
 
-        // Check if there is already an active shift today
+        // Check if there is already an active shift
         var existingActive = await _dbContext.Shifts
             .FirstOrDefaultAsync(s => s.UserId == userId && s.Status == ShiftStatus.ACTIVE.ToString(), cancellationToken);
 
         if (existingActive != null)
         {
-            return await MapToDto(existingActive, cancellationToken);
+            // If active shift is from a previous calendar day, auto-close it and create a fresh one for today
+            if (existingActive.ClockIn.Date < DateTime.UtcNow.Date)
+            {
+                var autoOut = existingActive.ClockIn.AddHours(8);
+                if (autoOut > DateTime.UtcNow) autoOut = DateTime.UtcNow;
+                existingActive.ClockOut = autoOut;
+                existingActive.Status = ShiftStatus.COMPLETED.ToString();
+                var elapsed = Math.Max(0, (int)(existingActive.ClockOut.Value - existingActive.ClockIn).TotalSeconds);
+                if (existingActive.TotalActiveSeconds == 0)
+                {
+                    existingActive.TotalActiveSeconds = elapsed;
+                }
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            else
+            {
+                return await MapToDto(existingActive, cancellationToken);
+            }
         }
 
         var shift = new Shift
@@ -63,13 +80,27 @@ public class ShiftService : IShiftService
         shift.ClockOut = DateTime.UtcNow;
         shift.Status = ShiftStatus.COMPLETED.ToString();
 
+        var elapsedShiftSeconds = Math.Max(0, (int)(shift.ClockOut.Value - shift.ClockIn).TotalSeconds);
+
         // Calculate shift active time from logs if needed
         var shiftLogs = await _dbContext.AppActivityLogs
             .Where(l => l.UserId == userId && l.LoggedAt >= shift.ClockIn && l.LoggedAt <= shift.ClockOut.Value)
             .ToListAsync(cancellationToken);
 
-        shift.TotalActiveSeconds = shiftLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds);
-        shift.TotalIdleSeconds = shiftLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds);
+        var loggedActive = shiftLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds);
+        var loggedIdle = shiftLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds);
+
+        if (loggedActive + loggedIdle < elapsedShiftSeconds)
+        {
+            // Attribution: preserve logged idle time, and attribute remaining shift duration to active work
+            shift.TotalIdleSeconds = loggedIdle;
+            shift.TotalActiveSeconds = Math.Max(loggedActive, Math.Max(0, elapsedShiftSeconds - loggedIdle));
+        }
+        else
+        {
+            shift.TotalActiveSeconds = loggedActive;
+            shift.TotalIdleSeconds = loggedIdle;
+        }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -101,25 +132,63 @@ public class ShiftService : IShiftService
             .Where(l => l.UserId == shift.UserId && l.LoggedAt >= today)
             .ToListAsync(cancellationToken);
 
-        var totalSecondsToday = todayLogs.Sum(l => l.DurationSeconds);
-        var activeSecondsToday = todayLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds);
-        var idleSecondsToday = todayLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds);
+        var todayShifts = await _dbContext.Shifts
+            .Where(s => s.UserId == shift.UserId && s.ClockIn >= today)
+            .ToListAsync(cancellationToken);
 
-        if (shift.Status == ShiftStatus.ACTIVE.ToString())
+        var loggedActive = todayLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds);
+        var loggedIdle = todayLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds);
+
+        var shiftTotalSec = 0;
+        var shiftActiveSec = 0;
+        var shiftIdleSec = 0;
+
+        foreach (var s in todayShifts)
         {
-            var elapsedShiftSeconds = (int)(DateTime.UtcNow - shift.ClockIn).TotalSeconds;
-            if (elapsedShiftSeconds > totalSecondsToday)
+            var sEnd = s.ClockOut ?? (s.Status == ShiftStatus.ACTIVE.ToString() ? DateTime.UtcNow : s.ClockIn);
+            var sElapsed = Math.Max(0, (int)(sEnd - s.ClockIn).TotalSeconds);
+            var sIdle = s.TotalIdleSeconds;
+            var sAct = s.TotalActiveSeconds > 0 ? s.TotalActiveSeconds : Math.Max(0, sElapsed - sIdle);
+            if (sAct + sIdle < sElapsed)
             {
-                totalSecondsToday = elapsedShiftSeconds;
+                sAct = Math.Max(sAct, sElapsed - sIdle);
             }
-            if (activeSecondsToday == 0 && totalSecondsToday > 0)
-            {
-                activeSecondsToday = Math.Max(0, totalSecondsToday - idleSecondsToday);
-            }
+
+            shiftTotalSec += sElapsed;
+            shiftActiveSec += sAct;
+            shiftIdleSec += sIdle;
         }
 
-        var finalActiveSec = activeSecondsToday > 0 ? activeSecondsToday : shift.TotalActiveSeconds;
-        var finalIdleSec = idleSecondsToday > 0 ? idleSecondsToday : shift.TotalIdleSeconds;
+        int totalSecondsToday;
+        int activeSecondsToday;
+        int idleSecondsToday;
+
+        if (todayShifts.Any())
+        {
+            if (loggedActive + loggedIdle > 0)
+            {
+                idleSecondsToday = Math.Max(loggedIdle, shiftIdleSec);
+                activeSecondsToday = Math.Max(loggedActive, Math.Max(0, shiftTotalSec - idleSecondsToday));
+            }
+            else
+            {
+                activeSecondsToday = shiftActiveSec;
+                idleSecondsToday = shiftIdleSec;
+            }
+            totalSecondsToday = activeSecondsToday + idleSecondsToday;
+        }
+        else
+        {
+            activeSecondsToday = loggedActive;
+            idleSecondsToday = loggedIdle;
+            totalSecondsToday = loggedActive + loggedIdle;
+        }
+
+        // For the specific shift requested, compute its active / idle time
+        var shiftEnd = shift.ClockOut ?? (shift.Status == ShiftStatus.ACTIVE.ToString() ? DateTime.UtcNow : shift.ClockIn);
+        var shiftElapsedSec = Math.Max(0, (int)(shiftEnd - shift.ClockIn).TotalSeconds);
+        var thisShiftIdle = shift.TotalIdleSeconds;
+        var thisShiftActive = shift.TotalActiveSeconds > 0 ? shift.TotalActiveSeconds : Math.Max(0, shiftElapsedSec - thisShiftIdle);
 
         return new ShiftResponseDto
         {
@@ -128,11 +197,11 @@ public class ShiftService : IShiftService
             StationId = shift.StationId,
             ClockIn = shift.ClockIn,
             ClockOut = shift.ClockOut,
-            TotalActiveSeconds = finalActiveSec,
-            TotalIdleSeconds = finalIdleSec,
+            TotalActiveSeconds = thisShiftActive,
+            TotalIdleSeconds = thisShiftIdle,
             Status = shift.Status,
             TotalHoursToday = Math.Round(totalSecondsToday / 3600.0, 2),
-            ActiveTimeFormatted = FormatHoursMinutes(finalActiveSec),
+            ActiveTimeFormatted = FormatHoursMinutes(thisShiftActive),
             TotalTimeFormatted = FormatHoursMinutes(totalSecondsToday)
         };
     }

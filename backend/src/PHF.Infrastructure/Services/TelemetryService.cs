@@ -205,7 +205,10 @@ public class TelemetryService : ITelemetryService
     public async Task<List<WorkstationStatusDto>> GetWorkstationsStatusAsync(CancellationToken cancellationToken = default)
     {
         var employees = await _dbContext.Users
-            .Where(u => u.Role == UserRole.EMPLOYEE.ToString() && !string.IsNullOrWhiteSpace(u.StationId))
+            .Where(u => !string.IsNullOrWhiteSpace(u.StationId) && 
+                       (u.Role == UserRole.EMPLOYEE.ToString() || 
+                        _dbContext.Shifts.Any(s => s.UserId == u.Id) || 
+                        _dbContext.AppActivityLogs.Any(l => l.UserId == u.Id)))
             .OrderBy(u => u.StationId)
             .ToListAsync(cancellationToken);
 
@@ -260,22 +263,49 @@ public class TelemetryService : ITelemetryService
             var empShifts = todayShifts.Where(s => s.UserId == emp.Id).ToList();
             var activeShift = empShifts.FirstOrDefault(s => s.Status == ShiftStatus.ACTIVE.ToString());
 
-            var activeMinutes = empLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds) / 60;
-            var idleMinutes = empLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds) / 60;
+            var loggedActiveMins = empLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds) / 60;
+            var loggedIdleMins = empLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds) / 60;
 
-            if (activeMinutes == 0 && empShifts.Any())
+            var shiftTotalMins = 0;
+            var shiftActiveMins = 0;
+            var shiftIdleMins = 0;
+
+            foreach (var s in empShifts)
             {
-                activeMinutes = empShifts.Sum(s => s.TotalActiveSeconds) / 60;
-                idleMinutes = empShifts.Sum(s => s.TotalIdleSeconds) / 60;
+                var sEnd = s.ClockOut ?? (s.Status == ShiftStatus.ACTIVE.ToString() ? now : s.ClockIn);
+                var sElapsedMins = Math.Max(0, (int)(sEnd - s.ClockIn).TotalMinutes);
+                var sIdleM = s.TotalIdleSeconds / 60;
+                var sActM = s.TotalActiveSeconds > 0 ? s.TotalActiveSeconds / 60 : Math.Max(0, sElapsedMins - sIdleM);
+                if (sActM + sIdleM < sElapsedMins)
+                {
+                    sActM = Math.Max(sActM, sElapsedMins - sIdleM);
+                }
+
+                shiftTotalMins += sElapsedMins;
+                shiftActiveMins += sActM;
+                shiftIdleMins += sIdleM;
             }
 
-            if (activeShift != null)
+            int activeMinutes;
+            int idleMinutes;
+
+            if (empShifts.Any())
             {
-                var elapsedMins = Math.Max(0, (int)(now - activeShift.ClockIn).TotalMinutes);
-                if (elapsedMins > activeMinutes + idleMinutes)
+                if (loggedActiveMins + loggedIdleMins > 0)
                 {
-                    activeMinutes = Math.Max(activeMinutes, elapsedMins - idleMinutes);
+                    idleMinutes = Math.Max(loggedIdleMins, shiftIdleMins);
+                    activeMinutes = Math.Max(loggedActiveMins, Math.Max(0, shiftTotalMins - idleMinutes));
                 }
+                else
+                {
+                    activeMinutes = shiftActiveMins;
+                    idleMinutes = shiftIdleMins;
+                }
+            }
+            else
+            {
+                activeMinutes = loggedActiveMins;
+                idleMinutes = loggedIdleMins;
             }
 
             activeMinutes = Math.Max(0, activeMinutes);

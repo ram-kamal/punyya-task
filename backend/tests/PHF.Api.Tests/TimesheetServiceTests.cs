@@ -141,4 +141,108 @@ public class TimesheetServiceTests
         Assert.Equal(14.0, empRow.ActiveHours);
         Assert.Equal(2.0, empRow.IdleHours);
     }
+
+    [Fact]
+    public async Task GetSummaryAsync_YesterdayPeriod_CalculatesCompletedShiftEvenWithZeroActiveSeconds()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var mockTelemetry = new Mock<ITelemetryService>();
+
+        var testUser = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "dhvaj@punnyaheart.org",
+            FullName = "Dhvaj Dhyani",
+            Role = UserRole.EMPLOYEE.ToString(),
+            StationId = "ST-103",
+            PasswordHash = "hash"
+        };
+        context.Users.Add(testUser);
+
+        var yesterday = DateTime.UtcNow.Date.AddDays(-1);
+        var clockIn = yesterday.AddHours(4).AddMinutes(1); // 04:01 UTC
+        var clockOut = yesterday.AddHours(10).AddMinutes(23); // 10:23 UTC (6h 22m)
+
+        // Legacy shift that had TotalActiveSeconds = 0 upon clock-out
+        context.Shifts.Add(new Shift
+        {
+            Id = Guid.NewGuid(),
+            UserId = testUser.Id,
+            StationId = "ST-103",
+            ClockIn = clockIn,
+            ClockOut = clockOut,
+            TotalActiveSeconds = 0,
+            TotalIdleSeconds = 0,
+            Status = ShiftStatus.COMPLETED.ToString()
+        });
+        await context.SaveChangesAsync();
+
+        mockTelemetry.Setup(t => t.GetWorkstationsStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<WorkstationStatusDto>());
+
+        var timesheetService = new TimesheetService(context, mockTelemetry.Object);
+
+        // Act
+        var summary = await timesheetService.GetSummaryAsync(null, null, "YESTERDAY");
+
+        // Assert
+        Assert.NotNull(summary);
+        Assert.Equal("YESTERDAY", summary.Period);
+        Assert.NotEmpty(summary.Rows);
+
+        var row = summary.Rows.First(r => r.Email == "dhvaj@punnyaheart.org");
+        Assert.Equal(1, row.DaysWorked);
+        Assert.True(row.TotalHours >= 6.3 && row.TotalHours <= 6.4);
+        Assert.True(row.ActiveHours >= 6.3 && row.ActiveHours <= 6.4);
+        Assert.Equal("6h 22m", row.TotalTimeFormatted);
+        Assert.Equal(100.0, row.EfficiencyPercentage);
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_IncludesManagersOrAdminsWithShiftsInTimesheets()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var mockTelemetry = new Mock<ITelemetryService>();
+
+        var adminUser = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "admin@punnyaheart.org",
+            FullName = "Admin User",
+            Role = UserRole.ADMIN.ToString(),
+            StationId = "ST-ADMIN",
+            PasswordHash = "hash"
+        };
+        context.Users.Add(adminUser);
+
+        var today = DateTime.UtcNow.Date;
+        context.Shifts.Add(new Shift
+        {
+            Id = Guid.NewGuid(),
+            UserId = adminUser.Id,
+            StationId = "ST-ADMIN",
+            ClockIn = today.AddHours(2),
+            ClockOut = today.AddHours(5),
+            TotalActiveSeconds = 10800,
+            TotalIdleSeconds = 0,
+            Status = ShiftStatus.COMPLETED.ToString()
+        });
+        await context.SaveChangesAsync();
+
+        mockTelemetry.Setup(t => t.GetWorkstationsStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<WorkstationStatusDto>());
+
+        var timesheetService = new TimesheetService(context, mockTelemetry.Object);
+
+        // Act
+        var summary = await timesheetService.GetSummaryAsync(null, null, "TODAY");
+
+        // Assert
+        Assert.NotNull(summary);
+        Assert.Contains(summary.Rows, r => r.Email == "admin@punnyaheart.org");
+        var adminRow = summary.Rows.First(r => r.Email == "admin@punnyaheart.org");
+        Assert.Equal(3.0, adminRow.TotalHours);
+    }
 }
