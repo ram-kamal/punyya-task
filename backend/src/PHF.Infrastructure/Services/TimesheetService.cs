@@ -144,9 +144,9 @@ public class TimesheetService : ITimesheetService
                 var empLogs = dayLogs.Where(l => l.UserId == emp.Id).ToList();
                 var empCompleted = dayTasks.Count(t => t.AssignedTo == emp.Id);
 
-                // In multi-day mode, don't clutter the daily breakdown with zero-hour days for an employee
+                // Don't clutter timesheets with zero-hour rows for an employee without any activity
                 bool hasActivity = empShifts.Any() || empLogs.Any() || empCompleted > 0;
-                if (!hasActivity && !isSingleDay)
+                if (!hasActivity)
                 {
                     continue;
                 }
@@ -260,7 +260,7 @@ public class TimesheetService : ITimesheetService
                 ? rangeStart.ToString("yyyy-MM-dd")
                 : $"{rangeStart:yyyy-MM-dd} to {rangeEnd.AddDays(-1):yyyy-MM-dd}";
 
-            if (totalSec > 0 || isSingleDay)
+            if (totalSec > 0 || empDailyRows.Any())
             {
                 summaryRows.Add(new TimesheetRowDto
                 {

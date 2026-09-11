@@ -117,7 +117,7 @@ public class TelemetrySyncWorker : IDisposable
                 {
                     MachineName = s.MachineName,
                     EventType = s.EventType,
-                    EventTimestamp = s.EventTimestamp
+                    EventTimestamp = s.EventTimestamp.Kind == DateTimeKind.Utc ? s.EventTimestamp : s.EventTimestamp.ToUniversalTime()
                 }).ToList(),
                 ActivityLogs = validLogs.Select(l => new AppActivityLogDto
                 {
@@ -127,7 +127,7 @@ public class TelemetrySyncWorker : IDisposable
                     WindowTitle = l.WindowTitle,
                     DurationSeconds = l.DurationSeconds,
                     IsIdle = l.IsIdle,
-                    LoggedAt = l.LoggedAt
+                    LoggedAt = l.LoggedAt.Kind == DateTimeKind.Utc ? l.LoggedAt : l.LoggedAt.ToUniversalTime()
                 }).ToList()
             };
 

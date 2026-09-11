@@ -119,6 +119,7 @@ export default function AdminDashboardPage() {
   const [events, setEvents] = useState<LiveWorkstationEvent[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [timesheet, setTimesheet] = useState<TimesheetSummary | null>(null);
+  const [todayTimesheet, setTodayTimesheet] = useState<TimesheetSummary | null>(null);
   const [timesheetPeriod, setTimesheetPeriod] = useState<'today' | 'yesterday' | 'week' | 'month' | 'last_month' | 'year' | 'custom'>('today');
   const [timesheetStartDate, setTimesheetStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [timesheetEndDate, setTimesheetEndDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
@@ -126,6 +127,13 @@ export default function AdminDashboardPage() {
   const [timesheetSearchQuery, setTimesheetSearchQuery] = useState<string>('');
   const [isTimesheetLoading, setIsTimesheetLoading] = useState<boolean>(false);
   const [users, setUsers] = useState<User[]>([]);
+
+  const timesheetPeriodRef = useRef(timesheetPeriod);
+  timesheetPeriodRef.current = timesheetPeriod;
+  const timesheetStartDateRef = useRef(timesheetStartDate);
+  timesheetStartDateRef.current = timesheetStartDate;
+  const timesheetEndDateRef = useRef(timesheetEndDate);
+  timesheetEndDateRef.current = timesheetEndDate;
 
   // Leave Management State
   const [leaves, setLeaves] = useState<LeaveRequestItem[]>([]);
@@ -196,7 +204,7 @@ export default function AdminDashboardPage() {
         fetchStations(),
         fetchRecentEvents(100),
         fetchTasks(),
-        fetchTimesheetSummary(),
+        fetchTimesheetSummary('today'),
         fetchUsers(),
         fetchLeaves(),
         fetchStaff(),
@@ -205,7 +213,10 @@ export default function AdminDashboardPage() {
       setStations(stData);
       setEvents(evData);
       setTasks(tData);
-      setTimesheet(tsData);
+      setTodayTimesheet(tsData);
+      if (timesheetPeriodRef.current === 'today') {
+        setTimesheet(tsData);
+      }
       setUsers(uData);
       setLeaves(lData);
       setStaff(staffData);
@@ -256,7 +267,12 @@ export default function AdminDashboardPage() {
 
     signalRClient.onTaskUpdated = () => {
       fetchTasks().then(setTasks);
-      fetchTimesheetSummary().then(setTimesheet);
+      fetchTimesheetSummary('today').then((data) => {
+        setTodayTimesheet(data);
+        if (timesheetPeriodRef.current === 'today') {
+          setTimesheet(data);
+        }
+      });
     };
 
     signalRClient.onLeaveUpdated = () => {
@@ -267,8 +283,27 @@ export default function AdminDashboardPage() {
 
     const interval = setInterval(() => {
       fetchStations().then(setStations);
-      fetchTimesheetSummary().then(setTimesheet);
       fetchLeaves().then(setLeaves);
+
+      // Always keep today's dashboard KPI fresh
+      fetchTimesheetSummary('today').then((todayData) => {
+        setTodayTimesheet(todayData);
+        if (timesheetPeriodRef.current === 'today') {
+          setTimesheet(todayData);
+        }
+      });
+
+      // If user is currently inspecting a historical or custom timesheet, refresh that period silently
+      const currentP = timesheetPeriodRef.current;
+      if (currentP !== 'today') {
+        const s = currentP === 'custom' ? timesheetStartDateRef.current : undefined;
+        const e = currentP === 'custom' ? timesheetEndDateRef.current : undefined;
+        fetchTimesheetSummary(currentP, s, e).then((periodData) => {
+          if (periodData && timesheetPeriodRef.current === currentP) {
+            setTimesheet(periodData);
+          }
+        });
+      }
     }, 15000);
 
     return () => {
@@ -395,7 +430,12 @@ export default function AdminDashboardPage() {
       setDispatchTitle('');
       setDispatchDesc('');
       fetchTasks().then(setTasks);
-      fetchTimesheetSummary().then(setTimesheet);
+      fetchTimesheetSummary('today').then((data) => {
+        setTodayTimesheet(data);
+        if (timesheetPeriodRef.current === 'today') {
+          setTimesheet(data);
+        }
+      });
       setTimeout(() => {
         setDispatchMessage(null);
         setIsDispatchModalOpen(false);
@@ -698,8 +738,8 @@ export default function AdminDashboardPage() {
   const pendingLeavesCount = leaves.filter((l) => l.status === 'PENDING').length;
   const approvedLeavesCount = leaves.filter((l) => l.status === 'APPROVED').length;
   const rejectedLeavesCount = leaves.filter((l) => l.status === 'REJECTED').length;
-  const avgEfficiency = timesheet?.averageEfficiencyPercentage ?? 0;
-  const hoursLoggedToday = timesheet?.totalHoursLoggedToday ?? 0;
+  const avgEfficiency = todayTimesheet?.averageEfficiencyPercentage ?? timesheet?.averageEfficiencyPercentage ?? 0;
+  const hoursLoggedToday = todayTimesheet?.totalHoursLoggedToday ?? 0;
 
   // Session verification loader
   if (authChecking) {

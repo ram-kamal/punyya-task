@@ -48,6 +48,12 @@ public class TelemetryService : ITelemetryService
             userId = user?.Id;
         }
 
+        // Ensure userId exists in DB to prevent foreign key constraint violation
+        if (userId.HasValue && !await _dbContext.Users.AnyAsync(u => u.Id == userId.Value, cancellationToken))
+        {
+            userId = null;
+        }
+
         // 1. Process User Session Events
         if (request.SessionEvents != null && request.SessionEvents.Any())
         {
@@ -58,7 +64,7 @@ public class TelemetryService : ITelemetryService
                     UserId = userId,
                     MachineName = sessionDto.MachineName,
                     EventType = sessionDto.EventType.ToUpperInvariant(),
-                    EventTimestamp = sessionDto.EventTimestamp != default ? sessionDto.EventTimestamp : DateTime.UtcNow,
+                    EventTimestamp = EnsureUtc(sessionDto.EventTimestamp),
                     CreatedAt = DateTime.UtcNow
                 };
 
@@ -87,12 +93,25 @@ public class TelemetryService : ITelemetryService
         // 2. Process App Activity Logs
         if (request.ActivityLogs != null && request.ActivityLogs.Any())
         {
-            // Cache task lookups for task codes
+            var validTaskIds = new HashSet<Guid>();
             var taskCodeCache = new Dictionary<string, Guid>();
 
             foreach (var logDto in request.ActivityLogs)
             {
-                Guid? resolvedTaskId = logDto.TaskId;
+                Guid? resolvedTaskId = null;
+
+                if (logDto.TaskId.HasValue)
+                {
+                    if (validTaskIds.Contains(logDto.TaskId.Value))
+                    {
+                        resolvedTaskId = logDto.TaskId.Value;
+                    }
+                    else if (await _dbContext.Tasks.AnyAsync(t => t.Id == logDto.TaskId.Value, cancellationToken))
+                    {
+                        validTaskIds.Add(logDto.TaskId.Value);
+                        resolvedTaskId = logDto.TaskId.Value;
+                    }
+                }
 
                 if (!resolvedTaskId.HasValue && !string.IsNullOrWhiteSpace(logDto.TaskCode))
                 {
@@ -107,6 +126,7 @@ public class TelemetryService : ITelemetryService
                         {
                             resolvedTaskId = task.Id;
                             taskCodeCache[logDto.TaskCode] = task.Id;
+                            validTaskIds.Add(task.Id);
                         }
                     }
                 }
@@ -121,15 +141,15 @@ public class TelemetryService : ITelemetryService
                     WindowTitle = sanitizedTitle,
                     DurationSeconds = logDto.DurationSeconds,
                     IsIdle = logDto.IsIdle,
-                    LoggedAt = logDto.LoggedAt != default ? logDto.LoggedAt : DateTime.UtcNow,
+                    LoggedAt = EnsureUtc(logDto.LoggedAt),
                     CreatedAt = DateTime.UtcNow
                 };
 
                 _dbContext.AppActivityLogs.Add(activityLog);
                 count++;
 
-                // Broadcast live focus change if not idle and has valid process
-                if (!logDto.IsIdle && !string.IsNullOrWhiteSpace(sanitizedProc))
+                // Broadcast live focus change only for recent real-time activity (not old historical buffer flushes)
+                if (!logDto.IsIdle && !string.IsNullOrWhiteSpace(sanitizedProc) && activityLog.LoggedAt >= DateTime.UtcNow.AddMinutes(-2))
                 {
                     var taskSuffix = !string.IsNullOrWhiteSpace(logDto.TaskCode) ? $" ({logDto.TaskCode})" : "";
                     var liveEvent = new LiveWorkstationEventDto
@@ -147,8 +167,22 @@ public class TelemetryService : ITelemetryService
             }
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        if (count > 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
         return count;
+    }
+
+    private static DateTime EnsureUtc(DateTime dt)
+    {
+        if (dt == default) return DateTime.UtcNow;
+        return dt.Kind switch
+        {
+            DateTimeKind.Utc => dt,
+            DateTimeKind.Local => dt.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(dt, DateTimeKind.Utc)
+        };
     }
 
     public async Task ProcessHeartbeatAsync(WorkstationHeartbeatDto heartbeat, CancellationToken cancellationToken = default)
