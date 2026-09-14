@@ -90,16 +90,24 @@ public class ShiftService : IShiftService
         var loggedActive = shiftLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds);
         var loggedIdle = shiftLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds);
 
-        if (loggedActive + loggedIdle < elapsedShiftSeconds)
+        if (loggedActive + loggedIdle > 0)
         {
-            // Attribution: preserve logged idle time, and attribute remaining shift duration to active work
-            shift.TotalIdleSeconds = loggedIdle;
-            shift.TotalActiveSeconds = Math.Max(loggedActive, Math.Max(0, elapsedShiftSeconds - loggedIdle));
+            if (loggedActive + loggedIdle > elapsedShiftSeconds)
+            {
+                double activeRatio = (double)loggedActive / (loggedActive + loggedIdle);
+                shift.TotalActiveSeconds = (int)Math.Round(elapsedShiftSeconds * activeRatio);
+                shift.TotalIdleSeconds = Math.Max(0, elapsedShiftSeconds - shift.TotalActiveSeconds);
+            }
+            else
+            {
+                shift.TotalIdleSeconds = loggedIdle;
+                shift.TotalActiveSeconds = Math.Max(loggedActive, Math.Max(0, elapsedShiftSeconds - loggedIdle));
+            }
         }
         else
         {
-            shift.TotalActiveSeconds = loggedActive;
-            shift.TotalIdleSeconds = loggedIdle;
+            shift.TotalActiveSeconds = elapsedShiftSeconds;
+            shift.TotalIdleSeconds = 0;
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -165,30 +173,44 @@ public class ShiftService : IShiftService
 
         if (todayShifts.Any())
         {
-            if (loggedActive + loggedIdle > 0)
+            var rawActive = Math.Max(loggedActive, shiftActiveSec);
+            var rawIdle = Math.Max(loggedIdle, shiftIdleSec);
+
+            if (rawActive + rawIdle > 0)
             {
-                idleSecondsToday = Math.Max(loggedIdle, shiftIdleSec);
-                activeSecondsToday = Math.Max(loggedActive, Math.Max(0, shiftTotalSec - idleSecondsToday));
+                if (rawActive + rawIdle > shiftTotalSec)
+                {
+                    double activeRatio = (double)rawActive / (rawActive + rawIdle);
+                    activeSecondsToday = (int)Math.Round(shiftTotalSec * activeRatio);
+                    idleSecondsToday = Math.Max(0, shiftTotalSec - activeSecondsToday);
+                }
+                else
+                {
+                    idleSecondsToday = Math.Min(shiftTotalSec, rawIdle);
+                    activeSecondsToday = Math.Max(rawActive, shiftTotalSec - idleSecondsToday);
+                }
             }
             else
             {
-                activeSecondsToday = shiftActiveSec;
-                idleSecondsToday = shiftIdleSec;
+                activeSecondsToday = shiftTotalSec;
+                idleSecondsToday = 0;
             }
-            totalSecondsToday = activeSecondsToday + idleSecondsToday;
+            totalSecondsToday = shiftTotalSec;
         }
         else
         {
-            activeSecondsToday = loggedActive;
-            idleSecondsToday = loggedIdle;
-            totalSecondsToday = loggedActive + loggedIdle;
+            activeSecondsToday = 0;
+            idleSecondsToday = 0;
+            totalSecondsToday = 0;
         }
 
-        // For the specific shift requested, compute its active / idle time
+        // For the specific shift requested, compute its active / idle time bounded by its elapsed time
         var shiftEnd = shift.ClockOut ?? (shift.Status == ShiftStatus.ACTIVE.ToString() ? DateTime.UtcNow : shift.ClockIn);
         var shiftElapsedSec = Math.Max(0, (int)(shiftEnd - shift.ClockIn).TotalSeconds);
-        var thisShiftIdle = shift.TotalIdleSeconds;
-        var thisShiftActive = shift.TotalActiveSeconds > 0 ? shift.TotalActiveSeconds : Math.Max(0, shiftElapsedSec - thisShiftIdle);
+        var thisShiftIdle = Math.Min(shiftElapsedSec, Math.Max(0, shift.TotalIdleSeconds));
+        var thisShiftActive = shift.TotalActiveSeconds > 0 
+            ? Math.Min(shiftElapsedSec - thisShiftIdle, shift.TotalActiveSeconds) 
+            : Math.Max(0, shiftElapsedSec - thisShiftIdle);
 
         return new ShiftResponseDto
         {
@@ -201,7 +223,7 @@ public class ShiftService : IShiftService
             TotalIdleSeconds = thisShiftIdle,
             Status = shift.Status,
             TotalHoursToday = Math.Round(totalSecondsToday / 3600.0, 2),
-            ActiveTimeFormatted = FormatHoursMinutes(thisShiftActive),
+            ActiveTimeFormatted = FormatHoursMinutes(activeSecondsToday),
             TotalTimeFormatted = FormatHoursMinutes(totalSecondsToday)
         };
     }

@@ -241,8 +241,7 @@ public class TelemetryService : ITelemetryService
         var employees = await _dbContext.Users
             .Where(u => !string.IsNullOrWhiteSpace(u.StationId) && 
                        (u.Role == UserRole.EMPLOYEE.ToString() || 
-                        _dbContext.Shifts.Any(s => s.UserId == u.Id) || 
-                        _dbContext.AppActivityLogs.Any(l => l.UserId == u.Id)))
+                        _dbContext.Shifts.Any(s => s.UserId == u.Id)))
             .OrderBy(u => u.StationId)
             .ToListAsync(cancellationToken);
 
@@ -325,25 +324,34 @@ public class TelemetryService : ITelemetryService
 
             if (empShifts.Any())
             {
-                if (loggedActiveMins + loggedIdleMins > 0)
+                var rawActiveM = Math.Max(loggedActiveMins, shiftActiveMins);
+                var rawIdleM = Math.Max(loggedIdleMins, shiftIdleMins);
+
+                if (rawActiveM + rawIdleM > 0)
                 {
-                    idleMinutes = Math.Max(loggedIdleMins, shiftIdleMins);
-                    activeMinutes = Math.Max(loggedActiveMins, Math.Max(0, shiftTotalMins - idleMinutes));
+                    if (rawActiveM + rawIdleM > shiftTotalMins)
+                    {
+                        double activeRatio = (double)rawActiveM / (rawActiveM + rawIdleM);
+                        activeMinutes = (int)Math.Round(shiftTotalMins * activeRatio);
+                        idleMinutes = Math.Max(0, shiftTotalMins - activeMinutes);
+                    }
+                    else
+                    {
+                        idleMinutes = Math.Min(shiftTotalMins, rawIdleM);
+                        activeMinutes = Math.Max(rawActiveM, shiftTotalMins - idleMinutes);
+                    }
                 }
                 else
                 {
-                    activeMinutes = shiftActiveMins;
-                    idleMinutes = shiftIdleMins;
+                    activeMinutes = shiftTotalMins;
+                    idleMinutes = 0;
                 }
             }
             else
             {
-                activeMinutes = loggedActiveMins;
-                idleMinutes = loggedIdleMins;
+                activeMinutes = 0;
+                idleMinutes = 0;
             }
-
-            activeMinutes = Math.Max(0, activeMinutes);
-            idleMinutes = Math.Max(0, idleMinutes);
 
             result.Add(new WorkstationStatusDto
             {

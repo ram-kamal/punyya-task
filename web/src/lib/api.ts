@@ -220,8 +220,9 @@ export async function fetchTimesheetSummary(
   }
 }
 
-export function getTimesheetCsvDownloadUrl(startDate?: string, endDate?: string, viewType?: string): string {
+export function getTimesheetCsvDownloadUrl(period?: string, startDate?: string, endDate?: string, viewType?: string): string {
   const params = new URLSearchParams();
+  if (period) params.append('period', period);
   if (startDate) params.append('startDate', startDate);
   if (endDate) params.append('endDate', endDate);
   if (viewType) params.append('viewType', viewType);
@@ -229,6 +230,7 @@ export function getTimesheetCsvDownloadUrl(startDate?: string, endDate?: string,
 }
 
 export async function downloadTimesheetCsv(
+  period?: string,
   startDate?: string, 
   endDate?: string,
   viewType?: string
@@ -236,6 +238,7 @@ export async function downloadTimesheetCsv(
   try {
     const authHeaders = await getAuthHeader();
     const params = new URLSearchParams();
+    if (period) params.append('period', period);
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
     if (viewType) params.append('viewType', viewType);
@@ -253,7 +256,7 @@ export async function downloadTimesheetCsv(
     const blobUrl = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = blobUrl;
-    const periodLabel = startDate && endDate ? `${startDate}_to_${endDate}` : (startDate || 'latest');
+    const periodLabel = period || (startDate && endDate ? `${startDate}_to_${endDate}` : (startDate || 'latest'));
     link.download = `timesheet_${periodLabel}_${viewType || 'daily'}.csv`;
     document.body.appendChild(link);
     link.click();

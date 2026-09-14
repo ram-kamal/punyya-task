@@ -36,6 +36,9 @@ public record TimesheetRowDto
     public double TotalHours { get; init; }
     public double ActiveHours { get; init; }
     public double IdleHours { get; init; }
+    public int TotalSeconds { get; init; }
+    public int ActiveSeconds { get; init; }
+    public int IdleSeconds { get; init; }
     public string TotalTimeFormatted { get; init; } = string.Empty;
     public string ActiveTimeFormatted { get; init; } = string.Empty;
     public string IdleTimeFormatted { get; init; } = string.Empty;

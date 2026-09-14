@@ -33,10 +33,11 @@ public class TimesheetController : ControllerBase
     public async Task<IActionResult> ExportCsv(
         [FromQuery] DateTime? startDate, 
         [FromQuery] DateTime? endDate, 
+        [FromQuery] string? period,
         [FromQuery] string? viewType,
         CancellationToken cancellationToken)
     {
-        var bytes = await _timesheetService.ExportTimesheetCsvAsync(startDate, endDate, viewType, cancellationToken);
+        var bytes = await _timesheetService.ExportTimesheetCsvAsync(startDate, endDate, period, viewType, cancellationToken);
         var filename = $"timesheet_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
 
         return File(bytes, "text/csv", filename);

@@ -385,7 +385,7 @@ export default function AdminDashboardPage() {
       const isCustom = timesheetPeriod === 'custom';
       const start = isCustom ? timesheetStartDate : undefined;
       const end = isCustom ? timesheetEndDate : undefined;
-      await downloadTimesheetCsv(start, end, timesheetViewMode);
+      await downloadTimesheetCsv(timesheetPeriod, start, end, timesheetViewMode);
     } finally {
       setIsExportingCsv(false);
     }
