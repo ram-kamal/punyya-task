@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using PHF.Core.DTOs;
 using PHF.Core.Entities;
+using PHF.Core.Enums;
 using PHF.Core.Interfaces;
 using PHF.Infrastructure.Data;
 
@@ -15,11 +16,13 @@ public class AuthService : IAuthService
 {
     private readonly ApplicationDbContext _dbContext;
     private readonly IConfiguration _configuration;
+    private readonly IShiftService? _shiftService;
 
-    public AuthService(ApplicationDbContext dbContext, IConfiguration configuration)
+    public AuthService(ApplicationDbContext dbContext, IConfiguration configuration, IShiftService? shiftService = null)
     {
         _dbContext = dbContext;
         _configuration = configuration;
+        _shiftService = shiftService;
     }
 
     public async Task<AuthResponse?> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
@@ -42,6 +45,20 @@ public class AuthService : IAuthService
         {
             user.StationId = request.StationId;
             await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        // Auto clock-in employee on login if station is available
+        var stationIdToUse = !string.IsNullOrWhiteSpace(request.StationId) ? request.StationId : user.StationId;
+        if (_shiftService != null && user.Role == UserRole.EMPLOYEE.ToString() && !string.IsNullOrWhiteSpace(stationIdToUse))
+        {
+            try
+            {
+                await _shiftService.ClockInAsync(user.Id, stationIdToUse, cancellationToken);
+            }
+            catch
+            {
+                // Auto clock-in is best effort and does not block authentication
+            }
         }
 
         var expiresAt = DateTime.UtcNow.AddDays(7);

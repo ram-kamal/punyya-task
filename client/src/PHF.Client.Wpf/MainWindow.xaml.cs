@@ -195,6 +195,20 @@ public partial class MainWindow : Window
             System.Diagnostics.Debug.WriteLine($"SignalR init warning: {ex.Message}");
         }
 
+        // Auto clock-in on login / workstation session initialization
+        try
+        {
+            var shift = await _apiClient.GetCurrentShiftAsync();
+            if (shift == null || shift.Status != ShiftStatus.ACTIVE.ToString())
+            {
+                await _apiClient.ClockInAsync(_stationId);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Auto clock-in warning: {ex.Message}");
+        }
+
         // Load tasks, shift status, and leaves immediately
         await RefreshTasksAsync();
         await RefreshShiftStatusAsync();
@@ -552,8 +566,17 @@ public partial class MainWindow : Window
         }
     }
 
-    private void BtnLogout_Click(object sender, RoutedEventArgs e)
+    private async void BtnLogout_Click(object sender, RoutedEventArgs e)
     {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(_stationId))
+            {
+                await _apiClient.ClockOutAsync(_stationId);
+            }
+        }
+        catch { }
+
         _engine.Stop();
         _syncWorker.Stop();
         _ = _realtimeClient.StopAsync();
