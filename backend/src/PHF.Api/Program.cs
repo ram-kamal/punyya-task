@@ -175,7 +175,9 @@ builder.Services.AddCors(options =>
                     || uri.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) 
                     || uri.Host.EndsWith(".onrender.com", StringComparison.OrdinalIgnoreCase)
                     || uri.Host.Equals("punnya.org", StringComparison.OrdinalIgnoreCase)
-                    || uri.Host.EndsWith(".punnya.org", StringComparison.OrdinalIgnoreCase);
+                    || uri.Host.EndsWith(".punnya.org", StringComparison.OrdinalIgnoreCase)
+                    || uri.Host.Equals("punyya.org", StringComparison.OrdinalIgnoreCase)
+                    || uri.Host.EndsWith(".punyya.org", StringComparison.OrdinalIgnoreCase);
             }
             catch
             {
