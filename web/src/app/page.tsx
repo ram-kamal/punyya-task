@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import Link from 'next/link';
 import {
   Monitor,
   CheckCircle2,
@@ -857,6 +858,26 @@ export default function AdminDashboardPage() {
               <span>TLS / SHA-256 Authenticated Session</span>
             </div>
           </div>
+
+          {/* Staff Workstation App Download Card */}
+          <div className="mt-4 p-4 rounded-2xl bg-[#151720]/90 border border-[#262938] text-center shadow-xl backdrop-blur-xl">
+            <div className="flex items-center justify-center space-x-2 text-xs font-bold text-rose-400 mb-1">
+              <Laptop className="w-4 h-4" />
+              <span>Staff / Employee Workstation App</span>
+            </div>
+            <p className="text-[11px] text-slate-400 mb-3">
+              Need to clock in, track tasks, or upload deliverables? Download the official Windows app.
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <Link
+                href="/download"
+                className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-600 text-white font-bold text-xs shadow-md shadow-rose-600/25 transition active:scale-95"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download for Windows (64-bit)</span>
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -915,6 +936,17 @@ export default function AdminDashboardPage() {
               <Download className="w-3.5 h-3.5 text-emerald-400" />
               <span>{isExportingCsv ? 'EXPORTING...' : 'CSV'}</span>
             </button>
+
+            {/* Download Windows App Link */}
+            <Link
+              href="/download"
+              target="_blank"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-200 hover:text-white text-xs font-semibold transition-all"
+              title="Download Punnya Heart Desk for Windows"
+            >
+              <Laptop className="w-3.5 h-3.5 text-rose-400" />
+              <span>APP</span>
+            </Link>
 
             {/* Refresh */}
             <button

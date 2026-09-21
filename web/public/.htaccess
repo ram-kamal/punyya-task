@@ -1,0 +1,34 @@
+﻿# Apache configuration for Punnya Task Management Portal
+# Located at: /public_html/task/.htaccess
+
+Options -MultiViews
+RewriteEngine On
+RewriteBase /task/
+
+# Force HTTPS
+<IfModule mod_rewrite.c>
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}/task/$1 [R=301,L]
+</IfModule>
+
+# Ensure .exe and .zip are served as octet-stream for instant downloading
+<IfModule mod_mime.c>
+    AddType application/octet-stream .exe
+    AddType application/zip .zip
+</IfModule>
+
+# Do not rewrite if file or directory physically exists
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Directory slash normalization
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_URI} !index\.html$
+RewriteCond %{DOCUMENT_ROOT}/task/$1/index.html -f
+RewriteRule ^(.*)$ /task/$1/index.html [L]
+
+# Fallback to SPA root index.html
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]

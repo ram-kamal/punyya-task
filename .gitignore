@@ -17,6 +17,7 @@ TestResults/
 node_modules/
 .next/
 out/
+web/public/downloads/
 wwwroot/
 dist/
 build/
