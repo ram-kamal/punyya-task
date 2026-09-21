@@ -47,8 +47,13 @@ import {
   Shield,
   Eye,
   EyeOff,
+  Upload,
+  Trash2,
+  Table,
+  FileUp,
 } from 'lucide-react';
 import { WorkstationStatus, LiveWorkstationEvent, TaskItem, TimesheetSummary, User, LeaveRequestItem, StaffMember } from '@/lib/types';
+import { parseSheetToTasks, getSampleMatrixCsv, getSampleLinearCsv, ParsedImportTask } from '@/lib/taskImporter';
 import {
   fetchStations,
   fetchRecentEvents,
@@ -197,6 +202,18 @@ export default function AdminDashboardPage() {
   const [dispatchDeliverableReq, setDispatchDeliverableReq] = useState(true);
   const [isDispatching, setIsDispatching] = useState(false);
   const [dispatchMessage, setDispatchMessage] = useState<string | null>(null);
+
+  // Bulk Task Import State
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importTab, setImportTab] = useState<'upload' | 'paste'>('upload');
+  const [importRawText, setImportRawText] = useState('');
+  const [importFileName, setImportFileName] = useState('');
+  const [parsedImportTasks, setParsedImportTasks] = useState<ParsedImportTask[]>([]);
+  const [importFormatLabel, setImportFormatLabel] = useState<string>('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number; success: number; failed: number } | null>(null);
+  const [importNotice, setImportNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [batchPrioritySetting, setBatchPrioritySetting] = useState<string>('');
 
   // Load Initial Data
   const loadDashboardData = async () => {
@@ -443,6 +460,164 @@ export default function AdminDashboardPage() {
       }, 1200);
     } else {
       setDispatchMessage(result.error || 'Failed to dispatch task. Central API check required.');
+    }
+  };
+
+  // --- Bulk Task Import Handlers ---
+  const handleProcessCsvInput = (rawText: string, sourceName: string) => {
+    setImportNotice(null);
+    const res = parseSheetToTasks(rawText, users);
+    if (res.tasks.length === 0) {
+      setImportNotice({
+        type: 'error',
+        message: 'No tasks could be recognized. Please make sure the data contains task/item rows.',
+      });
+      return;
+    }
+
+    setParsedImportTasks(res.tasks);
+    setImportFormatLabel(res.detectedFormatLabel);
+    setImportFileName(sourceName);
+    setImportNotice({
+      type: 'success',
+      message: `Found ${res.totalFound} tasks (${res.matchedStaffCount} staff matched, ${res.unassignedCount} unassigned). Review below before importing.`,
+    });
+  };
+
+  const handleImportFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (text) {
+        handleProcessCsvInput(text, file.name);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (text) {
+        handleProcessCsvInput(text, file.name);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleToggleTaskSelection = (id: string) => {
+    setParsedImportTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, selected: !t.selected } : t))
+    );
+  };
+
+  const handleToggleSelectAll = (selectAll: boolean) => {
+    setParsedImportTasks((prev) => prev.map((t) => ({ ...t, selected: selectAll })));
+  };
+
+  const handleUpdateParsedTask = (id: string, updates: Partial<ParsedImportTask>) => {
+    setParsedImportTasks((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        const updated = { ...t, ...updates };
+        if (updates.assignedTo !== undefined) {
+          const u = users.find((usr) => usr.id === updates.assignedTo);
+          updated.assignedToName = u ? (u.fullName || u.username || u.email) : 'Unassigned';
+        }
+        return updated;
+      })
+    );
+  };
+
+  const handleDeleteParsedTask = (id: string) => {
+    setParsedImportTasks((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const handleApplyBatchPriority = (priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL') => {
+    setBatchPrioritySetting(priority);
+    setParsedImportTasks((prev) =>
+      prev.map((t) => (t.selected ? { ...t, priority } : t))
+    );
+  };
+
+  const handleDownloadTemplateFile = (type: 'matrix' | 'linear') => {
+    const content = type === 'matrix' ? getSampleMatrixCsv() : getSampleLinearCsv();
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', type === 'matrix' ? 'punnya_team_matrix_template.csv' : 'punnya_linear_tasks_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExecuteBatchImport = async () => {
+    const tasksToCreate = parsedImportTasks.filter((t) => t.selected && t.title.trim().length > 0);
+    if (tasksToCreate.length === 0) {
+      setImportNotice({ type: 'error', message: 'No tasks selected for import.' });
+      return;
+    }
+
+    setIsImporting(true);
+    setImportProgress({ current: 0, total: tasksToCreate.length, success: 0, failed: 0 });
+    setImportNotice(null);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < tasksToCreate.length; i++) {
+      const t = tasksToCreate[i];
+      setImportProgress({ current: i + 1, total: tasksToCreate.length, success: successCount, failed: failCount });
+
+      try {
+        const res = await createTask({
+          title: t.title.trim(),
+          description: t.description.trim() || undefined,
+          assignedTo: t.assignedTo || undefined,
+          priority: t.priority,
+          dueDate: t.dueDate,
+          deliverableRequired: t.deliverableRequired,
+        });
+
+        if (res.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        failCount++;
+      }
+    }
+
+    setImportProgress({ current: tasksToCreate.length, total: tasksToCreate.length, success: successCount, failed: failCount });
+    setIsImporting(false);
+
+    if (successCount > 0) {
+      setImportNotice({
+        type: 'success',
+        message: `✓ Successfully created ${successCount} task${successCount > 1 ? 's' : ''}${failCount > 0 ? ` (${failCount} failed)` : ''}! Refreshing tasks...`,
+      });
+      fetchTasks().then(setTasks);
+      fetchStaff().then(setStaff);
+      setTimeout(() => {
+        setIsImportModalOpen(false);
+        setParsedImportTasks([]);
+        setImportRawText('');
+        setImportNotice(null);
+        setImportProgress(null);
+      }, 1600);
+    } else {
+      setImportNotice({
+        type: 'error',
+        message: 'Failed to create tasks. Please check your network and try again.',
+      });
     }
   };
 
@@ -927,6 +1102,16 @@ export default function AdminDashboardPage() {
               <span>DISPATCH TASK</span>
             </button>
 
+            {/* Import Tasks Modal Button */}
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-200 hover:text-white text-xs font-bold transition-all active:scale-[0.98]"
+              title="Import tasks from Google Sheets or CSV"
+            >
+              <Upload className="w-3.5 h-3.5 text-indigo-400" />
+              <span>IMPORT SHEET</span>
+            </button>
+
             {/* Timesheet CSV Export */}
             <button
               onClick={handleDownloadCsv}
@@ -1030,24 +1215,34 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
                   setIsDispatchModalOpen(true);
                 }}
-                className="flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl bg-rose-600 active:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20"
+                className="flex items-center justify-center space-x-1 py-2 px-2 rounded-xl bg-rose-600 active:bg-rose-700 text-white text-[11px] font-bold shadow-md shadow-rose-600/20"
               >
-                <Plus className="w-4 h-4" />
-                <span>Dispatch Task</span>
+                <Plus className="w-3.5 h-3.5" />
+                <span>Dispatch</span>
+              </button>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setIsImportModalOpen(true);
+                }}
+                className="flex items-center justify-center space-x-1 py-2 px-2 rounded-xl bg-[#1C1F2B] border border-[#32364A] text-slate-200 active:bg-[#262938] text-[11px] font-semibold"
+              >
+                <Upload className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Import</span>
               </button>
               <button
                 onClick={handleDownloadCsv}
                 disabled={isExportingCsv}
-                className="flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl bg-[#1C1F2B] border border-[#32364A] text-slate-200 active:bg-[#262938] text-xs font-semibold disabled:opacity-50"
+                className="flex items-center justify-center space-x-1 py-2 px-2 rounded-xl bg-[#1C1F2B] border border-[#32364A] text-slate-200 active:bg-[#262938] text-[11px] font-semibold disabled:opacity-50"
               >
-                <Download className="w-4 h-4 text-emerald-400" />
-                <span>{isExportingCsv ? 'Exporting...' : 'Export CSV'}</span>
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{isExportingCsv ? '...' : 'CSV'}</span>
               </button>
             </div>
 
@@ -1589,6 +1784,15 @@ export default function AdminDashboardPage() {
                   <option value="MEDIUM">Medium</option>
                   <option value="LOW">Low</option>
                 </select>
+
+                <button
+                  onClick={() => setIsImportModalOpen(true)}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-200 hover:text-white text-xs font-semibold transition"
+                  title="Import from Google Sheets or CSV"
+                >
+                  <Upload className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Import Sheet</span>
+                </button>
 
                 <button
                   onClick={() => setIsDispatchModalOpen(true)}
@@ -2666,6 +2870,438 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Windows 11 Style Modal: IMPORT TASKS FROM GOOGLE SHEETS / CSV */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="bg-[#151720] border border-[#32364A] rounded-2xl w-full max-w-4xl p-6 shadow-2xl space-y-4 max-h-[92vh] flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#262938] shrink-0">
+              <div className="flex items-center space-x-2.5 text-white">
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                  <Upload className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider">Import Tasks from Google Sheets / CSV</h3>
+                  <p className="text-[11px] text-slate-400">Supports Team Matrix (Staff columns) and standard task lists</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (isImporting) return;
+                  setIsImportModalOpen(false);
+                  setParsedImportTasks([]);
+                  setImportRawText('');
+                  setImportNotice(null);
+                  setImportProgress(null);
+                }}
+                disabled={isImporting}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#262938] transition disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+              {parsedImportTasks.length === 0 ? (
+                /* Step 1: Upload or Paste */
+                <div className="space-y-4">
+                  {/* Mode Tabs */}
+                  <div className="flex items-center space-x-2 bg-[#0D0E12] p-1 rounded-xl border border-[#262938] w-fit">
+                    <button
+                      type="button"
+                      onClick={() => setImportTab('upload')}
+                      className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                        importTab === 'upload' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <FileUp className="w-3.5 h-3.5" />
+                      <span>Upload File (.csv)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImportTab('paste')}
+                      className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                        importTab === 'paste' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Table className="w-3.5 h-3.5" />
+                      <span>Paste from Sheets</span>
+                    </button>
+                  </div>
+
+                  {importTab === 'upload' ? (
+                    /* Drag and Drop Zone */
+                    <div
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={handleImportFileDrop}
+                      className="border-2 border-dashed border-[#32364A] hover:border-indigo-500 rounded-2xl p-8 text-center transition-all bg-[#0D0E12]/50 flex flex-col items-center justify-center space-y-3"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-inner">
+                        <Upload className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">Drag &amp; drop your Google Sheets CSV export here</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Supports your Team Matrix sheet or standard CSV exports</p>
+                      </div>
+                      <label className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs cursor-pointer shadow-md shadow-indigo-600/25 transition active:scale-95">
+                        <FileUp className="w-4 h-4" />
+                        <span>Browse Computer</span>
+                        <input
+                          type="file"
+                          accept=".csv,.tsv,.txt"
+                          onChange={handleImportFileUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    /* Direct Paste Zone */
+                    <div className="space-y-3">
+                      <div className="bg-[#0D0E12] border border-[#262938] rounded-xl p-3">
+                        <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                          Paste Data (Copy rows in Google Sheets &amp; press Ctrl+V here):
+                        </label>
+                        <textarea
+                          rows={6}
+                          placeholder="No,Date,Item,Ayush,Himanshu,Dhvaj,Divyanshu,Status,Remarks&#10;1,21-09-2026,Dr. Heart Vaccine - Urban Short Film,&quot;Script, Production&quot;,Camera and editing,,,In Progress,"
+                          value={importRawText}
+                          onChange={(e) => setImportRawText(e.target.value)}
+                          className="w-full bg-transparent border-0 text-xs text-white font-mono placeholder-slate-600 focus:outline-none resize-none"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleProcessCsvInput(importRawText, 'Pasted Data')}
+                        disabled={!importRawText.trim()}
+                        className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 text-white text-xs font-bold transition shadow-md flex items-center justify-center space-x-2"
+                      >
+                        <Table className="w-4 h-4" />
+                        <span>Analyze &amp; Preview Tasks</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Notice if any */}
+                  {importNotice && (
+                    <div
+                      className={`p-3 rounded-xl text-xs font-semibold ${
+                        importNotice.type === 'success'
+                          ? 'bg-emerald-950/80 border border-emerald-500/40 text-emerald-300'
+                          : 'bg-rose-950/80 border border-rose-500/40 text-rose-300'
+                      }`}
+                    >
+                      {importNotice.message}
+                    </div>
+                  )}
+
+                  {/* Sample Templates Helper */}
+                  <div className="bg-[#0D0E12] border border-[#262938] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+                    <div>
+                      <div className="font-bold text-white flex items-center space-x-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Need a template?</span>
+                      </div>
+                      <p className="text-slate-400 text-[11px] mt-0.5">
+                        Download a pre-formatted template matching your exact spreadsheet columns.
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadTemplateFile('matrix')}
+                        className="px-3 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262A3B] border border-[#32364A] text-slate-200 text-xs font-semibold flex items-center space-x-1.5 transition"
+                      >
+                        <Download className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Team Matrix Template</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadTemplateFile('linear')}
+                        className="px-3 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262A3B] border border-[#32364A] text-slate-200 text-xs font-semibold flex items-center space-x-1.5 transition"
+                      >
+                        <Download className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Linear Template</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Step 2: Interactive Review & Mapping Table */
+                <div className="space-y-3">
+                  {/* Top Bar with detected format & stats */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-[#0D0E12] p-3 rounded-xl border border-[#262938]">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[11px] font-bold">
+                        {importFormatLabel}
+                      </div>
+                      <span className="text-xs text-slate-300 font-semibold">
+                        {parsedImportTasks.filter((t) => t.selected).length} of {parsedImportTasks.length} tasks selected
+                      </span>
+                      {parsedImportTasks.some((t) => !t.assignedTo) && (
+                        <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
+                          ⚠️ {parsedImportTasks.filter((t) => !t.assignedTo).length} need staff assignment
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setParsedImportTasks([]);
+                          setImportNotice(null);
+                        }}
+                        disabled={isImporting}
+                        className="px-2.5 py-1 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-300 hover:text-white text-xs font-semibold transition"
+                      >
+                        Reset / Choose Another
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Batch Controls */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
+                    <div className="flex items-center space-x-3">
+                      <label className="flex items-center space-x-1.5 cursor-pointer text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={parsedImportTasks.length > 0 && parsedImportTasks.every((t) => t.selected)}
+                          onChange={(e) => handleToggleSelectAll(e.target.checked)}
+                          className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
+                        />
+                        <span className="font-semibold">Select All</span>
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelectAll(false)}
+                        className="text-slate-400 hover:text-white underline text-[11px]"
+                      >
+                        Deselect All
+                      </button>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <span className="text-slate-400 text-[11px]">Set Priority for Selected:</span>
+                      <select
+                        value={batchPrioritySetting}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            handleApplyBatchPriority(e.target.value as any);
+                          }
+                        }}
+                        className="bg-[#0D0E12] border border-[#262938] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500"
+                      >
+                        <option value="">Choose...</option>
+                        <option value="LOW">Low</option>
+                        <option value="MEDIUM">Medium</option>
+                        <option value="HIGH">High</option>
+                        <option value="CRITICAL">Critical</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Tasks Table */}
+                  <div className="border border-[#262938] rounded-xl overflow-hidden bg-[#0D0E12]">
+                    <div className="max-h-80 overflow-y-auto divide-y divide-[#202330]">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-[#12141C] text-slate-400 font-bold sticky top-0 z-10">
+                          <tr>
+                            <th className="p-2.5 w-10 text-center">Sel</th>
+                            <th className="p-2.5 w-52">Project / Task Title</th>
+                            <th className="p-2.5">Scope / Role</th>
+                            <th className="p-2.5 w-48">Assign To Staff</th>
+                            <th className="p-2.5 w-24">Priority</th>
+                            <th className="p-2.5 w-20 text-center">Proof</th>
+                            <th className="p-2.5 w-10 text-center">Del</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#1C1F2B]">
+                          {parsedImportTasks.map((item) => {
+                            const hasMatchedUser = !!item.assignedTo;
+                            return (
+                              <tr
+                                key={item.id}
+                                className={`hover:bg-[#151722] transition ${
+                                  !item.selected ? 'opacity-40 bg-black/20' : ''
+                                }`}
+                              >
+                                {/* Checkbox */}
+                                <td className="p-2.5 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={item.selected}
+                                    onChange={() => handleToggleTaskSelection(item.id)}
+                                    className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
+                                  />
+                                </td>
+
+                                {/* Title */}
+                                <td className="p-2.5">
+                                  <input
+                                    type="text"
+                                    value={item.title}
+                                    onChange={(e) => handleUpdateParsedTask(item.id, { title: e.target.value })}
+                                    className="w-full bg-[#151720] border border-[#2E3347] focus:border-indigo-500 rounded px-2 py-1 text-xs text-white focus:outline-none"
+                                    placeholder="Task Title"
+                                  />
+                                </td>
+
+                                {/* Scope / Description */}
+                                <td className="p-2.5">
+                                  <input
+                                    type="text"
+                                    value={item.description}
+                                    onChange={(e) => handleUpdateParsedTask(item.id, { description: e.target.value })}
+                                    className="w-full bg-[#151720] border border-[#2E3347] focus:border-indigo-500 rounded px-2 py-1 text-xs text-white focus:outline-none"
+                                    placeholder="Role or Scope..."
+                                  />
+                                </td>
+
+                                {/* Assignee Dropdown */}
+                                <td className="p-2.5">
+                                  <select
+                                    value={item.assignedTo}
+                                    onChange={(e) => handleUpdateParsedTask(item.id, { assignedTo: e.target.value })}
+                                    className={`w-full rounded px-2 py-1 text-xs text-white focus:outline-none ${
+                                      hasMatchedUser
+                                        ? 'bg-[#151720] border border-[#2E3347] focus:border-indigo-500'
+                                        : 'bg-amber-950/40 border border-amber-500/50 text-amber-200'
+                                    }`}
+                                  >
+                                    <option value="">
+                                      {item.rawStaffHeader
+                                        ? `⚠️ Select for "${item.rawStaffHeader}"`
+                                        : 'Unassigned (No Staff)'}
+                                    </option>
+                                    {users
+                                      .filter((u) => u.role !== 'ADMIN')
+                                      .map((u) => (
+                                        <option key={u.id} value={u.id}>
+                                          {u.fullName || u.username} ({u.role})
+                                        </option>
+                                      ))}
+                                  </select>
+                                </td>
+
+                                {/* Priority */}
+                                <td className="p-2.5">
+                                  <select
+                                    value={item.priority}
+                                    onChange={(e) =>
+                                      handleUpdateParsedTask(item.id, { priority: e.target.value as any })
+                                    }
+                                    className="w-full bg-[#151720] border border-[#2E3347] focus:border-indigo-500 rounded px-1.5 py-1 text-xs text-white focus:outline-none"
+                                  >
+                                    <option value="LOW">Low</option>
+                                    <option value="MEDIUM">Medium</option>
+                                    <option value="HIGH">High</option>
+                                    <option value="CRITICAL">Critical</option>
+                                  </select>
+                                </td>
+
+                                {/* Proof Gate */}
+                                <td className="p-2.5 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={item.deliverableRequired}
+                                    onChange={(e) =>
+                                      handleUpdateParsedTask(item.id, { deliverableRequired: e.target.checked })
+                                    }
+                                    title="Proof deliverable required to close task"
+                                    className="w-3.5 h-3.5 accent-rose-600 rounded cursor-pointer"
+                                  />
+                                </td>
+
+                                {/* Delete */}
+                                <td className="p-2.5 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteParsedTask(item.id)}
+                                    className="text-slate-500 hover:text-rose-400 p-1 rounded transition"
+                                    title="Remove this task"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Import Notice */}
+                  {importNotice && (
+                    <div
+                      className={`p-3 rounded-xl text-xs font-semibold ${
+                        importNotice.type === 'success'
+                          ? 'bg-emerald-950/80 border border-emerald-500/40 text-emerald-300'
+                          : 'bg-rose-950/80 border border-rose-500/40 text-rose-300'
+                      }`}
+                    >
+                      {importNotice.message}
+                    </div>
+                  )}
+
+                  {/* Progress Bar during Import */}
+                  {isImporting && importProgress && (
+                    <div className="space-y-1.5 bg-[#0D0E12] border border-[#262938] p-3 rounded-xl">
+                      <div className="flex justify-between text-xs font-bold text-slate-300">
+                        <span>Creating task {importProgress.current} of {importProgress.total}...</span>
+                        <span>{Math.round((importProgress.current / importProgress.total) * 100)}%</span>
+                      </div>
+                      <div className="w-full bg-[#1C1F2B] rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-indigo-500 via-rose-500 to-pink-500 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between pt-3 border-t border-[#262938] shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsImportModalOpen(false);
+                  setParsedImportTasks([]);
+                  setImportRawText('');
+                  setImportNotice(null);
+                  setImportProgress(null);
+                }}
+                disabled={isImporting}
+                className="px-4 py-2 rounded-xl bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-300 hover:text-white text-xs font-semibold transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              {parsedImportTasks.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleExecuteBatchImport}
+                  disabled={isImporting || parsedImportTasks.filter((t) => t.selected).length === 0}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 flex items-center space-x-2 transition active:scale-95"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>
+                    {isImporting
+                      ? 'Creating Tasks...'
+                      : `Confirm & Import (${parsedImportTasks.filter((t) => t.selected).length}) Tasks`}
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

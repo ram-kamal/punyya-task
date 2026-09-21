@@ -38,3 +38,4 @@ Desktop.ini
 
 ## Temporary scratch scripts
 scratch/
+*.tsbuildinfo
