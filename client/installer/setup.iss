@@ -4,7 +4,7 @@
 #define MyAppName "Punnya Heart Desk"
 #define MyAppVersion "1.0.0-beta"
 #define MyAppPublisher "Punnya Heart Foundation"
-#define MyAppURL "https://punnya-api.onrender.com"
+#define MyAppURL "https://punnya.org/task"
 #define MyAppExeName "PunnyaHeartDesk.exe"
 #define MySourceDir "..\publish\PunnyaHeartDesk-Beta-win-x64"
 
@@ -23,7 +23,7 @@ AllowNoIcons=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog commandline
 OutputDir=..\publish\installer
-OutputBaseFilename=PunnyaHeartDesk_Setup_v1.0
+OutputBaseFilename=PunnyaHeartDesk-Setup
 SetupIconFile=..\src\PHF.Client.Wpf\app.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
