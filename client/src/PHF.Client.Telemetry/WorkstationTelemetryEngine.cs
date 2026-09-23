@@ -1,8 +1,9 @@
+using PHF.Client.Core.Telemetry;
 using PHF.Client.Telemetry.Events;
 
 namespace PHF.Client.Telemetry;
 
-public class WorkstationTelemetryEngine : IDisposable
+public class WorkstationTelemetryEngine : ITelemetryEngine
 {
     private readonly WindowTracker _windowTracker;
     private readonly IdleTracker _idleTracker;

@@ -12,6 +12,7 @@
   <Folder Name="/client/" />
   <Folder Name="/client/src/">
     <Project Path="client/src/PHF.Client.Core/PHF.Client.Core.csproj" />
+    <Project Path="client/src/PHF.Client.Desktop/PHF.Client.Desktop.csproj" />
     <Project Path="client/src/PHF.Client.Telemetry/PHF.Client.Telemetry.csproj" />
     <Project Path="client/src/PHF.Client.Wpf/PHF.Client.Wpf.csproj" />
   </Folder>

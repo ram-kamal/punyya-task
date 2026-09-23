@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using PHF.Client.Core.Http;
 using PHF.Client.Core.Storage;
-using PHF.Client.Telemetry;
+using PHF.Client.Core.Telemetry;
 using PHF.Core.DTOs;
 using PHF.Core.Enums;
 
@@ -11,7 +11,7 @@ public class TelemetrySyncWorker : IDisposable
 {
     private readonly TamperProofDatabase _database;
     private readonly ApiClient _apiClient;
-    private readonly WorkstationTelemetryEngine _engine;
+    private readonly ITelemetryEngine _engine;
     private readonly Timer _syncTimer;
     private readonly Timer _heartbeatTimer;
 
@@ -26,7 +26,7 @@ public class TelemetrySyncWorker : IDisposable
     public TelemetrySyncWorker(
         TamperProofDatabase database, 
         ApiClient apiClient, 
-        WorkstationTelemetryEngine engine,
+        ITelemetryEngine engine,
         int syncIntervalSeconds = 30)
     {
         _database = database;

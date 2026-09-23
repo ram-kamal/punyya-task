@@ -39,3 +39,6 @@ Desktop.ini
 ## Temporary scratch scripts
 scratch/
 *.tsbuildinfo
+KeepAwake.*
+keep_awake.*
+start_mouse_jiggler.bat

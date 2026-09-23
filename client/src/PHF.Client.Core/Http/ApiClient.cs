@@ -65,6 +65,12 @@ public class ApiClient
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
 
+    public void Logout()
+    {
+        _authToken = null;
+        _httpClient.DefaultRequestHeaders.Authorization = null;
+    }
+
     public async Task<AuthResponse?> LoginAsync(string email, string password, string? stationId = null, CancellationToken ct = default)
     {
         var response = await _httpClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest

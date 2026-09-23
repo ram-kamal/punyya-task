@@ -3,7 +3,7 @@ using PHF.Core.DTOs;
 
 namespace PHF.Client.Core.Realtime;
 
-public class RealtimeClient : IAsyncDisposable
+public class RealtimeClient : IAsyncDisposable, IDisposable
 {
     private HubConnection? _hubConnection;
     private string _hubUrl;
@@ -146,6 +146,12 @@ public class RealtimeClient : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await StopAsync();
+        GC.SuppressFinalize(this);
+    }
+
+    public void Dispose()
+    {
+        try { StopAsync().GetAwaiter().GetResult(); } catch { }
         GC.SuppressFinalize(this);
     }
 }

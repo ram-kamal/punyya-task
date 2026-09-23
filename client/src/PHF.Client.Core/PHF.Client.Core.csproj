@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\PHF.Client.Telemetry\PHF.Client.Telemetry.csproj" />
     <ProjectReference Include="..\..\..\backend\src\PHF.Core\PHF.Core.csproj" />
   </ItemGroup>
 
@@ -11,7 +10,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

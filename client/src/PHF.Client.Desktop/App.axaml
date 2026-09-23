@@ -1,0 +1,64 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PHF.Client.Desktop.App"
+             RequestedThemeVariant="Dark">
+    <Application.Styles>
+        <FluentTheme />
+        
+        <!-- Mac Glass Button Styles -->
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#E11D48" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#BE123C" />
+        </Style>
+
+        <Style Selector="Button.glass">
+            <Setter Property="Background" Value="#25FFFFFF" />
+            <Setter Property="Foreground" Value="#E2E8F0" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="12,7" />
+            <Setter Property="BorderBrush" Value="#35FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.glass:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#35FFFFFF" />
+            <Setter Property="BorderBrush" Value="#50FFFFFF" />
+        </Style>
+
+        <Style Selector="Button.accentGreen">
+            <Setter Property="Background" Value="#10B981" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.accentGreen:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#059669" />
+        </Style>
+
+        <!-- Mac Glass TextBoxes -->
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#20000000" />
+            <Setter Property="Foreground" Value="#F8FAFC" />
+            <Setter Property="BorderBrush" Value="#30FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,8" />
+        </Style>
+        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="#E11D48" />
+            <Setter Property="Background" Value="#28000000" />
+        </Style>
+    </Application.Styles>
+</Application>
