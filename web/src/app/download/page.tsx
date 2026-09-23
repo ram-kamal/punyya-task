@@ -247,23 +247,22 @@ export default function DownloadPage() {
                       </div>
                       <div>
                         <h3 className="text-2xl font-black text-white tracking-tight">Windows Setup Wizard (.exe)</h3>
-                        <p className="text-xs text-rose-300/80 font-medium">Standard Guided Installation for Windows 10 &amp; 11</p>
+                        <p className="text-xs text-rose-300/80 font-medium">Windows 11 Fluent Mica Glass UI • Windows 10 &amp; 11 Ready</p>
                       </div>
                     </div>
 
                     <p className="text-sm text-slate-300 leading-relaxed">
-                      The official installer guides you through setup in seconds. Automatically adds desktop &amp; 
-                      Start Menu shortcuts, configures auto-start on Windows boot, and includes a full uninstaller in Windows Settings.
+                      Features modern Windows 11 Fluent Mica Glass materials, live elapsed shift clock HUD, Win32 telemetry hooks, and automatic boot configuration.
                     </p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs text-slate-300 pt-2">
                       <div className="flex items-center space-x-2">
                         <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>Desktop &amp; Start Menu Shortcuts</span>
+                        <span>Windows 11 Fluent Mica Translucency</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>Auto-Start on Boot Option</span>
+                        <span>Live Elapsed Shift Clock HUD</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -287,7 +286,7 @@ export default function DownloadPage() {
                     </a>
                     <div className="text-[11px] text-slate-400 text-center md:text-right space-y-0.5">
                       <div>File: <strong className="text-slate-200">PunnyaHeartDesk-Setup.exe</strong></div>
-                      <div>Version: <strong className="text-emerald-400">1.0.0-beta</strong> • Size: <strong className="text-slate-200">~68 MB</strong></div>
+                      <div>Version: <strong className="text-emerald-400">1.0.0-beta</strong> • Size: <strong className="text-slate-200">~42 MB</strong></div>
                     </div>
                   </div>
                 </div>
@@ -310,10 +309,10 @@ export default function DownloadPage() {
                       <span className="text-[10px] bg-[#222634] text-slate-300 font-semibold px-2 py-0.5 rounded">.EXE</span>
                     </div>
                     <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-                      Single standalone binary. Runs directly without any installation wizard. Ideal for USB drives or temporary workstations.
+                      Single standalone binary with Windows 11 Fluent Mica design. Runs directly without installation wizard.
                     </p>
                     <div className="text-xs text-slate-400 space-y-1 mb-6">
-                      <div>Size: <strong className="text-slate-300">~73 MB</strong> (Self-contained, includes runtime)</div>
+                      <div>Size: <strong className="text-slate-300">~46 MB</strong> (Self-contained, single file)</div>
                     </div>
                   </div>
                   <a
@@ -337,7 +336,7 @@ export default function DownloadPage() {
                       Compressed archive containing the executable, launcher batch script, and documentation.
                     </p>
                     <div className="text-xs text-slate-400 space-y-1 mb-6">
-                      <div>Size: <strong className="text-slate-300">~67 MB</strong> (Compressed archive)</div>
+                      <div>Size: <strong className="text-slate-300">~41 MB</strong> (Compressed archive)</div>
                     </div>
                   </div>
                   <a

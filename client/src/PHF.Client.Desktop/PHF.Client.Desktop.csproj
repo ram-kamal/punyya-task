@@ -14,6 +14,11 @@
     <Version>1.0.0-beta</Version>
     <FileVersion>1.0.0.0</FileVersion>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <NoWarn>CA1416</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,6 +30,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PHF.Client.Core\PHF.Client.Core.csproj" />
+    <ProjectReference Include="..\PHF.Client.Telemetry\PHF.Client.Telemetry.csproj" />
     <ProjectReference Include="..\..\..\backend\src\PHF.Core\PHF.Core.csproj" />
   </ItemGroup>
 

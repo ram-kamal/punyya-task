@@ -24,7 +24,7 @@ PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog commandline
 OutputDir=..\publish\installer
 OutputBaseFilename=PunnyaHeartDesk-Setup
-SetupIconFile=..\src\PHF.Client.Wpf\app.ico
+SetupIconFile=..\src\PHF.Client.Desktop\app.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -42,7 +42,7 @@ Name: "startwithwindows"; Description: "Launch Punnya Heart Desk automatically w
 
 [Files]
 Source: "{#MySourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb"
-Source: "..\src\PHF.Client.Wpf\app.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\src\PHF.Client.Desktop\app.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"

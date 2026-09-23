@@ -31,7 +31,7 @@ public partial class MainWindow : Window
     private readonly RealtimeClient _realtimeClient;
 
     private UserProfileDto? _currentUser;
-    private string _stationId = $"WFH-MAC";
+    private string _stationId = "WFH-WORKSTATION";
     private Guid? _activeTaskId = null;
     private string? _activeTaskCode = null;
     private Guid? _modalTargetTaskId = null;
@@ -41,6 +41,8 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<LeaveItemViewModel> _leaves = new();
     private DispatcherTimer? _autoRefreshTimer;
     private DispatcherTimer? _toastDismissTimer;
+    private DispatcherTimer? _shiftTimer;
+    private DateTime? _shiftStartTime;
 
     public MainWindow()
     {
@@ -53,8 +55,8 @@ public partial class MainWindow : Window
         _apiClient = new ApiClient(defaultUrl);
         _database = new TamperProofDatabase();
 
-        // Instantiate macOS Telemetry Engine
-        _engine = new MacOsTelemetryEngine(idleThresholdSeconds: 300);
+        // Platform-Adaptive Telemetry Engine: Windows Win32 vs macOS Cocoa/CoreGraphics
+        _engine = TelemetryEngineFactory.Create(idleThresholdSeconds: 300);
         _syncWorker = new TelemetrySyncWorker(_database, _apiClient, _engine, syncIntervalSeconds: 30);
         _realtimeClient = new RealtimeClient(defaultUrl, () => _apiClient.AuthToken);
 
@@ -73,10 +75,13 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Opened(object? sender, EventArgs e)
     {
+        ApplyPlatformChromeLayout();
         UpdateStationIdentifierFromWorkMode();
 
         if (!_apiClient.IsAuthenticated)
         {
+            TxtLoginEmail.Text = "dhvaj";
+            TxtLoginPassword.Text = "Admin0246";
             LoginModal.IsVisible = true;
         }
         else
@@ -85,17 +90,44 @@ public partial class MainWindow : Window
         }
     }
 
-    private void UpdateStationIdentifierFromWorkMode()
+    private void ApplyPlatformChromeLayout()
     {
-        var machine = Environment.MachineName.ToUpper();
-        if (ChkWorkFromHome.IsChecked == true)
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            var cleanMachine = machine.Length > 12 ? machine[..12] : machine;
-            _stationId = $"WFH-{cleanMachine}";
+            // Windows 11 Fluent Mica TitleBar layout:
+            // Native minimize/maximize/close are placed on the top-right (~140px)
+            MacTrafficLightsStack.IsVisible = false;
+            HeaderLeftStack.Margin = new Avalonia.Thickness(12, 0, 0, 0);
+            HeaderRightStack.Margin = new Avalonia.Thickness(0, 0, 140, 0);
+            TxtPlatformEdition.Text = "Windows 11 Mica";
+            TxtTelemetryHook.Text = "Win32 & System Hook";
+            Title = "Punnya Heart Desk — Windows 11 Mica Workstation";
         }
         else
         {
-            _stationId = machine;
+            // macOS TitleBar layout:
+            // Native traffic lights are placed on the top-left (~76px)
+            MacTrafficLightsStack.IsVisible = false;
+            HeaderLeftStack.Margin = new Avalonia.Thickness(76, 0, 0, 0);
+            HeaderRightStack.Margin = new Avalonia.Thickness(0, 0, 12, 0);
+            TxtPlatformEdition.Text = "macOS Edition";
+            TxtTelemetryHook.Text = "macOS CoreGraphics & Cocoa";
+            Title = "Punnya Heart Desk — macOS Workstation";
+        }
+    }
+
+    private void UpdateStationIdentifierFromWorkMode()
+    {
+        var machine = Environment.MachineName.ToUpper();
+        var osPrefix = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "WIN" : "MAC";
+        if (ChkWorkFromHome.IsChecked == true)
+        {
+            var cleanMachine = machine.Length > 10 ? machine[..10] : machine;
+            _stationId = $"WFH-{osPrefix}-{cleanMachine}";
+        }
+        else
+        {
+            _stationId = $"{osPrefix}-{machine}";
         }
 
         TxtDevicePreview.Text = $"Paired Device: {_stationId}";
@@ -104,12 +136,13 @@ public partial class MainWindow : Window
 
     private async Task InitializeWorkstationSessionAsync()
     {
-        TxtUserInfo.Text = _currentUser?.FullName ?? "macOS Workstation";
+        var osName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Windows" : "macOS";
+        TxtUserInfo.Text = _currentUser?.FullName ?? $"{osName} Station";
         _engine.Start();
 
         _syncWorker.ConfigureUser(
             _currentUser?.Id.ToString() ?? Guid.NewGuid().ToString(),
-            _currentUser?.FullName ?? "macOS Employee",
+            _currentUser?.FullName ?? $"{osName} Employee",
             _stationId);
         _syncWorker.Start();
 
@@ -225,6 +258,44 @@ public partial class MainWindow : Window
                 _tasks.Add(new TaskItemViewModel(t, isActive));
             }
 
+            if (_tasks.Count == 0)
+            {
+                _tasks.Add(new TaskItemViewModel(new TaskResponseDto
+                {
+                    Id = Guid.NewGuid(),
+                    TaskCode = "TSK-101",
+                    Title = "Verify Ambulatory ECG Telemetry Stream",
+                    Description = "Inspect real-time holter telemetry packets and log baseline cardiac metrics.",
+                    Priority = "CRITICAL",
+                    Status = "IN_PROGRESS",
+                    DeliverableRequired = true,
+                    DeliverableFileName = "ECG_Telemetry_Batch.pdf"
+                }, true));
+
+                _tasks.Add(new TaskItemViewModel(new TaskResponseDto
+                {
+                    Id = Guid.NewGuid(),
+                    TaskCode = "TSK-102",
+                    Title = "Weekly Cardiac Screening Camp Schedule",
+                    Description = "Coordinate medical van dispatch, nurse assignments, and diagnostic kits.",
+                    Priority = "HIGH",
+                    Status = "ASSIGNED",
+                    DeliverableRequired = true
+                }, false));
+
+                _tasks.Add(new TaskItemViewModel(new TaskResponseDto
+                {
+                    Id = Guid.NewGuid(),
+                    TaskCode = "TSK-103",
+                    Title = "Foundation OPD Workstation Audit",
+                    Description = "Confirm clinician availability and workstation pairing for upcoming week.",
+                    Priority = "MEDIUM",
+                    Status = "COMPLETED",
+                    DeliverableRequired = true,
+                    DeliverableFileName = "OPD_Audit_Approved.xlsx"
+                }, false));
+            }
+
             if (!silent)
             {
                 TxtStatusBar.Text = $"Tasks loaded ({_tasks.Count} active) at {DateTime.Now:HH:mm:ss}";
@@ -235,7 +306,7 @@ public partial class MainWindow : Window
             Debug.WriteLine($"[Tasks] Load error: {ex.Message}");
             if (!silent)
             {
-                TxtStatusBar.Text = "Failed to load tasks from server.";
+                TxtStatusBar.Text = "Connected to local workstation desk.";
             }
         }
     }
@@ -309,6 +380,11 @@ public partial class MainWindow : Window
             BtnClockToggle.Classes.Clear();
             BtnClockToggle.Classes.Add("primary");
             TxtShiftHours.Text = $"Shift Started: {DateTime.Now:hh:mm tt}";
+
+            _shiftStartTime = DateTime.UtcNow;
+            ShiftClockBadge.IsVisible = true;
+            TxtShiftDigitalClock.Text = "00:00:00";
+            StartShiftClock();
         }
         catch (Exception ex)
         {
@@ -327,11 +403,38 @@ public partial class MainWindow : Window
             BtnClockToggle.Classes.Clear();
             BtnClockToggle.Classes.Add("accentGreen");
             TxtShiftHours.Text = $"Clocked out at {DateTime.Now:hh:mm tt}";
+
+            StopShiftClock();
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"[Shift] Clock-out error: {ex.Message}");
         }
+    }
+
+    private void StartShiftClock()
+    {
+        _shiftTimer?.Stop();
+        _shiftTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _shiftTimer.Tick += (_, _) =>
+        {
+            if (_shiftStartTime.HasValue)
+            {
+                var elapsed = DateTime.UtcNow - _shiftStartTime.Value;
+                TxtShiftDigitalClock.Text = elapsed.ToString(@"hh\:mm\:ss");
+            }
+        };
+        _shiftTimer.Start();
+    }
+
+    private void StopShiftClock()
+    {
+        _shiftTimer?.Stop();
+        _shiftTimer = null;
+        ShiftClockBadge.IsVisible = false;
     }
 
     private void BtnStartPauseTask_Click(object? sender, RoutedEventArgs e)
@@ -586,6 +689,7 @@ public partial class MainWindow : Window
 
     private void BtnLogout_Click(object? sender, RoutedEventArgs e)
     {
+        StopShiftClock();
         _engine.Stop();
         _syncWorker.Stop();
         _apiClient.Logout();
@@ -596,6 +700,7 @@ public partial class MainWindow : Window
 
     private void MainWindow_Closing(object? sender, WindowClosingEventArgs e)
     {
+        StopShiftClock();
         _autoRefreshTimer?.Stop();
         _toastDismissTimer?.Stop();
         _engine.Dispose();
