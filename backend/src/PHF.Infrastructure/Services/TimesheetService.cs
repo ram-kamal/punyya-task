@@ -205,7 +205,7 @@ public class TimesheetService : ITimesheetService
                     idleSec = 0;
                 }
 
-                var efficiency = totalSec > 0 ? Math.Clamp(Math.Round((double)activeSec / totalSec * 100, 1), 0.0, 100.0) : 0.0;
+                var efficiency = totalSec >= 180 ? Math.Clamp(Math.Round((double)activeSec / totalSec * 100, 1), 0.0, 100.0) : 0.0;
                 var firstClockIn = empShifts.OrderBy(s => s.ClockIn).FirstOrDefault()?.ClockIn;
                 var lastClockOut = empShifts.OrderByDescending(s => s.ClockOut).FirstOrDefault()?.ClockOut;
                 var activeShift = empShifts.FirstOrDefault(s => s.Status == ShiftStatus.ACTIVE.ToString());

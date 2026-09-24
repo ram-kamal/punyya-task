@@ -91,8 +91,11 @@ function formatHoursMinutes(decimalHours: number): string {
   return `${hrs}h ${mins}m`;
 }
 
-function formatAppName(app?: string | null): string {
-  if (!app || app === '—') return '—';
+function formatAppName(app?: string | null, state?: string): string {
+  if (state === 'OFFLINE') return 'Offline';
+  if (!app || app === '—' || app.trim() === '') {
+    return state === 'ACTIVE' ? 'Windows Desktop' : '—';
+  }
   if (
     app.includes('UnlockingWindow') ||
     app.includes('Program Manager') ||
@@ -185,7 +188,7 @@ export default function AdminDashboardPage() {
 
   // Activity Feed Filtering & Search
 
-  const [activityCategory, setActivityCategory] = useState<ActivityCategory>('tasks');
+  const [activityCategory, setActivityCategory] = useState<ActivityCategory>('all');
   const [selectedStationFilter, setSelectedStationFilter] = useState<string>('ALL');
   const [eventSearchQuery, setEventSearchQuery] = useState<string>('');
 
@@ -1538,9 +1541,16 @@ export default function AdminDashboardPage() {
                               </div>
                               <div>
                                 <span className="font-semibold text-slate-200 block text-xs sm:text-sm">{st.fullName || 'Unassigned User'}</span>
-                                {st.userId && (
-                                  <span className="text-[10px] text-slate-500 font-mono block">ID: {st.userId.slice(0, 8)}...</span>
-                                )}
+                                {(() => {
+                                  const staffMember = staff.find((s) => (st.userId && s.id === st.userId) || s.fullName === st.fullName);
+                                  const modeLabel = staffMember?.workMode === 'IN_OFFICE' ? 'In-Office' : 'Remote WFH';
+                                  const roleLabel = staffMember?.role === 'ADMIN' ? 'Admin' : 'Staff';
+                                  return (
+                                    <span className="text-[10px] text-slate-400 block font-normal">
+                                      {modeLabel} • {roleLabel}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </td>
@@ -1567,7 +1577,7 @@ export default function AdminDashboardPage() {
                               <span className="text-slate-500 italic text-[11px]">Offline</span>
                             ) : (
                               <span className="font-mono text-[11px] bg-[#101218] px-2 py-1 rounded border border-[#262938] text-slate-300">
-                                {formatAppName(st.focusedApp)}
+                                {formatAppName(st.focusedApp, st.state)}
                               </span>
                             )}
                           </td>
@@ -1608,21 +1618,6 @@ export default function AdminDashboardPage() {
                   {/* Category Filter Chips */}
                   <div className="flex items-center bg-[#0D0E12] p-1 rounded-lg border border-[#262938]">
                     <button
-                      onClick={() => setActivityCategory('tasks')}
-                      className={`px-3 py-1 rounded-md text-xs font-bold flex items-center space-x-1.5 transition ${
-                        activityCategory === 'tasks'
-                          ? 'bg-rose-600 text-white shadow-sm'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <Sparkles className="w-3 h-3 text-amber-300" />
-                      <span>Task Changes</span>
-                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-950/60 ml-1">
-                        {taskChangesCount}
-                      </span>
-                    </button>
-
-                    <button
                       onClick={() => setActivityCategory('all')}
                       className={`px-3 py-1 rounded-md text-xs font-bold transition ${
                         activityCategory === 'all'
@@ -1631,6 +1626,9 @@ export default function AdminDashboardPage() {
                       }`}
                     >
                       All Events
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-950/60 ml-1">
+                        {events.length}
+                      </span>
                     </button>
 
                     <button
@@ -1653,6 +1651,21 @@ export default function AdminDashboardPage() {
                       }`}
                     >
                       Session &amp; Locks
+                    </button>
+
+                    <button
+                      onClick={() => setActivityCategory('tasks')}
+                      className={`px-3 py-1 rounded-md text-xs font-bold flex items-center space-x-1.5 transition ${
+                        activityCategory === 'tasks'
+                          ? 'bg-rose-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Sparkles className="w-3 h-3 text-amber-300" />
+                      <span>Task Changes</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-950/60 ml-1">
+                        {taskChangesCount}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -2192,7 +2205,7 @@ export default function AdminDashboardPage() {
                                 <span className="text-[10px] text-amber-500/70 font-normal ml-1.5">({row.idleHours.toFixed(2)}h)</span>
                               </td>
                               <td className="px-5 py-3.5">
-                                {row.totalHours > 0 ? (
+                                {row.totalHours >= 0.05 ? (
                                   <div className="flex items-center space-x-2">
                                     <div className="w-16 h-2 bg-[#0D0E12] rounded-full overflow-hidden border border-[#262938]">
                                       <div
@@ -2230,7 +2243,7 @@ export default function AdminDashboardPage() {
                                 <span className="text-[10px] text-amber-500/70 font-normal ml-1.5">({row.idleHours.toFixed(2)}h)</span>
                               </td>
                               <td className="px-5 py-3.5">
-                                {row.totalHours > 0 ? (
+                                {row.totalHours >= 0.05 ? (
                                   <div className="flex items-center space-x-2">
                                     <div className="w-16 h-2 bg-[#0D0E12] rounded-full overflow-hidden border border-[#262938]">
                                       <div

@@ -230,13 +230,22 @@ public class TelemetryService : ITelemetryService
             state.StationId = !string.IsNullOrWhiteSpace(heartbeat.StationId) ? heartbeat.StationId : state.StationId;
             state.LastSeen = now;
             state.State = heartbeat.State;
-            if (!string.IsNullOrWhiteSpace(sanitizedProc))
+            if (!string.IsNullOrWhiteSpace(sanitizedProc) && sanitizedProc != "—")
             {
                 state.FocusedApp = sanitizedProc;
             }
-            if (!string.IsNullOrWhiteSpace(sanitizedTitle))
+            else if (heartbeat.State == StationState.ACTIVE.ToString())
+            {
+                state.FocusedApp = "Windows Desktop";
+            }
+
+            if (!string.IsNullOrWhiteSpace(sanitizedTitle) && sanitizedTitle != "—")
             {
                 state.WindowTitle = sanitizedTitle;
+            }
+            else if (heartbeat.State == StationState.ACTIVE.ToString())
+            {
+                state.WindowTitle = "Windows Desktop";
             }
             state.CurrentTaskCode = heartbeat.CurrentTaskCode ?? state.CurrentTaskCode;
             state.CurrentTaskTitle = heartbeat.CurrentTaskTitle ?? state.CurrentTaskTitle;
@@ -315,8 +324,8 @@ public class TelemetryService : ITelemetryService
                 {
                     var (sanitizedProc, sanitizedTitle) = SanitizeProcessAndTitle(live.FocusedApp, live.WindowTitle);
                     state = live.State;
-                    focusedApp = string.IsNullOrWhiteSpace(sanitizedProc) ? "—" : sanitizedProc;
-                    windowTitle = sanitizedTitle;
+                    focusedApp = string.IsNullOrWhiteSpace(sanitizedProc) || sanitizedProc == "—" ? "Windows Desktop" : sanitizedProc;
+                    windowTitle = string.IsNullOrWhiteSpace(sanitizedTitle) || sanitizedTitle == "—" ? "Windows Desktop" : sanitizedTitle;
                     taskCode = live.CurrentTaskCode;
                     taskTitle = live.CurrentTaskTitle;
                     if (!string.IsNullOrWhiteSpace(live.StationId))
