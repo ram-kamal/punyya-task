@@ -13,14 +13,15 @@ public class TelemetryService : ITelemetryService
     private readonly ApplicationDbContext _dbContext;
     private readonly IRealtimeNotifier _realtimeNotifier;
 
-    // Concurrent in-memory state tracking for live workstations
-    private static readonly ConcurrentDictionary<string, WorkstationStateInternal> _liveStations = new();
+    // Concurrent in-memory state tracking for live employees / users (User-based workforce oversight)
+    private static readonly ConcurrentDictionary<Guid, UserLiveStateInternal> _liveUsers = new();
+    private static readonly ConcurrentDictionary<string, Guid> _stationUserIndex = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentQueue<LiveWorkstationEventDto> _recentEvents = new();
 
-    private class WorkstationStateInternal
+    private class UserLiveStateInternal
     {
+        public Guid UserId { get; set; }
         public string StationId { get; set; } = string.Empty;
-        public Guid? UserId { get; set; }
         public string? FullName { get; set; }
         public string? CurrentTaskCode { get; set; }
         public string? CurrentTaskTitle { get; set; }
@@ -187,66 +188,91 @@ public class TelemetryService : ITelemetryService
 
     public async Task ProcessHeartbeatAsync(WorkstationHeartbeatDto heartbeat, CancellationToken cancellationToken = default)
     {
-        var stationId = heartbeat.StationId;
         var now = DateTime.UtcNow;
+        Guid? resolvedUserId = heartbeat.UserId;
 
-        var state = _liveStations.GetOrAdd(stationId, id => new WorkstationStateInternal
+        if (!string.IsNullOrWhiteSpace(heartbeat.StationId) && resolvedUserId.HasValue)
         {
-            StationId = id
-        });
-
-        var (sanitizedProc, sanitizedTitle) = SanitizeProcessAndTitle(heartbeat.ActiveProcess, heartbeat.WindowTitle);
-
-        state.LastSeen = now;
-        state.State = heartbeat.State;
-        if (!string.IsNullOrWhiteSpace(sanitizedProc))
-        {
-            state.FocusedApp = sanitizedProc;
-        }
-        if (!string.IsNullOrWhiteSpace(sanitizedTitle))
-        {
-            state.WindowTitle = sanitizedTitle;
-        }
-        state.CurrentTaskCode = heartbeat.CurrentTaskCode ?? state.CurrentTaskCode;
-        state.CurrentTaskTitle = heartbeat.CurrentTaskTitle ?? state.CurrentTaskTitle;
-
-        if (heartbeat.UserId.HasValue)
-        {
-            state.UserId = heartbeat.UserId;
+            _stationUserIndex[heartbeat.StationId] = resolvedUserId.Value;
         }
 
-        if (!string.IsNullOrWhiteSpace(heartbeat.UserFullName))
+        // Fallback resolution if UserId is missing
+        if (!resolvedUserId.HasValue && !string.IsNullOrWhiteSpace(heartbeat.StationId))
         {
-            state.FullName = heartbeat.UserFullName;
+            if (_stationUserIndex.TryGetValue(heartbeat.StationId, out var mappedId))
+            {
+                resolvedUserId = mappedId;
+            }
+            else
+            {
+                var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.StationId == heartbeat.StationId, cancellationToken);
+                resolvedUserId = user?.Id;
+                if (resolvedUserId.HasValue)
+                {
+                    _stationUserIndex[heartbeat.StationId] = resolvedUserId.Value;
+                }
+            }
         }
 
-        var statusDto = new WorkstationStatusDto
+        if (resolvedUserId.HasValue)
         {
-            StationId = state.StationId,
-            UserId = state.UserId,
-            FullName = state.FullName,
-            CurrentTaskCode = state.CurrentTaskCode,
-            CurrentTaskTitle = state.CurrentTaskTitle,
-            FocusedApp = state.FocusedApp,
-            WindowTitle = state.WindowTitle,
-            State = state.State,
-            LastSeen = state.LastSeen
-        };
+            var userId = resolvedUserId.Value;
+            var state = _liveUsers.GetOrAdd(userId, uid => new UserLiveStateInternal
+            {
+                UserId = uid,
+                StationId = heartbeat.StationId
+            });
 
-        await _realtimeNotifier.BroadcastWorkstationStatusAsync(statusDto);
+            var (sanitizedProc, sanitizedTitle) = SanitizeProcessAndTitle(heartbeat.ActiveProcess, heartbeat.WindowTitle);
+
+            state.StationId = !string.IsNullOrWhiteSpace(heartbeat.StationId) ? heartbeat.StationId : state.StationId;
+            state.LastSeen = now;
+            state.State = heartbeat.State;
+            if (!string.IsNullOrWhiteSpace(sanitizedProc))
+            {
+                state.FocusedApp = sanitizedProc;
+            }
+            if (!string.IsNullOrWhiteSpace(sanitizedTitle))
+            {
+                state.WindowTitle = sanitizedTitle;
+            }
+            state.CurrentTaskCode = heartbeat.CurrentTaskCode ?? state.CurrentTaskCode;
+            state.CurrentTaskTitle = heartbeat.CurrentTaskTitle ?? state.CurrentTaskTitle;
+
+            if (!string.IsNullOrWhiteSpace(heartbeat.UserFullName))
+            {
+                state.FullName = heartbeat.UserFullName;
+            }
+
+            var statusDto = new WorkstationStatusDto
+            {
+                StationId = state.StationId,
+                UserId = state.UserId,
+                FullName = state.FullName,
+                CurrentTaskCode = state.CurrentTaskCode,
+                CurrentTaskTitle = state.CurrentTaskTitle,
+                FocusedApp = state.FocusedApp,
+                WindowTitle = state.WindowTitle,
+                State = state.State,
+                LastSeen = state.LastSeen
+            };
+
+            await _realtimeNotifier.BroadcastWorkstationStatusAsync(statusDto);
+        }
     }
 
     public async Task<List<WorkstationStatusDto>> GetWorkstationsStatusAsync(CancellationToken cancellationToken = default)
     {
-        var employees = await _dbContext.Users
-            .Where(u => !string.IsNullOrWhiteSpace(u.StationId) && 
-                       (u.Role == UserRole.EMPLOYEE.ToString() || 
-                        _dbContext.Shifts.Any(s => s.UserId == u.Id)))
-            .OrderBy(u => u.StationId)
-            .ToListAsync(cancellationToken);
-
         var now = DateTime.UtcNow;
         var today = now.Date;
+
+        // Fetch all active employees / staff members (User-based tracking!)
+        var employees = await _dbContext.Users
+            .Where(u => u.IsActive && 
+                       (u.Role == UserRole.EMPLOYEE.ToString() || 
+                        _dbContext.Shifts.Any(s => s.UserId == u.Id)))
+            .OrderBy(u => u.FullName)
+            .ToListAsync(cancellationToken);
 
         var todayLogs = await _dbContext.AppActivityLogs
             .Where(l => l.LoggedAt >= today)
@@ -260,29 +286,49 @@ public class TelemetryService : ITelemetryService
 
         foreach (var emp in employees)
         {
-            var stationId = emp.StationId!;
-            var hasLive = _liveStations.TryGetValue(stationId, out var live);
+            var empShifts = todayShifts.Where(s => s.UserId == emp.Id).ToList();
+            var activeShift = empShifts.FirstOrDefault(s => s.Status == ShiftStatus.ACTIVE.ToString());
 
-            // Determine if station is OFFLINE (> 3 minutes without heartbeat)
+            var hasLive = _liveUsers.TryGetValue(emp.Id, out var live);
+
+            // USER-BASED STATE LOGIC:
+            // 1. If employee has no active shift today (clocked out or hasn't clocked in):
+            //    -> State is ALWAYS OFFLINE! (Eliminates ghost active states for other employees sharing a machine).
+            // 2. If employee has an active shift:
+            //    - If heartbeat received within 3 minutes: State is ACTIVE (or IDLE if idle threshold reached).
+            //    - If no heartbeat for > 3 minutes: State is OFFLINE (Away / PC suspended).
             var state = StationState.OFFLINE.ToString();
             var focusedApp = "—";
             var windowTitle = "";
             string? taskCode = null;
             string? taskTitle = null;
-            var lastSeen = live?.LastSeen ?? today;
+            var lastSeen = live?.LastSeen ?? (activeShift?.ClockIn ?? today);
+            var currentStation = live?.StationId ?? emp.StationId ?? "STATION";
 
-            if (hasLive && (now - live!.LastSeen).TotalMinutes <= 3)
+            if (activeShift != null)
             {
-                var (sanitizedProc, sanitizedTitle) = SanitizeProcessAndTitle(live.FocusedApp, live.WindowTitle);
-                state = live.State;
-                focusedApp = string.IsNullOrWhiteSpace(sanitizedProc) ? "—" : sanitizedProc;
-                windowTitle = sanitizedTitle;
-                taskCode = live.CurrentTaskCode;
-                taskTitle = live.CurrentTaskTitle;
+                if (hasLive && (now - live!.LastSeen).TotalMinutes <= 3)
+                {
+                    var (sanitizedProc, sanitizedTitle) = SanitizeProcessAndTitle(live.FocusedApp, live.WindowTitle);
+                    state = live.State;
+                    focusedApp = string.IsNullOrWhiteSpace(sanitizedProc) ? "—" : sanitizedProc;
+                    windowTitle = sanitizedTitle;
+                    taskCode = live.CurrentTaskCode;
+                    taskTitle = live.CurrentTaskTitle;
+                    if (!string.IsNullOrWhiteSpace(live.StationId))
+                    {
+                        currentStation = live.StationId;
+                    }
+                }
+                else
+                {
+                    state = StationState.OFFLINE.ToString();
+                }
             }
-            else
+
+            // Fallback task code if not populated in live state
+            if (string.IsNullOrWhiteSpace(taskCode))
             {
-                // Fallback to recent task if in progress
                 var activeTask = await _dbContext.Tasks
                     .FirstOrDefaultAsync(t => t.AssignedTo == emp.Id && t.Status == TaskItemStatus.IN_PROGRESS.ToString(), cancellationToken);
                 if (activeTask != null)
@@ -292,10 +338,8 @@ public class TelemetryService : ITelemetryService
                 }
             }
 
+            // Calculate active and idle minutes today for this user (matching TimesheetService exactly)
             var empLogs = todayLogs.Where(l => l.UserId == emp.Id).ToList();
-            var empShifts = todayShifts.Where(s => s.UserId == emp.Id).ToList();
-            var activeShift = empShifts.FirstOrDefault(s => s.Status == ShiftStatus.ACTIVE.ToString());
-
             var loggedActiveMins = empLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds) / 60;
             var loggedIdleMins = empLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds) / 60;
 
@@ -355,7 +399,7 @@ public class TelemetryService : ITelemetryService
 
             result.Add(new WorkstationStatusDto
             {
-                StationId = stationId,
+                StationId = currentStation,
                 UserId = emp.Id,
                 FullName = emp.FullName,
                 CurrentTaskCode = taskCode,

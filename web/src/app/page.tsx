@@ -273,7 +273,7 @@ export default function AdminDashboardPage() {
 
     signalRClient.onStatusUpdated = (updated) => {
       setStations((prev) => {
-        const idx = prev.findIndex((s) => s.stationId === updated.stationId);
+        const idx = prev.findIndex((s) => (updated.userId && s.userId === updated.userId) || (!updated.userId && s.stationId === updated.stationId));
         if (idx >= 0) {
           const clone = [...prev];
           clone[idx] = { ...clone[idx], ...updated };
@@ -1344,15 +1344,15 @@ export default function AdminDashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-[#151720] rounded-xl p-4 border border-[#262938] relative overflow-hidden group shadow-sm">
             <div className="flex items-center justify-between text-slate-400 mb-1.5">
-              <span className="text-[11px] font-bold tracking-wider uppercase">Active Stations</span>
-              <Monitor className="w-4 h-4 text-rose-400" />
+              <span className="text-[11px] font-bold tracking-wider uppercase">Active Workforce</span>
+              <Users className="w-4 h-4 text-rose-400" />
             </div>
             <div className="text-2xl font-black text-white">
               {activeStationsCount} <span className="text-slate-500 text-sm font-normal">/ {totalStationsCount} Online</span>
             </div>
             <div className="text-[11px] text-emerald-400 mt-2 font-medium flex items-center">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-ping"></span>
-              Win32 event hook telemetry active
+              Live employee telemetry active
             </div>
           </div>
 
@@ -1478,86 +1478,108 @@ export default function AdminDashboardPage() {
         {/* TAB 1: LIVE OVERSIGHT & DECLUTTERED ACTIVITY HUB */}
         {activeTab === 'oversight' && (
           <div className="space-y-6">
-            {/* Workstation Fleet Status Table (Full Width for Clarity) */}
+            {/* Workforce Live Status & Telemetry Table (User-Centric) */}
             <div className="bg-[#151720] rounded-xl border border-[#262938] overflow-hidden shadow-sm">
               <div className="px-5 py-3.5 border-b border-[#262938] flex items-center justify-between bg-[#12141C]">
                 <div className="flex items-center space-x-2">
-                  <Monitor className="w-4 h-4 text-rose-400" />
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-white">Workstation Fleet Status</h2>
+                  <Users className="w-4 h-4 text-rose-400" />
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-white">Workforce Live Status &amp; Telemetry</h2>
                 </div>
-                <span className="text-[11px] text-slate-400">Near-0% CPU Event Hooks • 300s Idle Detection</span>
+                <span className="text-[11px] text-slate-400">User-Centric Live Telemetry • Shift &amp; Activity Tracking</span>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-[#0F1117] text-[11px] uppercase tracking-wider text-slate-400 border-b border-[#262938]">
                     <tr>
-                      <th className="px-5 py-3">Station</th>
-                      <th className="px-5 py-3">Assignee</th>
+                      <th className="px-5 py-3">Employee</th>
+                      <th className="px-5 py-3">Assigned Station / Device</th>
                       <th className="px-5 py-3">Current Task</th>
                       <th className="px-5 py-3">Foreground App</th>
                       <th className="px-5 py-3">Active Time Today</th>
-                      <th className="px-5 py-3 text-right">Station State</th>
+                      <th className="px-5 py-3 text-right">User State</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#1C1F2B] font-medium text-xs">
-                    {stations.map((st) => (
-                      <tr key={st.stationId} className="hover:bg-[#1A1D27]/60 transition">
-                        <td className="px-5 py-3.5 font-bold text-white flex items-center space-x-2.5">
-                          <span
-                            className={`w-2 h-2 rounded-full ${
-                              st.state === 'ACTIVE'
-                                ? 'bg-emerald-400 animate-pulse'
-                                : st.state === 'IDLE'
-                                ? 'bg-amber-400'
-                                : 'bg-slate-500'
-                            }`}
-                          />
-                          <span className="font-mono text-sm">{st.stationId}</span>
-                        </td>
-                        <td className="px-5 py-3.5 text-slate-300">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-6 h-6 rounded-full bg-[#222533] text-slate-300 flex items-center justify-center text-[10px] font-bold">
-                              {st.fullName ? st.fullName.charAt(0) : '?'}
-                            </div>
-                            <span className="font-semibold text-slate-200">{st.fullName || 'Unassigned'}</span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          {st.currentTaskCode ? (
-                            <div className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-rose-950/60 text-rose-300 border border-rose-700/40">
-                              <span className="font-mono font-bold text-rose-400">{st.currentTaskCode}</span>
-                              {st.currentTaskTitle && (
-                                <span className="text-slate-300 truncate max-w-[200px]">• {st.currentTaskTitle}</span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-slate-500 italic">None (awaiting task)</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5 text-slate-200">
-                          <span className="font-mono text-[11px] bg-[#101218] px-2 py-1 rounded border border-[#262938] text-slate-300">
-                            {formatAppName(st.focusedApp)}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 text-slate-300 font-mono">
-                          {Math.floor(st.activeMinutesToday / 60)}h {st.activeMinutesToday % 60}m
-                        </td>
-                        <td className="px-5 py-3.5 text-right">
-                          <span
-                            className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-extrabold ${
-                              st.state === 'ACTIVE'
-                                ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500/30'
-                                : st.state === 'IDLE'
-                                ? 'bg-amber-950/80 text-amber-400 border border-amber-500/30'
-                                : 'bg-slate-800 text-slate-400 border border-slate-700'
-                            }`}
-                          >
-                            {st.state}
-                          </span>
+                    {stations.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-5 py-8 text-center text-slate-500">
+                          No workforce telemetry records available.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      stations.map((st) => (
+                        <tr key={st.userId || st.stationId} className="hover:bg-[#1A1D27]/60 transition">
+                          <td className="px-5 py-3.5 text-slate-300">
+                            <div className="flex items-center space-x-3">
+                              <div className="relative">
+                                <div className="w-8 h-8 rounded-full bg-[#222533] text-rose-300 border border-[#2E3347] flex items-center justify-center text-xs font-bold shadow-inner">
+                                  {st.fullName ? st.fullName.charAt(0).toUpperCase() : '?'}
+                                </div>
+                                <span
+                                  className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#151720] ${
+                                    st.state === 'ACTIVE'
+                                      ? 'bg-emerald-400 animate-pulse'
+                                      : st.state === 'IDLE'
+                                      ? 'bg-amber-400'
+                                      : 'bg-slate-500'
+                                  }`}
+                                />
+                              </div>
+                              <div>
+                                <span className="font-semibold text-slate-200 block text-xs sm:text-sm">{st.fullName || 'Unassigned User'}</span>
+                                {st.userId && (
+                                  <span className="text-[10px] text-slate-500 font-mono block">ID: {st.userId.slice(0, 8)}...</span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3.5 font-mono text-xs text-slate-300">
+                            <div className="inline-flex items-center space-x-1.5 px-2 py-1 rounded bg-[#101218] border border-[#262938]">
+                              <Laptop className="w-3.5 h-3.5 text-slate-400" />
+                              <span className="text-slate-300">{st.stationId || 'UNASSIGNED'}</span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3.5">
+                            {st.currentTaskCode ? (
+                              <div className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-rose-950/60 text-rose-300 border border-rose-700/40">
+                                <span className="font-mono font-bold text-rose-400">{st.currentTaskCode}</span>
+                                {st.currentTaskTitle && (
+                                  <span className="text-slate-300 truncate max-w-[200px]">• {st.currentTaskTitle}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-500 italic">None (awaiting task)</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3.5 text-slate-200">
+                            {st.state === 'OFFLINE' ? (
+                              <span className="text-slate-500 italic text-[11px]">Offline</span>
+                            ) : (
+                              <span className="font-mono text-[11px] bg-[#101218] px-2 py-1 rounded border border-[#262938] text-slate-300">
+                                {formatAppName(st.focusedApp)}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3.5 text-slate-300 font-mono">
+                            {Math.floor(st.activeMinutesToday / 60)}h {st.activeMinutesToday % 60}m
+                          </td>
+                          <td className="px-5 py-3.5 text-right">
+                            <span
+                              className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-extrabold ${
+                                st.state === 'ACTIVE'
+                                  ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500/30'
+                                  : st.state === 'IDLE'
+                                  ? 'bg-amber-950/80 text-amber-400 border border-amber-500/30'
+                                  : 'bg-slate-800 text-slate-400 border border-slate-700'
+                              }`}
+                            >
+                              {st.state}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
