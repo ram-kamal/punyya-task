@@ -132,15 +132,14 @@ public partial class MainWindow : Window
     private void UpdateStationIdentifierFromWorkMode()
     {
         var machine = Environment.MachineName.ToUpper();
-        var osPrefix = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "WIN" : "MAC";
         if (ChkWorkFromHome.IsChecked == true)
         {
-            var cleanMachine = machine.Length > 10 ? machine[..10] : machine;
-            _stationId = $"WFH-{osPrefix}-{cleanMachine}";
+            var cleanMachine = machine.Length > 12 ? machine[..12] : machine;
+            _stationId = $"WFH-{cleanMachine}";
         }
         else
         {
-            _stationId = $"{osPrefix}-{machine}";
+            _stationId = machine;
         }
 
         TxtDevicePreview.Text = $"Paired Device: {_stationId}";
@@ -149,6 +148,11 @@ public partial class MainWindow : Window
 
     private async Task InitializeWorkstationSessionAsync()
     {
+        if (!string.IsNullOrWhiteSpace(_currentUser?.StationId))
+        {
+            _stationId = _currentUser.StationId;
+        }
+
         var osName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Windows" : "macOS";
         TxtUserInfo.Text = _currentUser?.FullName ?? $"{osName} Station";
         _engine.Start();
@@ -346,6 +350,12 @@ public partial class MainWindow : Window
             if (response != null && response.User != null)
             {
                 _currentUser = response.User;
+
+                // Sync station identifier with user profile if assigned
+                if (!string.IsNullOrWhiteSpace(_currentUser.StationId))
+                {
+                    _stationId = _currentUser.StationId;
+                }
 
                 // Save or clear credentials based on "Remember" checkbox
                 if (ChkRememberCredentials.IsChecked == true)
