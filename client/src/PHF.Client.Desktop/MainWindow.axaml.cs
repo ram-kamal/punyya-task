@@ -78,10 +78,23 @@ public partial class MainWindow : Window
         ApplyPlatformChromeLayout();
         UpdateStationIdentifierFromWorkMode();
 
+        // Load saved workstation credentials if remembered
+        var (savedUser, savedPass, remember) = CredentialStorage.LoadCredentials();
+        if (remember && !string.IsNullOrEmpty(savedUser))
+        {
+            TxtLoginEmail.Text = savedUser;
+            TxtLoginPassword.Text = savedPass;
+            ChkRememberCredentials.IsChecked = true;
+        }
+        else
+        {
+            TxtLoginEmail.Text = string.Empty;
+            TxtLoginPassword.Text = string.Empty;
+            ChkRememberCredentials.IsChecked = true;
+        }
+
         if (!_apiClient.IsAuthenticated)
         {
-            TxtLoginEmail.Text = "dhvaj";
-            TxtLoginPassword.Text = "Admin0246";
             LoginModal.IsVisible = true;
         }
         else
@@ -333,6 +346,17 @@ public partial class MainWindow : Window
             if (response != null && response.User != null)
             {
                 _currentUser = response.User;
+
+                // Save or clear credentials based on "Remember" checkbox
+                if (ChkRememberCredentials.IsChecked == true)
+                {
+                    CredentialStorage.SaveCredentials(email, password, true);
+                }
+                else
+                {
+                    CredentialStorage.ClearCredentials();
+                }
+
                 LoginModal.IsVisible = false;
 
                 // Automatic Shift Clock In
@@ -695,6 +719,22 @@ public partial class MainWindow : Window
         _apiClient.Logout();
         _tasks.Clear();
         _leaves.Clear();
+
+        // Reload remembered credentials into textboxes so employee doesn't have to retype
+        var (savedUser, savedPass, remember) = CredentialStorage.LoadCredentials();
+        if (remember && !string.IsNullOrEmpty(savedUser))
+        {
+            TxtLoginEmail.Text = savedUser;
+            TxtLoginPassword.Text = savedPass;
+            ChkRememberCredentials.IsChecked = true;
+        }
+        else
+        {
+            TxtLoginEmail.Text = string.Empty;
+            TxtLoginPassword.Text = string.Empty;
+            ChkRememberCredentials.IsChecked = true;
+        }
+
         LoginModal.IsVisible = true;
     }
 
