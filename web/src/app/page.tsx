@@ -276,7 +276,17 @@ export default function AdminDashboardPage() {
         const idx = prev.findIndex((s) => (updated.userId && s.userId === updated.userId) || (!updated.userId && s.stationId === updated.stationId));
         if (idx >= 0) {
           const clone = [...prev];
-          clone[idx] = { ...clone[idx], ...updated };
+          const prevItem = clone[idx];
+          clone[idx] = {
+            ...prevItem,
+            ...updated,
+            activeMinutesToday: (updated.activeMinutesToday !== undefined && updated.activeMinutesToday > 0)
+              ? updated.activeMinutesToday
+              : prevItem.activeMinutesToday,
+            idleMinutesToday: (updated.idleMinutesToday !== undefined && updated.idleMinutesToday > 0)
+              ? updated.idleMinutesToday
+              : prevItem.idleMinutesToday,
+          };
           return clone;
         }
         return [...prev, updated];

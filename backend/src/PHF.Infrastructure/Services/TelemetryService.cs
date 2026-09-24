@@ -29,6 +29,8 @@ public class TelemetryService : ITelemetryService
         public string? WindowTitle { get; set; }
         public string State { get; set; } = StationState.ACTIVE.ToString();
         public DateTime LastSeen { get; set; } = DateTime.UtcNow;
+        public int ActiveMinutesToday { get; set; }
+        public int IdleMinutesToday { get; set; }
     }
 
     public TelemetryService(ApplicationDbContext dbContext, IRealtimeNotifier realtimeNotifier)
@@ -254,7 +256,9 @@ public class TelemetryService : ITelemetryService
                 FocusedApp = state.FocusedApp,
                 WindowTitle = state.WindowTitle,
                 State = state.State,
-                LastSeen = state.LastSeen
+                LastSeen = state.LastSeen,
+                ActiveMinutesToday = state.ActiveMinutesToday,
+                IdleMinutesToday = state.IdleMinutesToday
             };
 
             await _realtimeNotifier.BroadcastWorkstationStatusAsync(statusDto);
@@ -395,6 +399,23 @@ public class TelemetryService : ITelemetryService
             {
                 activeMinutes = 0;
                 idleMinutes = 0;
+            }
+
+            if (hasLive && live != null)
+            {
+                live.ActiveMinutesToday = activeMinutes;
+                live.IdleMinutesToday = idleMinutes;
+            }
+            else
+            {
+                var entry = _liveUsers.GetOrAdd(emp.Id, uid => new UserLiveStateInternal
+                {
+                    UserId = uid,
+                    StationId = currentStation,
+                    FullName = emp.FullName
+                });
+                entry.ActiveMinutesToday = activeMinutes;
+                entry.IdleMinutesToday = idleMinutes;
             }
 
             result.Add(new WorkstationStatusDto
