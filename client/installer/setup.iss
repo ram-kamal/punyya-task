@@ -54,3 +54,25 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+function InitializeSetup(): Boolean;
+var
+  ErrorCode: Integer;
+begin
+  Result := True;
+  // Automatically terminate any running instance of Punnya Heart Desk before installing
+  Exec('taskkill.exe', '/F /IM PunnyaHeartDesk.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ErrorCode);
+  Exec('taskkill.exe', '/F /IM PunnyaHeartDesk.Wpf.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ErrorCode);
+  Sleep(600);
+end;
+
+function InitializeUninstall(): Boolean;
+var
+  ErrorCode: Integer;
+begin
+  Result := True;
+  Exec('taskkill.exe', '/F /IM PunnyaHeartDesk.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ErrorCode);
+  Exec('taskkill.exe', '/F /IM PunnyaHeartDesk.Wpf.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ErrorCode);
+  Sleep(600);
+end;

@@ -1,8 +1,8 @@
 import { WorkstationStatus, LiveWorkstationEvent, TaskItem, TimesheetSummary, User, LeaveRequestItem, StaffMember, CreateStaffPayload, UpdateStaffPayload } from './types';
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL !== undefined && process.env.NEXT_PUBLIC_API_URL !== '' 
-  ? process.env.NEXT_PUBLIC_API_URL 
-  : (typeof window !== 'undefined' ? (window.location.port === '3000' ? 'https://punnya-api.onrender.com' : '') : 'https://punnya-api.onrender.com');
+export const API_BASE = (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.trim() !== '')
+  ? process.env.NEXT_PUBLIC_API_URL.trim()
+  : 'https://punnya-api.onrender.com';
 
 
 const AUTH_TOKEN_KEY = 'phf_admin_token';
