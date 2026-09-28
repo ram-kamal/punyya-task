@@ -20,7 +20,7 @@ public class StaffService : IStaffService
     {
         var today = DateTime.UtcNow.Date;
         var users = await _dbContext.Users
-            .OrderBy(u => u.Role == "ADMIN" ? 0 : u.Role == "MANAGER" ? 1 : 2)
+            .OrderBy(u => u.Role == "ADMIN" ? 0 : u.Role == "MANAGER" ? 1 : u.Role == "MONITOR" ? 2 : 3)
             .ThenBy(u => u.FullName)
             .ToListAsync(cancellationToken);
 

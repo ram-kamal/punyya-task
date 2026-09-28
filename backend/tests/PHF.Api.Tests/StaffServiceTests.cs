@@ -291,5 +291,35 @@ public class StaffServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             staffService.UpdateStaffAsync(user2.Id, request));
     }
+
+    [Fact]
+    public async Task CreateStaffAsync_WithMonitorRole_PersistsMonitorRoleSuccessfully()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var staffService = new StaffService(context);
+
+        var request = new CreateStaffRequest
+        {
+            FullName = "Auditor Monitor",
+            Email = "auditor@punnyaheart.org",
+            Username = "auditor",
+            Role = "MONITOR",
+            WorkMode = "REMOTE_WFH",
+            Password = "SecureMonitorPassword123"
+        };
+
+        // Act
+        var created = await staffService.CreateStaffAsync(request);
+
+        // Assert
+        Assert.NotNull(created);
+        Assert.Equal("MONITOR", created.Role);
+        Assert.Equal("auditor@punnyaheart.org", created.Email);
+
+        var userInDb = await context.Users.FindAsync(created.Id);
+        Assert.NotNull(userInDb);
+        Assert.Equal("MONITOR", userInDb.Role);
+    }
 }
 

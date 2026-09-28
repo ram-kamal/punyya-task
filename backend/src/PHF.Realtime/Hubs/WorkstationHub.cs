@@ -31,9 +31,11 @@ public class WorkstationHub : Hub
         if (string.IsNullOrWhiteSpace(userId)) return;
 
         var currentUserId = Context.UserIdentifier ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var isManagerOrAdmin = Context.User?.IsInRole("ADMIN") == true || Context.User?.IsInRole("MANAGER") == true;
+        var isAuthorized = Context.User?.IsInRole("ADMIN") == true 
+                        || Context.User?.IsInRole("MANAGER") == true 
+                        || Context.User?.IsInRole("MONITOR") == true;
 
-        if (!isManagerOrAdmin && !string.Equals(currentUserId, userId, StringComparison.OrdinalIgnoreCase))
+        if (!isAuthorized && !string.Equals(currentUserId, userId, StringComparison.OrdinalIgnoreCase))
         {
             throw new HubException("Access denied to user feed.");
         }
@@ -43,10 +45,12 @@ public class WorkstationHub : Hub
 
     public async Task JoinManagerFeed()
     {
-        var isManagerOrAdmin = Context.User?.IsInRole("ADMIN") == true || Context.User?.IsInRole("MANAGER") == true;
-        if (!isManagerOrAdmin)
+        var isAuthorized = Context.User?.IsInRole("ADMIN") == true 
+                        || Context.User?.IsInRole("MANAGER") == true 
+                        || Context.User?.IsInRole("MONITOR") == true;
+        if (!isAuthorized)
         {
-            throw new HubException("Access denied. Admin or Manager role required.");
+            throw new HubException("Access denied. Admin, Manager, or Monitor role required.");
         }
 
         await Groups.AddToGroupAsync(Context.ConnectionId, ManagerGroup);

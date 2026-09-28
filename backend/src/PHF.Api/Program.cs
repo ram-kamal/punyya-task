@@ -226,6 +226,18 @@ using (var scope = app.Services.CreateScope())
 
         await dbContext.Database.EnsureCreatedAsync();
 
+        if (!dbContext.Database.IsSqlite())
+        {
+            try
+            {
+                await dbContext.Database.ExecuteSqlRawAsync(@"
+                    ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+                    ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('ADMIN', 'MANAGER', 'MONITOR', 'EMPLOYEE'));
+                ");
+            }
+            catch { /* Constraint may not exist or already updated */ }
+        }
+
         if (dbContext.Database.IsSqlite())
         {
             // Migrate users table columns if needed (SQLite legacy support)

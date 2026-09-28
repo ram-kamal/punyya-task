@@ -63,7 +63,7 @@ public class TelemetryController : ControllerBase
         return Ok(new { success = true });
     }
 
-    [Authorize(Roles = "ADMIN,MANAGER")]
+    [Authorize(Roles = "ADMIN,MANAGER,MONITOR")]
     [HttpGet("stations")]
     public async Task<IActionResult> GetStations(CancellationToken cancellationToken)
     {
@@ -71,7 +71,7 @@ public class TelemetryController : ControllerBase
         return Ok(stations);
     }
 
-    [Authorize(Roles = "ADMIN,MANAGER")]
+    [Authorize(Roles = "ADMIN,MANAGER,MONITOR")]
     [HttpGet("events")]
     public async Task<IActionResult> GetRecentEvents([FromQuery] int limit = 50, CancellationToken cancellationToken = default)
     {

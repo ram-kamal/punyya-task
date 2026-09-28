@@ -29,7 +29,7 @@ public class TasksController : ControllerBase
         [FromQuery] string? priority = null,
         CancellationToken cancellationToken = default)
     {
-        var isManagerOrAdmin = User.IsInRole("ADMIN") || User.IsInRole("MANAGER");
+        var isManagerOrAdmin = User.IsInRole("ADMIN") || User.IsInRole("MANAGER") || User.IsInRole("MONITOR");
         var currentUserId = GetCurrentUserId();
 
         if (!isManagerOrAdmin)

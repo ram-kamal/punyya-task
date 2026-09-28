@@ -18,7 +18,7 @@ public class LeavesController : ControllerBase
         _leaveService = leaveService;
     }
 
-    [Authorize(Roles = "ADMIN,MANAGER")]
+    [Authorize(Roles = "ADMIN,MANAGER,MONITOR")]
     [HttpGet]
     public async Task<IActionResult> GetAllLeaves([FromQuery] string? status, CancellationToken cancellationToken)
     {
@@ -41,7 +41,7 @@ public class LeavesController : ControllerBase
         if (leave == null) return NotFound(new { message = $"Leave request {id} not found." });
 
         var userId = GetCurrentUserId();
-        var isManagerOrAdmin = User.IsInRole("ADMIN") || User.IsInRole("MANAGER");
+        var isManagerOrAdmin = User.IsInRole("ADMIN") || User.IsInRole("MANAGER") || User.IsInRole("MONITOR");
         if (!isManagerOrAdmin && leave.UserId != userId)
         {
             return Forbid();

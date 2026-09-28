@@ -930,6 +930,9 @@ export default function AdminDashboardPage() {
   const avgEfficiency = todayTimesheet?.averageEfficiencyPercentage ?? timesheet?.averageEfficiencyPercentage ?? 0;
   const hoursLoggedToday = todayTimesheet?.totalHoursLoggedToday ?? 0;
 
+  // Permissions & Roles
+  const isReadOnlyMonitor = currentUser?.role === 'MONITOR';
+
   // Session verification loader
   if (authChecking) {
     return (
@@ -1084,8 +1087,12 @@ export default function AdminDashboardPage() {
             <div>
               <div className="flex items-center space-x-2">
                 <h1 className="text-sm sm:text-base font-bold tracking-tight text-white leading-tight">Punnya Heart</h1>
-                <span className="text-[10px] sm:text-[11px] bg-rose-500/15 text-rose-400 font-semibold px-2 py-0.5 rounded-full border border-rose-500/25 hidden xs:inline-block">
-                  Admin Center
+                <span className={`text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full border hidden xs:inline-block ${
+                  isReadOnlyMonitor
+                    ? 'bg-cyan-500/15 text-cyan-400 border-cyan-500/25'
+                    : 'bg-rose-500/15 text-rose-400 border-rose-500/25'
+                }`}>
+                  {isReadOnlyMonitor ? 'Observer / Monitor' : 'Admin Center'}
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 hidden sm:block">Real-Time Workforce Oversight &amp; Telemetry</p>
@@ -1107,23 +1114,27 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Quick Dispatch Task Modal Button */}
-            <button
-              onClick={() => setIsDispatchModalOpen(true)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all active:scale-[0.98]"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>DISPATCH TASK</span>
-            </button>
+            {!isReadOnlyMonitor && (
+              <button
+                onClick={() => setIsDispatchModalOpen(true)}
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all active:scale-[0.98]"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>DISPATCH TASK</span>
+              </button>
+            )}
 
             {/* Import Tasks Modal Button */}
-            <button
-              onClick={() => setIsImportModalOpen(true)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-200 hover:text-white text-xs font-bold transition-all active:scale-[0.98]"
-              title="Import tasks from Google Sheets or CSV"
-            >
-              <Upload className="w-3.5 h-3.5 text-indigo-400" />
-              <span>IMPORT SHEET</span>
-            </button>
+            {!isReadOnlyMonitor && (
+              <button
+                onClick={() => setIsImportModalOpen(true)}
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-200 hover:text-white text-xs font-bold transition-all active:scale-[0.98]"
+                title="Import tasks from Google Sheets or CSV"
+              >
+                <Upload className="w-3.5 h-3.5 text-indigo-400" />
+                <span>IMPORT SHEET</span>
+              </button>
+            )}
 
             {/* Timesheet CSV Export */}
             <button
@@ -1155,14 +1166,20 @@ export default function AdminDashboardPage() {
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
 
-            {/* Authenticated Admin Badge */}
+            {/* Authenticated Admin / Monitor Badge */}
             <div className="flex items-center space-x-2 pl-2 border-l border-[#262938]">
-              <div className="w-7 h-7 rounded-full bg-rose-500/20 border border-rose-500/30 text-rose-300 flex items-center justify-center text-xs font-bold uppercase">
-                {currentUser?.fullName?.[0] || currentUser?.username?.[0] || 'A'}
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold uppercase ${
+                isReadOnlyMonitor
+                  ? 'bg-cyan-500/20 border border-cyan-500/30 text-cyan-300'
+                  : 'bg-rose-500/20 border border-rose-500/30 text-rose-300'
+              }`}>
+                {currentUser?.fullName?.[0] || currentUser?.username?.[0] || (isReadOnlyMonitor ? 'M' : 'A')}
               </div>
               <div className="text-left leading-tight hidden lg:block">
                 <div className="text-xs font-semibold text-white max-w-[120px] truncate">{currentUser?.fullName || currentUser?.username}</div>
-                <div className="text-[10px] text-rose-400 font-medium">ADMIN</div>
+                <div className={`text-[10px] font-medium ${isReadOnlyMonitor ? 'text-cyan-400' : 'text-rose-400'}`}>
+                  {isReadOnlyMonitor ? 'MONITOR (READ-ONLY)' : (currentUser?.role || 'ADMIN')}
+                </div>
               </div>
             </div>
 
@@ -1228,27 +1245,31 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setIsDispatchModalOpen(true);
-                }}
-                className="flex items-center justify-center space-x-1 py-2 px-2 rounded-xl bg-rose-600 active:bg-rose-700 text-white text-[11px] font-bold shadow-md shadow-rose-600/20"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Dispatch</span>
-              </button>
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setIsImportModalOpen(true);
-                }}
-                className="flex items-center justify-center space-x-1 py-2 px-2 rounded-xl bg-[#1C1F2B] border border-[#32364A] text-slate-200 active:bg-[#262938] text-[11px] font-semibold"
-              >
-                <Upload className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Import</span>
-              </button>
+            <div className={`grid ${isReadOnlyMonitor ? 'grid-cols-1' : 'grid-cols-3'} gap-1.5`}>
+              {!isReadOnlyMonitor && (
+                <>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setIsDispatchModalOpen(true);
+                    }}
+                    className="flex items-center justify-center space-x-1 py-2 px-2 rounded-xl bg-rose-600 active:bg-rose-700 text-white text-[11px] font-bold shadow-md shadow-rose-600/20"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Dispatch</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setIsImportModalOpen(true);
+                    }}
+                    className="flex items-center justify-center space-x-1 py-2 px-2 rounded-xl bg-[#1C1F2B] border border-[#32364A] text-slate-200 active:bg-[#262938] text-[11px] font-semibold"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Import</span>
+                  </button>
+                </>
+              )}
               <button
                 onClick={handleDownloadCsv}
                 disabled={isExportingCsv}
@@ -1830,22 +1851,26 @@ export default function AdminDashboardPage() {
                   <option value="LOW">Low</option>
                 </select>
 
-                <button
-                  onClick={() => setIsImportModalOpen(true)}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-200 hover:text-white text-xs font-semibold transition"
-                  title="Import from Google Sheets or CSV"
-                >
-                  <Upload className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>Import Sheet</span>
-                </button>
+                {!isReadOnlyMonitor && (
+                  <>
+                    <button
+                      onClick={() => setIsImportModalOpen(true)}
+                      className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-200 hover:text-white text-xs font-semibold transition"
+                      title="Import from Google Sheets or CSV"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Import Sheet</span>
+                    </button>
 
-                <button
-                  onClick={() => setIsDispatchModalOpen(true)}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>New Task</span>
-                </button>
+                    <button
+                      onClick={() => setIsDispatchModalOpen(true)}
+                      className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>New Task</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -2473,7 +2498,11 @@ export default function AdminDashboardPage() {
 
                             {/* Actions */}
                             <td className="px-5 py-3.5 text-right">
-                              {isPending ? (
+                              {isReadOnlyMonitor ? (
+                                <span className="text-slate-500 text-xs italic">
+                                  {isPending ? 'Pending Review' : 'Processed'}
+                                </span>
+                              ) : isPending ? (
                                 <div className="flex items-center justify-end space-x-2">
                                   <button
                                     onClick={() => {
@@ -2538,18 +2567,20 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-3">
-                  <button
-                    onClick={() => {
-                      setIsAddStaffModalOpen(true);
-                      setAddStaffMessage(null);
-                    }}
-                    className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all active:scale-[0.98]"
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    <span>ENROLL NEW STAFF</span>
-                  </button>
-                </div>
+                {!isReadOnlyMonitor && (
+                  <div className="flex items-center space-x-3">
+                    <button
+                      onClick={() => {
+                        setIsAddStaffModalOpen(true);
+                        setAddStaffMessage(null);
+                      }}
+                      className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all active:scale-[0.98]"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>ENROLL NEW STAFF</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Filters & Search Row */}
@@ -2660,6 +2691,8 @@ export default function AdminDashboardPage() {
                                   ? 'bg-purple-950/60 text-purple-300 border-purple-500/40'
                                   : member.role === 'MANAGER'
                                   ? 'bg-rose-950/60 text-rose-300 border-rose-500/40'
+                                  : member.role === 'MONITOR'
+                                  ? 'bg-cyan-950/60 text-cyan-300 border-cyan-500/40'
                                   : 'bg-slate-800 text-slate-300 border-slate-700'
                               }`}
                             >
@@ -2689,13 +2722,15 @@ export default function AdminDashboardPage() {
                                   </>
                                 )}
                               </span>
-                              <button
-                                onClick={() => handleToggleWorkMode(member.id, member.workMode)}
-                                className="text-[10px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] transition"
-                                title="Switch between WFH and In-Office"
-                              >
-                                ⇄
-                              </button>
+                              {!isReadOnlyMonitor && (
+                                <button
+                                  onClick={() => handleToggleWorkMode(member.id, member.workMode)}
+                                  className="text-[10px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] transition"
+                                  title="Switch between WFH and In-Office"
+                                >
+                                  ⇄
+                                </button>
+                              )}
                             </div>
                           </td>
 
@@ -2737,48 +2772,69 @@ export default function AdminDashboardPage() {
 
                           {/* Status & Active Toggle */}
                           <td className="py-3.5 px-4 text-center">
-                            <button
-                              onClick={() => handleToggleStaffStatus(member.id)}
-                              className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition ${
-                                member.isActive
-                                  ? 'bg-emerald-950/50 text-emerald-300 border-emerald-500/30 hover:bg-emerald-900/50'
-                                  : 'bg-rose-950/50 text-rose-400 border-rose-500/30 hover:bg-rose-900/50'
-                              }`}
-                              title="Click to toggle Active / Suspended status"
-                            >
+                            {isReadOnlyMonitor ? (
                               <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  member.isActive ? 'bg-emerald-400' : 'bg-rose-400'
+                                className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                                  member.isActive
+                                    ? 'bg-emerald-950/50 text-emerald-300 border-emerald-500/30'
+                                    : 'bg-rose-950/50 text-rose-400 border-rose-500/30'
                                 }`}
-                              />
-                              <span>{member.isActive ? 'Active' : 'Suspended'}</span>
-                            </button>
+                              >
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    member.isActive ? 'bg-emerald-400' : 'bg-rose-400'
+                                  }`}
+                                />
+                                <span>{member.isActive ? 'Active' : 'Suspended'}</span>
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleToggleStaffStatus(member.id)}
+                                className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition ${
+                                  member.isActive
+                                    ? 'bg-emerald-950/50 text-emerald-300 border-emerald-500/30 hover:bg-emerald-900/50'
+                                    : 'bg-rose-950/50 text-rose-400 border-rose-500/30 hover:bg-rose-900/50'
+                                }`}
+                                title="Click to toggle Active / Suspended status"
+                              >
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    member.isActive ? 'bg-emerald-400' : 'bg-rose-400'
+                                  }`}
+                                />
+                                <span>{member.isActive ? 'Active' : 'Suspended'}</span>
+                              </button>
+                            )}
                           </td>
 
                           {/* Actions */}
                           <td className="py-3.5 px-4 text-right">
-                            <div className="flex items-center justify-end space-x-2">
-                              <button
-                                onClick={() => handleOpenEditStaffModal(member)}
-                                className="px-2.5 py-1.5 rounded-lg bg-rose-600/15 hover:bg-rose-600/30 border border-rose-500/30 text-rose-400 hover:text-white text-xs font-semibold transition inline-flex items-center space-x-1.5"
-                                title="Edit Staff Details"
-                              >
-                                <Edit3 className="w-3 h-3 text-rose-400" />
-                                <span>Edit</span>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedStaffForPasswordReset(member);
-                                  setNewResetPassword('');
-                                  setResetPasswordMessage(null);
-                                }}
-                                className="px-2.5 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-300 hover:text-white text-xs font-semibold transition inline-flex items-center space-x-1.5"
-                                title="Reset Employee Password"
-                              >
-                                <Key className="w-3 h-3 text-amber-400" />
-                                <span>Reset Key</span>
-                              </button>
-                            </div>
+                            {isReadOnlyMonitor ? (
+                              <span className="text-slate-500 text-xs italic">Auditor View</span>
+                            ) : (
+                              <div className="flex items-center justify-end space-x-2">
+                                <button
+                                  onClick={() => handleOpenEditStaffModal(member)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-rose-600/15 hover:bg-rose-600/30 border border-rose-500/30 text-rose-400 hover:text-white text-xs font-semibold transition inline-flex items-center space-x-1.5"
+                                  title="Edit Staff Details"
+                                >
+                                  <Edit3 className="w-3 h-3 text-rose-400" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedStaffForPasswordReset(member);
+                                    setNewResetPassword('');
+                                    setResetPasswordMessage(null);
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-300 hover:text-white text-xs font-semibold transition inline-flex items-center space-x-1.5"
+                                  title="Reset Employee Password"
+                                >
+                                  <Key className="w-3 h-3 text-amber-400" />
+                                  <span>Reset Key</span>
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
 
@@ -3553,6 +3609,7 @@ export default function AdminDashboardPage() {
                   >
                     <option value="EMPLOYEE">Employee</option>
                     <option value="MANAGER">Manager / Lead</option>
+                    <option value="MONITOR">Monitor / Observer (Read-Only)</option>
                     <option value="ADMIN">System Admin</option>
                   </select>
                 </div>
@@ -3794,6 +3851,7 @@ export default function AdminDashboardPage() {
                   >
                     <option value="EMPLOYEE">Employee (Task Worker)</option>
                     <option value="MANAGER">Manager / Team Lead</option>
+                    <option value="MONITOR">Monitor / Observer (Read-Only)</option>
                     <option value="ADMIN">System Administrator</option>
                   </select>
                 </div>

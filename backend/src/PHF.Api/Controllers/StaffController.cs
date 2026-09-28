@@ -5,7 +5,7 @@ using PHF.Core.Interfaces;
 
 namespace PHF.Api.Controllers;
 
-[Authorize(Roles = "ADMIN,MANAGER")]
+[Authorize(Roles = "ADMIN,MANAGER,MONITOR")]
 [ApiController]
 [Route("api/v1/[controller]")]
 public class StaffController : ControllerBase
@@ -32,6 +32,7 @@ public class StaffController : ControllerBase
         return Ok(member);
     }
 
+    [Authorize(Roles = "ADMIN,MANAGER")]
     [HttpPost]
     public async Task<IActionResult> CreateStaff([FromBody] CreateStaffRequest request, CancellationToken cancellationToken)
     {
@@ -52,6 +53,7 @@ public class StaffController : ControllerBase
         }
     }
 
+    [Authorize(Roles = "ADMIN,MANAGER")]
     [HttpPatch("{id:guid}/toggle-status")]
     public async Task<IActionResult> ToggleStatus(Guid id, CancellationToken cancellationToken)
     {
@@ -60,6 +62,7 @@ public class StaffController : ControllerBase
         return Ok(new { success = true });
     }
 
+    [Authorize(Roles = "ADMIN,MANAGER")]
     [HttpPost("{id:guid}/reset-password")]
     public async Task<IActionResult> ResetPassword(Guid id, [FromBody] ResetPasswordRequest request, CancellationToken cancellationToken)
     {
@@ -71,6 +74,7 @@ public class StaffController : ControllerBase
         return Ok(new { success = true, message = "Password updated successfully." });
     }
 
+    [Authorize(Roles = "ADMIN,MANAGER")]
     [HttpPatch("{id:guid}/work-mode")]
     public async Task<IActionResult> UpdateWorkMode(Guid id, [FromBody] UpdateWorkModeRequest request, CancellationToken cancellationToken)
     {
@@ -82,6 +86,7 @@ public class StaffController : ControllerBase
         return Ok(new { success = true });
     }
 
+    [Authorize(Roles = "ADMIN,MANAGER")]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateStaff(Guid id, [FromBody] UpdateStaffRequest request, CancellationToken cancellationToken)
     {

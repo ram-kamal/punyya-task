@@ -4,7 +4,7 @@ using PHF.Core.Interfaces;
 
 namespace PHF.Api.Controllers;
 
-[Authorize(Roles = "ADMIN,MANAGER")]
+[Authorize(Roles = "ADMIN,MANAGER,MONITOR")]
 [ApiController]
 [Route("api/v1/[controller]")]
 public class TimesheetController : ControllerBase

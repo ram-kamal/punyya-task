@@ -90,7 +90,7 @@ export interface User {
   id: string;
   email: string;
   fullName: string;
-  role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
+  role: 'ADMIN' | 'MANAGER' | 'MONITOR' | 'EMPLOYEE';
   stationId?: string;
   username?: string;
 }
@@ -119,7 +119,7 @@ export interface StaffMember {
   email: string;
   username?: string;
   fullName: string;
-  role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
+  role: 'ADMIN' | 'MANAGER' | 'MONITOR' | 'EMPLOYEE';
   workMode: 'IN_OFFICE' | 'REMOTE_WFH' | string;
   stationId?: string;
   isActive: boolean;
