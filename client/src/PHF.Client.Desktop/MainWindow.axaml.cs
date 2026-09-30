@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
@@ -168,12 +169,12 @@ public partial class MainWindow : Window
 
     private void BtnTitleClose_Click(object? sender, RoutedEventArgs e)
     {
-        Close();
+        PerformFullAppShutdown();
     }
 
     private void MacClose_Click(object? sender, RoutedEventArgs e)
     {
-        Close();
+        PerformFullAppShutdown();
     }
 
     private void MacMinimize_Click(object? sender, RoutedEventArgs e)
@@ -867,13 +868,52 @@ public partial class MainWindow : Window
         LoginModal.IsVisible = true;
     }
 
+    private bool _isShuttingDown = false;
+
     private void MainWindow_Closing(object? sender, WindowClosingEventArgs e)
     {
-        StopShiftClock();
-        _autoRefreshTimer?.Stop();
-        _toastDismissTimer?.Stop();
-        _engine.Dispose();
-        _syncWorker.Dispose();
-        _realtimeClient.Dispose();
+        PerformFullAppShutdown();
+    }
+
+    private void PerformFullAppShutdown()
+    {
+        if (_isShuttingDown) return;
+        _isShuttingDown = true;
+
+        try
+        {
+            StopShiftClock();
+            _autoRefreshTimer?.Stop();
+            _toastDismissTimer?.Stop();
+
+            try { _engine.Stop(); } catch { }
+            try { _engine.Dispose(); } catch { }
+            try { _syncWorker.Stop(); } catch { }
+            try { _syncWorker.Dispose(); } catch { }
+
+            // Fire-and-forget realtime stop so it never hangs or deadlocks
+            Task.Run(async () =>
+            {
+                try { await _realtimeClient.StopAsync(); } catch { }
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Shutdown] Error: {ex.Message}");
+        }
+        finally
+        {
+            try
+            {
+                if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                {
+                    desktop.Shutdown(0);
+                }
+            }
+            catch { }
+
+            // Force kill the process completely so it never lingers in Task Manager
+            Environment.Exit(0);
+        }
     }
 }

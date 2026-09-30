@@ -136,8 +136,19 @@ public class RealtimeClient : IAsyncDisposable, IDisposable
     {
         if (_hubConnection != null)
         {
-            await _hubConnection.StopAsync();
-            await _hubConnection.DisposeAsync();
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+                await _hubConnection.StopAsync(cts.Token);
+            }
+            catch { }
+
+            try
+            {
+                await _hubConnection.DisposeAsync();
+            }
+            catch { }
+
             _hubConnection = null;
             OnConnectionStateChanged?.Invoke(false);
         }
@@ -151,7 +162,11 @@ public class RealtimeClient : IAsyncDisposable, IDisposable
 
     public void Dispose()
     {
-        try { StopAsync().GetAwaiter().GetResult(); } catch { }
+        try
+        {
+            Task.Run(async () => await StopAsync()).Wait(TimeSpan.FromMilliseconds(500));
+        }
+        catch { }
         GC.SuppressFinalize(this);
     }
 }
