@@ -9,8 +9,8 @@
         TransparencyLevelHint="Mica,AcrylicBlur"
         Background="Transparent"
         ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaChromeHints="PreferSystemChrome"
-        ExtendClientAreaTitleBarHeightHint="52">
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="46">
 
     <Grid>
         <!-- macOS Frosted Glass Acrylic Background -->
@@ -33,34 +33,41 @@
         <Grid RowDefinitions="Auto,*,Auto">
             
             <!-- Top macOS / Windows Mica Header Bar -->
-            <Border Grid.Row="0" Background="#22151722" BorderBrush="#25FFFFFF" BorderThickness="0,0,0,1" Padding="20,10,20,12">
-                <Grid ColumnDefinitions="*,Auto">
+            <Border x:Name="TitleBarBorder"
+                    Grid.Row="0"
+                    Background="#22151722"
+                    BorderBrush="#25FFFFFF"
+                    BorderThickness="0,0,0,1"
+                    Padding="16,8,12,8"
+                    PointerPressed="TitleBar_PointerPressed"
+                    DoubleTapped="TitleBar_DoubleTapped">
+                <Grid ColumnDefinitions="*,Auto,Auto">
                     
                     <!-- Left: Traffic Lights + App Emblem + Organization Info -->
-                    <StackPanel x:Name="HeaderLeftStack" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,0">
-                        <!-- macOS Traffic Lights (Hidden on Windows / system chrome) -->
-                        <StackPanel x:Name="MacTrafficLightsStack" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,20,0" IsVisible="False">
-                            <Ellipse Width="12" Height="12" Fill="#FF5F56" Stroke="#E0443E" StrokeThickness="0.5" />
-                            <Ellipse Width="12" Height="12" Fill="#FFBD2E" Stroke="#DEA123" StrokeThickness="0.5" />
-                            <Ellipse Width="12" Height="12" Fill="#27C93F" Stroke="#1AAB29" StrokeThickness="0.5" />
+                    <StackPanel x:Name="HeaderLeftStack" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- macOS Traffic Lights (Visible only on macOS) -->
+                        <StackPanel x:Name="MacTrafficLightsStack" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,16,0" IsVisible="False">
+                            <Button Classes="macTrafficBtn" Background="#FF5F56" BorderBrush="#E0443E" ToolTip.Tip="Close" Click="MacClose_Click" />
+                            <Button Classes="macTrafficBtn" Background="#FFBD2E" BorderBrush="#DEA123" ToolTip.Tip="Minimize" Click="MacMinimize_Click" />
+                            <Button Classes="macTrafficBtn" Background="#27C93F" BorderBrush="#1AAB29" ToolTip.Tip="Maximize" Click="MacMaximize_Click" />
                         </StackPanel>
 
                         <!-- App Emblem -->
-                        <Border Width="36" Height="36" CornerRadius="10" Margin="0,0,12,0">
+                        <Border Width="34" Height="34" CornerRadius="10" Margin="0,0,12,0">
                             <Border.Background>
                                 <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
                                     <GradientStop Color="#E11D48" Offset="0" />
                                     <GradientStop Color="#BE123C" Offset="1" />
                                 </LinearGradientBrush>
                             </Border.Background>
-                            <TextBlock Text="♥" FontSize="18" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <TextBlock Text="♥" FontSize="17" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
 
                         <StackPanel VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="Punnya Heart Desk" FontSize="16" FontWeight="Bold" Foreground="#F8FAFC" />
+                                <TextBlock Text="Punnya Heart Desk" FontSize="15" FontWeight="Bold" Foreground="#F8FAFC" />
                                 <Border Background="#20E11D48" BorderBrush="#40E11D48" BorderThickness="1" CornerRadius="10" Padding="8,2" Margin="10,0,0,0">
-                                    <TextBlock x:Name="TxtPlatformEdition" Text="Windows 11 Mica" FontSize="10.5" FontWeight="Bold" Foreground="#FDA4AF" />
+                                    <TextBlock x:Name="TxtPlatformEdition" Text="Windows 11 Mica" FontSize="10" FontWeight="Bold" Foreground="#FDA4AF" />
                                 </Border>
 
                                 <!-- Live SignalR Badge -->
@@ -75,7 +82,7 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <!-- Right: User Station Profile + Sign Out (Window chrome margin adjusted in code) -->
+                    <!-- Right: User Station Profile + Sign Out -->
                     <StackPanel x:Name="HeaderRightStack" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <Border Background="#20FFFFFF" BorderBrush="#30FFFFFF" BorderThickness="1" CornerRadius="8" Padding="10,5">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -84,6 +91,19 @@
                             </StackPanel>
                         </Border>
                         <Button x:Name="BtnLogout" Classes="glass" Content="Sign Out" Margin="8,0,0,0" Click="BtnLogout_Click" />
+                    </StackPanel>
+
+                    <!-- Windows Fluent Caption Buttons (Minimize, Maximize, Close) -->
+                    <StackPanel x:Name="WindowsCaptionButtons" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0" Spacing="4">
+                        <Button x:Name="BtnTitleMinimize" Classes="titleBtn" ToolTip.Tip="Minimize" Click="BtnTitleMinimize_Click">
+                            <TextBlock Text="─" FontSize="11" Foreground="#CBD5E1" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Button>
+                        <Button x:Name="BtnTitleMaximize" Classes="titleBtn" ToolTip.Tip="Maximize / Restore" Click="BtnTitleMaximize_Click">
+                            <TextBlock x:Name="TxtMaximizeIcon" Text="□" FontSize="12" Foreground="#CBD5E1" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Button>
+                        <Button x:Name="BtnTitleClose" Classes="titleBtnClose" ToolTip.Tip="Close" Click="BtnTitleClose_Click">
+                            <TextBlock Text="✕" FontSize="11" Foreground="#CBD5E1" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Button>
                     </StackPanel>
                 </Grid>
             </Border>

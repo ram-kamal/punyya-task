@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
@@ -71,35 +72,49 @@ public partial class MainWindow : Window
 
         Opened += MainWindow_Opened;
         Closing += MainWindow_Closing;
+        PropertyChanged += (sender, e) =>
+        {
+            if (e.Property == WindowStateProperty)
+            {
+                UpdateMaximizeButtonIcon();
+            }
+        };
     }
 
     private async void MainWindow_Opened(object? sender, EventArgs e)
     {
-        ApplyPlatformChromeLayout();
-        UpdateStationIdentifierFromWorkMode();
+        try
+        {
+            ApplyPlatformChromeLayout();
+            UpdateStationIdentifierFromWorkMode();
 
-        // Load saved workstation credentials if remembered
-        var (savedUser, savedPass, remember) = CredentialStorage.LoadCredentials();
-        if (remember && !string.IsNullOrEmpty(savedUser))
-        {
-            TxtLoginEmail.Text = savedUser;
-            TxtLoginPassword.Text = savedPass;
-            ChkRememberCredentials.IsChecked = true;
-        }
-        else
-        {
-            TxtLoginEmail.Text = string.Empty;
-            TxtLoginPassword.Text = string.Empty;
-            ChkRememberCredentials.IsChecked = true;
-        }
+            // Load saved workstation credentials if remembered
+            var (savedUser, savedPass, remember) = CredentialStorage.LoadCredentials();
+            if (remember && !string.IsNullOrEmpty(savedUser))
+            {
+                TxtLoginEmail.Text = savedUser;
+                TxtLoginPassword.Text = savedPass;
+                ChkRememberCredentials.IsChecked = true;
+            }
+            else
+            {
+                TxtLoginEmail.Text = string.Empty;
+                TxtLoginPassword.Text = string.Empty;
+                ChkRememberCredentials.IsChecked = true;
+            }
 
-        if (!_apiClient.IsAuthenticated)
-        {
-            LoginModal.IsVisible = true;
+            if (!_apiClient.IsAuthenticated)
+            {
+                LoginModal.IsVisible = true;
+            }
+            else
+            {
+                await InitializeWorkstationSessionAsync();
+            }
         }
-        else
+        catch (Exception ex)
         {
-            await InitializeWorkstationSessionAsync();
+            Debug.WriteLine($"[MainWindow_Opened] Error: {ex.Message}");
         }
     }
 
@@ -107,25 +122,81 @@ public partial class MainWindow : Window
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            // Windows 11 Fluent Mica TitleBar layout:
-            // Native minimize/maximize/close are placed on the top-right (~140px)
             MacTrafficLightsStack.IsVisible = false;
-            HeaderLeftStack.Margin = new Avalonia.Thickness(12, 0, 0, 0);
-            HeaderRightStack.Margin = new Avalonia.Thickness(0, 0, 140, 0);
+            WindowsCaptionButtons.IsVisible = true;
+            HeaderLeftStack.Margin = new Avalonia.Thickness(4, 0, 0, 0);
+            HeaderRightStack.Margin = new Avalonia.Thickness(0, 0, 0, 0);
             TxtPlatformEdition.Text = "Windows 11 Mica";
             TxtTelemetryHook.Text = "Win32 & System Hook";
             Title = "Punnya Heart Desk — Windows 11 Mica Workstation";
         }
         else
         {
-            // macOS TitleBar layout:
-            // Native traffic lights are placed on the top-left (~76px)
-            MacTrafficLightsStack.IsVisible = false;
-            HeaderLeftStack.Margin = new Avalonia.Thickness(76, 0, 0, 0);
-            HeaderRightStack.Margin = new Avalonia.Thickness(0, 0, 12, 0);
+            MacTrafficLightsStack.IsVisible = true;
+            WindowsCaptionButtons.IsVisible = false;
+            HeaderLeftStack.Margin = new Avalonia.Thickness(4, 0, 0, 0);
+            HeaderRightStack.Margin = new Avalonia.Thickness(0, 0, 8, 0);
             TxtPlatformEdition.Text = "macOS Edition";
             TxtTelemetryHook.Text = "macOS CoreGraphics & Cocoa";
             Title = "Punnya Heart Desk — macOS Workstation";
+        }
+        UpdateMaximizeButtonIcon();
+    }
+
+    private void TitleBar_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            BeginMoveDrag(e);
+        }
+    }
+
+    private void TitleBar_DoubleTapped(object? sender, TappedEventArgs e)
+    {
+        ToggleWindowState();
+    }
+
+    private void BtnTitleMinimize_Click(object? sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+    }
+
+    private void BtnTitleMaximize_Click(object? sender, RoutedEventArgs e)
+    {
+        ToggleWindowState();
+    }
+
+    private void BtnTitleClose_Click(object? sender, RoutedEventArgs e)
+    {
+        Close();
+    }
+
+    private void MacClose_Click(object? sender, RoutedEventArgs e)
+    {
+        Close();
+    }
+
+    private void MacMinimize_Click(object? sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+    }
+
+    private void MacMaximize_Click(object? sender, RoutedEventArgs e)
+    {
+        ToggleWindowState();
+    }
+
+    private void ToggleWindowState()
+    {
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        UpdateMaximizeButtonIcon();
+    }
+
+    private void UpdateMaximizeButtonIcon()
+    {
+        if (TxtMaximizeIcon != null)
+        {
+            TxtMaximizeIcon.Text = WindowState == WindowState.Maximized ? "❐" : "□";
         }
     }
 
@@ -186,8 +257,12 @@ public partial class MainWindow : Window
     {
         Dispatcher.UIThread.Post(() =>
         {
-            TxtActiveApp.Text = $"Active App: {process}";
-            TxtStatusBar.Text = $"Focus: {title} ({DateTime.Now:HH:mm:ss})";
+            try
+            {
+                TxtActiveApp.Text = $"Active App: {process}";
+                TxtStatusBar.Text = $"Focus: {title} ({DateTime.Now:HH:mm:ss})";
+            }
+            catch { }
         });
     }
 
@@ -195,7 +270,11 @@ public partial class MainWindow : Window
     {
         Dispatcher.UIThread.Post(() =>
         {
-            TxtSyncInfo.Text = $"Synced {count} records ({syncedAt:HH:mm:ss})";
+            try
+            {
+                TxtSyncInfo.Text = $"Synced {count} records ({syncedAt:HH:mm:ss})";
+            }
+            catch { }
         });
     }
 
@@ -203,15 +282,22 @@ public partial class MainWindow : Window
     {
         Dispatcher.UIThread.Post(() =>
         {
-            if (isConnected)
+            try
             {
-                TxtConnectionStatus.Text = "LIVE CONNECTED";
-                TxtConnectionStatus.Foreground = new SolidColorBrush(Color.FromRgb(52, 211, 153));
+                if (isConnected)
+                {
+                    TxtConnectionStatus.Text = "LIVE CONNECTED";
+                    TxtConnectionStatus.Foreground = new SolidColorBrush(Color.FromRgb(52, 211, 153));
+                }
+                else
+                {
+                    TxtConnectionStatus.Text = "RECONNECTING...";
+                    TxtConnectionStatus.Foreground = new SolidColorBrush(Color.FromRgb(251, 191, 36));
+                }
             }
-            else
+            catch (Exception ex)
             {
-                TxtConnectionStatus.Text = "RECONNECTING...";
-                TxtConnectionStatus.Foreground = new SolidColorBrush(Color.FromRgb(251, 191, 36));
+                Debug.WriteLine($"[Realtime] Error handling OnRealtimeConnectionChanged: {ex.Message}");
             }
         });
     }
@@ -220,8 +306,17 @@ public partial class MainWindow : Window
     {
         Dispatcher.UIThread.Post(async () =>
         {
-            ShowToast("📋 New Task Assigned", $"You have been assigned: {task.Title}");
-            await LoadAssignedTasksAsync(silent: true);
+            try
+            {
+                if (task == null) return;
+                var title = string.IsNullOrWhiteSpace(task.Title) ? "New Task" : task.Title;
+                ShowToast("📋 New Task Assigned", $"You have been assigned: {title}");
+                await LoadAssignedTasksAsync(silent: true);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[Realtime] Error handling OnRealtimeTaskAssigned: {ex.Message}");
+            }
         });
     }
 
@@ -229,7 +324,14 @@ public partial class MainWindow : Window
     {
         Dispatcher.UIThread.Post(async () =>
         {
-            await LoadAssignedTasksAsync(silent: true);
+            try
+            {
+                await LoadAssignedTasksAsync(silent: true);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[Realtime] Error handling OnRealtimeTaskStatusChanged: {ex.Message}");
+            }
         });
     }
 
@@ -237,16 +339,25 @@ public partial class MainWindow : Window
     {
         Dispatcher.UIThread.Post(async () =>
         {
-            if (evt.EventType != null && evt.EventType.StartsWith("LEAVE_"))
+            try
             {
-                await LoadLeaveHistoryAsync();
-                ShowToast("🏖️ Leave Request", evt.Details ?? "Leave update received");
+                if (evt == null) return;
+
+                if (evt.EventType != null && evt.EventType.StartsWith("LEAVE_"))
+                {
+                    await LoadLeaveHistoryAsync();
+                    ShowToast("🏖️ Leave Request", evt.Details ?? "Leave update received");
+                }
+                else
+                {
+                    await LoadAssignedTasksAsync(silent: true);
+                }
+                TxtStatusBar.Text = $"Event: {evt.EventType} • {evt.Details}";
             }
-            else
+            catch (Exception ex)
             {
-                await LoadAssignedTasksAsync(silent: true);
+                Debug.WriteLine($"[Realtime] Error handling OnRealtimeWorkstationEventReceived: {ex.Message}");
             }
-            TxtStatusBar.Text = $"Event: {evt.EventType} • {evt.Details}";
         });
     }
 
@@ -254,10 +365,18 @@ public partial class MainWindow : Window
     {
         Dispatcher.UIThread.Post(async () =>
         {
-            ShowToast("🏖️ Leave Request Reviewed", evt.Details ?? "Your leave request was reviewed.");
-            if (LeaveCenterModal.IsVisible)
+            try
             {
-                await LoadLeaveHistoryAsync();
+                if (evt == null) return;
+                ShowToast("🏖️ Leave Request Reviewed", evt.Details ?? "Your leave request was reviewed.");
+                if (LeaveCenterModal.IsVisible)
+                {
+                    await LoadLeaveHistoryAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[Realtime] Error handling OnRealtimeLeaveUpdated: {ex.Message}");
             }
         });
     }

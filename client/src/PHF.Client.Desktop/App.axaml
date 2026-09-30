@@ -47,6 +47,53 @@
             <Setter Property="Background" Value="#059669" />
         </Style>
 
+        <!-- macOS Traffic Light Button Styles -->
+        <Style Selector="Button.macTrafficBtn">
+            <Setter Property="Width" Value="12" />
+            <Setter Property="Height" Value="12" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="BorderThickness" Value="0.5" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.macTrafficBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Opacity" Value="0.75" />
+        </Style>
+
+        <!-- Windows / Fluent Titlebar Caption Buttons -->
+        <Style Selector="Button.titleBtn">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Width" Value="38" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.titleBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#25FFFFFF" />
+        </Style>
+
+        <Style Selector="Button.titleBtnClose">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Width" Value="38" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.titleBtnClose:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#E11D48" />
+        </Style>
+        <Style Selector="Button.titleBtnClose:pointerover TextBlock">
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+
         <!-- Mac Glass TextBoxes -->
         <Style Selector="TextBox">
             <Setter Property="Background" Value="#20000000" />
