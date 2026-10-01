@@ -322,8 +322,10 @@ public class TelemetryService : ITelemetryService
             .OrderBy(u => u.FullName)
             .ToListAsync(cancellationToken);
 
-        var todayLogs = await _dbContext.AppActivityLogs
+        var todayLogStats = await _dbContext.AppActivityLogs
             .Where(l => l.LoggedAt >= today)
+            .GroupBy(l => new { l.UserId, l.IsIdle })
+            .Select(g => new { g.Key.UserId, g.Key.IsIdle, TotalSeconds = g.Sum(l => l.DurationSeconds) })
             .ToListAsync(cancellationToken);
 
         var todayShifts = await _dbContext.Shifts
@@ -387,9 +389,8 @@ public class TelemetryService : ITelemetryService
             }
 
             // Calculate active and idle minutes today for this user (matching TimesheetService exactly)
-            var empLogs = todayLogs.Where(l => l.UserId == emp.Id).ToList();
-            var loggedActiveMins = empLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds) / 60;
-            var loggedIdleMins = empLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds) / 60;
+            var loggedActiveMins = todayLogStats.Where(l => l.UserId == emp.Id && !l.IsIdle).Sum(l => l.TotalSeconds) / 60;
+            var loggedIdleMins = todayLogStats.Where(l => l.UserId == emp.Id && l.IsIdle).Sum(l => l.TotalSeconds) / 60;
 
             var shiftTotalMins = 0;
             var shiftActiveMins = 0;

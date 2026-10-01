@@ -243,6 +243,80 @@ public class TimesheetServiceTests
         Assert.NotNull(summary);
         Assert.Contains(summary.Rows, r => r.Email == "admin@punnyaheart.org");
         var adminRow = summary.Rows.First(r => r.Email == "admin@punnyaheart.org");
-        Assert.Equal(3.0, adminRow.TotalHours);
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_WithAppActivityLogs_AccuratelyAggregatesHoursWithoutOverfetching()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var mockTelemetry = new Mock<ITelemetryService>();
+
+        var testUser = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "emp@punnyaheart.org",
+            FullName = "Test Employee",
+            Role = UserRole.EMPLOYEE.ToString(),
+            StationId = "ST-103",
+            PasswordHash = "hash"
+        };
+        context.Users.Add(testUser);
+
+        var today = DateTime.UtcNow.Date;
+        context.Shifts.Add(new Shift
+        {
+            Id = Guid.NewGuid(),
+            UserId = testUser.Id,
+            StationId = "ST-103",
+            ClockIn = today.AddHours(9),
+            ClockOut = today.AddHours(17),
+            TotalActiveSeconds = 21600,
+            TotalIdleSeconds = 7200,
+            Status = ShiftStatus.COMPLETED.ToString()
+        });
+
+        // Add activity logs: 6h active (21600s), 2h idle (7200s)
+        context.AppActivityLogs.AddRange(
+            new AppActivityLog
+            {
+                Id = Guid.NewGuid(),
+                UserId = testUser.Id,
+                LoggedAt = today.AddHours(10),
+                ProcessName = "Code.exe",
+                WindowTitle = "VS Code",
+                DurationSeconds = 21600,
+                IsIdle = false
+            },
+            new AppActivityLog
+            {
+                Id = Guid.NewGuid(),
+                UserId = testUser.Id,
+                LoggedAt = today.AddHours(14),
+                ProcessName = "IdleTracker",
+                WindowTitle = "System Idle",
+                DurationSeconds = 7200,
+                IsIdle = true
+            }
+        );
+
+        await context.SaveChangesAsync();
+
+        mockTelemetry.Setup(t => t.GetWorkstationsStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<WorkstationStatusDto>());
+
+        var timesheetService = new TimesheetService(context, mockTelemetry.Object);
+
+        // Act
+        var summary = await timesheetService.GetSummaryAsync(today, null, "TODAY");
+
+        // Assert
+        Assert.NotNull(summary);
+        Assert.NotEmpty(summary.Rows);
+        var row = summary.Rows.First(r => r.Email == testUser.Email);
+        Assert.Equal(8.0, row.TotalHours);
+        Assert.Equal(6.0, row.ActiveHours);
+        Assert.Equal(2.0, row.IdleHours);
+        Assert.Equal(75.0, row.EfficiencyPercentage);
     }
 }

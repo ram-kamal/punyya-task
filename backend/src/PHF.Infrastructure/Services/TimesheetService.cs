@@ -99,8 +99,16 @@ public class TimesheetService : ITimesheetService
             .Where(s => s.ClockIn >= rangeStart && s.ClockIn < rangeEnd)
             .ToListAsync(cancellationToken);
 
-        var logs = await _dbContext.AppActivityLogs
+        var logSummaries = await _dbContext.AppActivityLogs
             .Where(l => l.LoggedAt >= rangeStart && l.LoggedAt < rangeEnd)
+            .GroupBy(l => new { l.UserId, Date = l.LoggedAt.Date, l.IsIdle })
+            .Select(g => new
+            {
+                g.Key.UserId,
+                g.Key.Date,
+                g.Key.IsIdle,
+                TotalSeconds = g.Sum(l => l.DurationSeconds)
+            })
             .ToListAsync(cancellationToken);
 
         var completedTasks = await _dbContext.Tasks
@@ -132,7 +140,7 @@ public class TimesheetService : ITimesheetService
         {
             var nextDay = day.AddDays(1);
             var dayShifts = shifts.Where(s => s.ClockIn >= day && s.ClockIn < nextDay).ToList();
-            var dayLogs = logs.Where(l => l.LoggedAt >= day && l.LoggedAt < nextDay).ToList();
+            var dayLogSummaries = logSummaries.Where(l => l.Date.Date == day.Date).ToList();
             var dayTasks = completedTasks.Where(t => t.CompletedAt >= day && t.CompletedAt < nextDay).ToList();
 
             foreach (var emp in employees)
@@ -145,11 +153,11 @@ public class TimesheetService : ITimesheetService
                     continue;
                 }
 
-                var empLogs = dayLogs.Where(l => l.UserId == emp.Id).ToList();
+                var empLogSummaries = dayLogSummaries.Where(l => l.UserId == emp.Id).ToList();
                 var empCompleted = dayTasks.Count(t => t.AssignedTo == emp.Id);
 
-                var loggedActiveSec = empLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds);
-                var loggedIdleSec = empLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds);
+                var loggedActiveSec = empLogSummaries.Where(l => !l.IsIdle).Sum(l => l.TotalSeconds);
+                var loggedIdleSec = empLogSummaries.Where(l => l.IsIdle).Sum(l => l.TotalSeconds);
 
                 var shiftTotalSec = 0;
                 var shiftActiveSec = 0;

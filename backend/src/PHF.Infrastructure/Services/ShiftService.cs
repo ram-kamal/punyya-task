@@ -82,13 +82,15 @@ public class ShiftService : IShiftService
 
         var elapsedShiftSeconds = Math.Max(0, (int)(shift.ClockOut.Value - shift.ClockIn).TotalSeconds);
 
-        // Calculate shift active time from logs if needed
-        var shiftLogs = await _dbContext.AppActivityLogs
+        // Calculate shift active time from aggregated logs if needed
+        var shiftLogStats = await _dbContext.AppActivityLogs
             .Where(l => l.UserId == userId && l.LoggedAt >= shift.ClockIn && l.LoggedAt <= shift.ClockOut.Value)
+            .GroupBy(l => l.IsIdle)
+            .Select(g => new { IsIdle = g.Key, TotalSeconds = g.Sum(l => l.DurationSeconds) })
             .ToListAsync(cancellationToken);
 
-        var loggedActive = shiftLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds);
-        var loggedIdle = shiftLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds);
+        var loggedActive = shiftLogStats.FirstOrDefault(s => !s.IsIdle)?.TotalSeconds ?? 0;
+        var loggedIdle = shiftLogStats.FirstOrDefault(s => s.IsIdle)?.TotalSeconds ?? 0;
 
         if (loggedActive + loggedIdle > 0)
         {
@@ -136,16 +138,18 @@ public class ShiftService : IShiftService
     private async Task<ShiftResponseDto> MapToDto(Shift shift, CancellationToken cancellationToken)
     {
         var today = DateTime.UtcNow.Date;
-        var todayLogs = await _dbContext.AppActivityLogs
+        var todayLogStats = await _dbContext.AppActivityLogs
             .Where(l => l.UserId == shift.UserId && l.LoggedAt >= today)
+            .GroupBy(l => l.IsIdle)
+            .Select(g => new { IsIdle = g.Key, TotalSeconds = g.Sum(l => l.DurationSeconds) })
             .ToListAsync(cancellationToken);
 
         var todayShifts = await _dbContext.Shifts
             .Where(s => s.UserId == shift.UserId && s.ClockIn >= today)
             .ToListAsync(cancellationToken);
 
-        var loggedActive = todayLogs.Where(l => !l.IsIdle).Sum(l => l.DurationSeconds);
-        var loggedIdle = todayLogs.Where(l => l.IsIdle).Sum(l => l.DurationSeconds);
+        var loggedActive = todayLogStats.FirstOrDefault(s => !s.IsIdle)?.TotalSeconds ?? 0;
+        var loggedIdle = todayLogStats.FirstOrDefault(s => s.IsIdle)?.TotalSeconds ?? 0;
 
         var shiftTotalSec = 0;
         var shiftActiveSec = 0;

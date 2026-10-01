@@ -313,6 +313,9 @@ export default function AdminDashboardPage() {
     signalRClient.connect();
 
     const interval = setInterval(() => {
+      // Don't waste Supabase egress if browser tab is in background or minimized
+      if (typeof document !== 'undefined' && document.hidden) return;
+
       fetchStations().then(setStations);
       fetchLeaves().then(setLeaves);
 
@@ -335,7 +338,7 @@ export default function AdminDashboardPage() {
           }
         });
       }
-    }, 15000);
+    }, 60000);
 
     return () => {
       clearInterval(interval);
