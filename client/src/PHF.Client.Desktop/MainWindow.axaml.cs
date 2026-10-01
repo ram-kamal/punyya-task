@@ -471,10 +471,17 @@ public partial class MainWindow : Window
             {
                 _currentUser = response.User;
 
-                // Sync station identifier with user profile if assigned
+                // Sync work mode and station identifier with user profile
+                bool isRemoteWfh = _currentUser.WorkMode == "REMOTE_WFH" || _currentUser.WorkMode == "HYBRID";
+                ChkWorkFromHome.IsChecked = isRemoteWfh;
+
                 if (!string.IsNullOrWhiteSpace(_currentUser.StationId))
                 {
                     _stationId = _currentUser.StationId;
+                }
+                else
+                {
+                    UpdateStationIdentifierFromWorkMode();
                 }
 
                 // Save or clear credentials based on "Remember" checkbox

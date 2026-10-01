@@ -921,7 +921,7 @@ export default function AdminDashboardPage() {
 
   // Counts
   const taskChangesCount = events.filter((e) => isTaskEvent(e.eventType)).length;
-  const activeStationsCount = stations.filter((s) => s.state === 'ACTIVE').length;
+  const activeStationsCount = stations.filter((s) => s.state !== 'OFFLINE').length;
   const totalStationsCount = stations.length;
   const tasksInProgressCount = tasks.filter((t) => t.status === 'IN_PROGRESS').length;
   const pendingLeavesCount = leaves.filter((l) => l.status === 'PENDING').length;

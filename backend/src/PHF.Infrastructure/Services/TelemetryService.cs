@@ -219,11 +219,46 @@ public class TelemetryService : ITelemetryService
         if (resolvedUserId.HasValue)
         {
             var userId = resolvedUserId.Value;
+            var isExisting = _liveUsers.TryGetValue(userId, out var existingState);
             var state = _liveUsers.GetOrAdd(userId, uid => new UserLiveStateInternal
             {
                 UserId = uid,
-                StationId = heartbeat.StationId
+                StationId = heartbeat.StationId,
+                LastSeen = now
             });
+
+            // Calculate seconds elapsed since last heartbeat (typically ~15s, clamped to max 60s)
+            if (isExisting && existingState != null)
+            {
+                var elapsedSec = Math.Clamp((int)(now - existingState.LastSeen).TotalSeconds, 0, 60);
+                if (elapsedSec > 0)
+                {
+                    if (heartbeat.State == StationState.IDLE.ToString())
+                    {
+                        state.IdleMinutesToday += (int)Math.Round((double)elapsedSec / 60);
+                    }
+                    else if (heartbeat.State == StationState.ACTIVE.ToString())
+                    {
+                        state.ActiveMinutesToday += (int)Math.Round((double)elapsedSec / 60);
+                    }
+
+                    // Accumulate into active shift in database so timesheet shows live accurate idle/active seconds!
+                    var activeShift = await _dbContext.Shifts
+                        .FirstOrDefaultAsync(s => s.UserId == userId && s.Status == ShiftStatus.ACTIVE.ToString(), cancellationToken);
+                    if (activeShift != null)
+                    {
+                        if (heartbeat.State == StationState.IDLE.ToString())
+                        {
+                            activeShift.TotalIdleSeconds += elapsedSec;
+                        }
+                        else if (heartbeat.State == StationState.ACTIVE.ToString())
+                        {
+                            activeShift.TotalActiveSeconds += elapsedSec;
+                        }
+                        await _dbContext.SaveChangesAsync(cancellationToken);
+                    }
+                }
+            }
 
             var (sanitizedProc, sanitizedTitle) = SanitizeProcessAndTitle(heartbeat.ActiveProcess, heartbeat.WindowTitle);
 

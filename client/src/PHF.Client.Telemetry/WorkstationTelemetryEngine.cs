@@ -79,7 +79,23 @@ public class WorkstationTelemetryEngine : ITelemetryEngine
 
         if (e.IsIdle)
         {
-            // Log an idle activity period
+            // User reached idle threshold (e.IdleSeconds, e.g. 300s)
+            // Flush current window segment and subtract the idle threshold duration so active app doesn't claim idle time
+            var (process, title, duration) = _windowTracker.FlushCurrentSegment();
+            var activeDuration = Math.Max(0, duration - e.IdleSeconds);
+            if (activeDuration > 0 && !string.IsNullOrWhiteSpace(process))
+            {
+                ActivityLogged?.Invoke(
+                    process,
+                    title,
+                    activeDuration,
+                    false,
+                    _currentTaskId,
+                    _currentTaskCode,
+                    e.Timestamp.AddSeconds(-e.IdleSeconds));
+            }
+
+            // Log the initial idle period
             ActivityLogged?.Invoke(
                 "System Idle",
                 "Idle Wait State",
@@ -88,6 +104,26 @@ public class WorkstationTelemetryEngine : ITelemetryEngine
                 _currentTaskId,
                 _currentTaskCode,
                 e.Timestamp);
+        }
+        else
+        {
+            // User resumed activity after being away!
+            // Log remaining idle duration beyond the initial threshold
+            var remainingIdle = Math.Max(0, e.IdleSeconds - _idleTracker.IdleThresholdSeconds);
+            if (remainingIdle > 0)
+            {
+                ActivityLogged?.Invoke(
+                    "System Idle",
+                    "Idle Wait State",
+                    remainingIdle,
+                    true,
+                    _currentTaskId,
+                    _currentTaskCode,
+                    e.Timestamp);
+            }
+
+            // Reset focus segment so the active app starts fresh from right now
+            _windowTracker.FlushCurrentSegment();
         }
     }
 

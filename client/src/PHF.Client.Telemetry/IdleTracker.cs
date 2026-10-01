@@ -9,6 +9,7 @@ public class IdleTracker : IDisposable
     private readonly int _idleThresholdSeconds;
     private bool _isCurrentlyIdle = false;
     private readonly object _lock = new();
+    private DateTime? _idleStartedUtc;
 
     public event EventHandler<IdleStatusChangedEventArgs>? IdleStatusChanged;
 
@@ -44,6 +45,7 @@ public class IdleTracker : IDisposable
                 if (!_isCurrentlyIdle)
                 {
                     _isCurrentlyIdle = true;
+                    _idleStartedUtc = now.AddSeconds(-idleSeconds);
                     IdleStatusChanged?.Invoke(this, new IdleStatusChangedEventArgs(true, idleSeconds, now));
                 }
             }
@@ -52,7 +54,9 @@ public class IdleTracker : IDisposable
                 if (_isCurrentlyIdle)
                 {
                     _isCurrentlyIdle = false;
-                    IdleStatusChanged?.Invoke(this, new IdleStatusChangedEventArgs(false, idleSeconds, now));
+                    var totalIdleSec = _idleStartedUtc.HasValue ? (int)(now - _idleStartedUtc.Value).TotalSeconds : idleSeconds;
+                    _idleStartedUtc = null;
+                    IdleStatusChanged?.Invoke(this, new IdleStatusChangedEventArgs(false, totalIdleSec, now));
                 }
             }
         }

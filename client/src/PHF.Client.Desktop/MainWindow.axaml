@@ -300,8 +300,8 @@
 
                     <Border Background="#2010B981" BorderBrush="#3510B981" BorderThickness="1" CornerRadius="8" Padding="10">
                         <StackPanel Spacing="4">
-                            <CheckBox x:Name="ChkWorkFromHome" Content="Working from Home / Remote Station" IsChecked="True" />
-                            <TextBlock x:Name="TxtDevicePreview" Text="Paired Device: WFH-STATION" FontSize="10.5" Foreground="#34D399" Margin="24,0,0,0" />
+                            <CheckBox x:Name="ChkWorkFromHome" Content="Working from Home / Remote Station" IsChecked="False" />
+                            <TextBlock x:Name="TxtDevicePreview" Text="Paired Device: ST-STATION" FontSize="10.5" Foreground="#34D399" Margin="24,0,0,0" />
                         </StackPanel>
                     </Border>
 

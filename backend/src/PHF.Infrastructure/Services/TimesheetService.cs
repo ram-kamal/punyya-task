@@ -88,7 +88,7 @@ public class TimesheetService : ITimesheetService
         }
 
         var stations = await _telemetryService.GetWorkstationsStatusAsync(cancellationToken);
-        var activeStationsCount = stations.Count(s => s.State == StationState.ACTIVE.ToString());
+        var activeStationsCount = stations.Count(s => s.State != StationState.OFFLINE.ToString());
         var totalStationsCount = stations.Count;
 
         var tasksInProgressCount = await _dbContext.Tasks
@@ -196,7 +196,7 @@ public class TimesheetService : ITimesheetService
                     else
                     {
                         idleSec = Math.Min(shiftTotalSec, rawIdle);
-                        activeSec = Math.Max(rawActive, shiftTotalSec - idleSec);
+                        activeSec = Math.Max(0, shiftTotalSec - idleSec);
                     }
                 }
                 else
