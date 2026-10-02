@@ -38,6 +38,8 @@ Desktop.ini
 
 ## Temporary scratch scripts
 scratch/
+backup/*.json
+backup/*.sql
 *.tsbuildinfo
 KeepAwake.*
 keep_awake.*
