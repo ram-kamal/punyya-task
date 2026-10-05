@@ -192,69 +192,77 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- Tasks Scrollable Feed -->
-                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl x:Name="TasksItemsControl">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:TaskItemViewModel">
-                                    <Border Background="#25161A26" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="10" Padding="16,14" Margin="0,0,0,10">
-                                        <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
-                                            
-                                            <!-- Top Row: Task Code + Title -->
-                                            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Border Background="#25E11D48" BorderBrush="#40E11D48" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,8,0">
-                                                    <TextBlock Text="{Binding TaskCode}" FontSize="11" FontWeight="Bold" Foreground="#FB7185" />
-                                                </Border>
-                                                <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" Foreground="#F8FAFC" VerticalAlignment="Center" />
-                                            </StackPanel>
+                    <!-- Tasks Table Container -->
+                    <Border Grid.Row="2" Background="#151720" BorderBrush="#262938" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+                        <Grid RowDefinitions="Auto,*">
+                            <!-- Table Header -->
+                            <Border Grid.Row="0" Background="#0F1117" BorderBrush="#262938" BorderThickness="0,0,0,1" Padding="16,10">
+                                <Grid ColumnDefinitions="3.2*,1*,1.2*,2*,2.4*">
+                                    <TextBlock Grid.Column="0" Text="TASK CODE &amp; TITLE" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="1" Text="PRIORITY" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="2" Text="STATUS" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="3" Text="DELIVERABLE GATE" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="4" Text="ACTIONS" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" HorizontalAlignment="Right" />
+                                </Grid>
+                            </Border>
 
-                                            <!-- Priority Badge -->
-                                            <Border Grid.Row="0" Grid.Column="1" Background="{Binding PriorityBgBrush}" CornerRadius="8" Padding="8,2">
-                                                <TextBlock Text="{Binding Priority}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding PriorityFgBrush}" />
-                                            </Border>
+                            <!-- Table Rows -->
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="TasksItemsControl">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:TaskItemViewModel">
+                                            <Border BorderBrush="#1C1F2B" BorderThickness="0,0,0,1" Padding="16,11">
+                                                <Grid ColumnDefinitions="3.2*,1*,1.2*,2*,2.4*">
+                                                    <!-- Col 0: Task Code & Title -->
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="4">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <Border Background="#25E11D48" BorderBrush="#40E11D48" BorderThickness="1" CornerRadius="4" Padding="5,2">
+                                                                <TextBlock Text="{Binding TaskCode}" FontSize="10.5" FontWeight="Bold" Foreground="#FB7185" />
+                                                            </Border>
+                                                            <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" Foreground="#F8FAFC" VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                        <TextBlock Text="{Binding Description}" FontSize="11" Foreground="#94A3B8" TextTrimming="CharacterEllipsis" MaxWidth="320" HorizontalAlignment="Left" />
+                                                    </StackPanel>
 
-                                            <!-- Description -->
-                                            <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding Description}" 
-                                                       FontSize="12" Foreground="#94A3B8" Margin="0,6,0,10" TextWrapping="Wrap" />
-
-                                            <!-- Status & Deliverable Gate Ribbon -->
-                                            <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Background="#1A000000" 
-                                                    BorderBrush="#15FFFFFF" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,0,0,10">
-                                                <Grid ColumnDefinitions="Auto,*,Auto">
-                                                    <Border Grid.Column="0" Background="{Binding StatusBgBrush}" CornerRadius="4" Padding="6,2">
-                                                        <TextBlock Text="{Binding StatusText}" FontSize="11" FontWeight="Bold" Foreground="{Binding StatusColorBrush}" />
+                                                    <!-- Col 1: Priority -->
+                                                    <Border Grid.Column="1" Background="{Binding PriorityBgBrush}" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Priority}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding PriorityFgBrush}" />
                                                     </Border>
-                                                    <Border Grid.Column="2" Background="{Binding DeliverableBgBrush}" CornerRadius="4" Padding="8,2">
-                                                        <TextBlock Text="{Binding DeliverableStatusText}" FontSize="11" FontWeight="SemiBold" Foreground="{Binding DeliverableColorBrush}" />
+
+                                                    <!-- Col 2: Status -->
+                                                    <Border Grid.Column="2" Background="{Binding StatusBgBrush}" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding StatusText}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding StatusColorBrush}" />
                                                     </Border>
+
+                                                    <!-- Col 3: Deliverable Gate -->
+                                                    <Border Grid.Column="3" Background="{Binding DeliverableBgBrush}" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center" MaxWidth="220">
+                                                        <TextBlock Text="{Binding DeliverableStatusText}" FontSize="10.5" FontWeight="SemiBold" Foreground="{Binding DeliverableColorBrush}" TextTrimming="CharacterEllipsis" />
+                                                    </Border>
+
+                                                    <!-- Col 4: Actions -->
+                                                    <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" VerticalAlignment="Center">
+                                                        <Button Content="{Binding StartPauseButtonText}" Background="{Binding StartPauseButtonBrush}" 
+                                                                Foreground="#FFFFFF" CornerRadius="6" Padding="10,4" Tag="{Binding Id}" Click="BtnStartPauseTask_Click" 
+                                                                IsVisible="{Binding IsActionButtonsVisible}" />
+                                                        <Button Classes="glass" Content="🔗 View" IsVisible="{Binding HasDeliverable}" Padding="8,4" Tag="{Binding Id}" Click="BtnViewDeliverable_Click" />
+                                                        <Button Classes="glass" Content="Attach" Padding="8,4" Tag="{Binding Id}" Click="BtnAttachDeliverable_Click" 
+                                                                IsVisible="{Binding IsActionButtonsVisible}" />
+                                                        <Button Classes="accentGreen" Content="Done ✓" IsEnabled="{Binding CanComplete}" 
+                                                                Padding="10,4" Tag="{Binding Id}" Click="BtnMarkCompleted_Click" 
+                                                                IsVisible="{Binding IsActionButtonsVisible}" />
+                                                        <Border Background="#2010B981" BorderBrush="#3510B981" BorderThickness="1" CornerRadius="6" Padding="8,3" 
+                                                                IsVisible="{Binding IsCompletedBadgeVisible}">
+                                                            <TextBlock Text="✓ Done" FontSize="10.5" FontWeight="Bold" Foreground="#34D399" />
+                                                        </Border>
+                                                    </StackPanel>
                                                 </Grid>
                                             </Border>
-
-                                            <!-- Actions Row -->
-                                            <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8"
-                                                        IsVisible="{Binding IsActionButtonsVisible}">
-                                                <Button Content="{Binding StartPauseButtonText}" Background="{Binding StartPauseButtonBrush}" 
-                                                        Foreground="#FFFFFF" CornerRadius="6" Padding="12,6" Tag="{Binding Id}" Click="BtnStartPauseTask_Click" />
-                                                <Button Classes="glass" Content="🔗 View Deliverable" IsVisible="{Binding HasDeliverable}" Padding="12,6" Tag="{Binding Id}" Click="BtnViewDeliverable_Click" />
-                                                <Button Classes="glass" Content="Attach Deliverable" Padding="12,6" Tag="{Binding Id}" Click="BtnAttachDeliverable_Click" />
-                                                <Button Classes="accentGreen" Content="Mark Completed ✓" IsEnabled="{Binding CanComplete}" 
-                                                        Padding="12,6" Tag="{Binding Id}" Click="BtnMarkCompleted_Click" />
-                                            </StackPanel>
-
-                                            <!-- Completed State Banner -->
-                                            <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8"
-                                                        IsVisible="{Binding IsCompletedBadgeVisible}">
-                                                <Button Classes="glass" Content="🔗 View Deliverable" IsVisible="{Binding HasDeliverable}" Padding="10,4" Tag="{Binding Id}" Click="BtnViewDeliverable_Click" />
-                                                <Border Background="#2010B981" BorderBrush="#3510B981" BorderThickness="1" CornerRadius="6" Padding="10,4">
-                                                    <TextBlock Text="✓ Task Completed &amp; Archived" FontSize="11" FontWeight="Bold" Foreground="#34D399" />
-                                                </Border>
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
                 </Grid>
 
                 <!-- 2. VIEW: TEAM WORKFORCE FLEET (Live Workstations) -->
@@ -290,49 +298,70 @@
                         </Border>
                     </Grid>
 
-                    <!-- Workstations Cards List -->
-                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl x:Name="WorkforceItemsControl">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:AdminWorkstationItemViewModel">
-                                    <Border Background="#25161A26" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="10" Padding="16,14" Margin="0,0,0,10">
-                                        <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
-                                            
-                                            <!-- Top row: Station ID + User Full Name + State Badge -->
-                                            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Ellipse Width="8" Height="8" Fill="{Binding StateDotBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding StationId}" FontSize="13" FontWeight="Bold" Foreground="#F8FAFC" VerticalAlignment="Center" />
-                                                <TextBlock Text="—" FontSize="12" Foreground="#64748B" Margin="6,0" VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding UserFullName}" FontSize="13" FontWeight="SemiBold" Foreground="#CBD5E1" VerticalAlignment="Center" />
-                                            </StackPanel>
+                    <!-- Workstations Table Container -->
+                    <Border Grid.Row="2" Background="#151720" BorderBrush="#262938" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+                        <Grid RowDefinitions="Auto,*">
+                            <!-- Table Header -->
+                            <Border Grid.Row="0" Background="#0F1117" BorderBrush="#262938" BorderThickness="0,0,0,1" Padding="16,10">
+                                <Grid ColumnDefinitions="2.2*,1.5*,2.4*,2.2*,1.2*,1.1*">
+                                    <TextBlock Grid.Column="0" Text="EMPLOYEE" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="1" Text="STATION / DEVICE" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="2" Text="CURRENT TASK" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="3" Text="FOREGROUND APP" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="4" Text="ACTIVE TODAY" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="5" Text="USER STATE" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" HorizontalAlignment="Right" />
+                                </Grid>
+                            </Border>
 
-                                            <!-- State Ribbon Badge -->
-                                            <Border Grid.Row="0" Grid.Column="1" Background="{Binding StateBgBrush}" CornerRadius="6" Padding="8,3">
-                                                <TextBlock Text="{Binding State}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding StateFgBrush}" />
-                                            </Border>
-
-                                            <!-- Middle row: Active App + Window Title -->
-                                            <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Background="#14000000" CornerRadius="6" Padding="12,8" Margin="0,10,0,8">
-                                                <Grid ColumnDefinitions="*,Auto">
-                                                    <StackPanel Grid.Column="0">
-                                                        <TextBlock Text="{Binding ActiveAppName}" FontSize="13" FontWeight="Bold" Foreground="#38BDF8" />
-                                                        <TextBlock Text="{Binding WindowTitle}" FontSize="11" Foreground="#94A3B8" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                            <!-- Table Rows -->
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="WorkforceItemsControl">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AdminWorkstationItemViewModel">
+                                            <Border BorderBrush="#1C1F2B" BorderThickness="0,0,0,1" Padding="16,11">
+                                                <Grid ColumnDefinitions="2.2*,1.5*,2.4*,2.2*,1.2*,1.1*">
+                                                    <!-- Col 0: Employee Avatar + Name -->
+                                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                                        <Border Width="28" Height="28" CornerRadius="14" Background="#222533" BorderBrush="#2E3347" BorderThickness="1">
+                                                            <TextBlock Text="{Binding InitialLetter}" FontSize="12" FontWeight="Bold" Foreground="#FB7185" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        </Border>
+                                                        <StackPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding UserFullName}" FontSize="12.5" FontWeight="SemiBold" Foreground="#F8FAFC" />
+                                                            <TextBlock Text="{Binding LastSeenText, StringFormat='Last seen: {0}'}" FontSize="10" Foreground="#64748B" />
+                                                        </StackPanel>
                                                     </StackPanel>
-                                                    <TextBlock Grid.Column="1" Text="{Binding IdleText}" FontSize="11" FontWeight="SemiBold" Foreground="#F59E0B" VerticalAlignment="Center" />
+
+                                                    <!-- Col 1: Station / Device -->
+                                                    <Border Grid.Column="1" Background="#101218" BorderBrush="#262938" BorderThickness="1" CornerRadius="6" Padding="8,4" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding StationId}" FontFamily="Consolas, Cascadia Code, monospace" FontSize="11" Foreground="#CBD5E1" />
+                                                    </Border>
+
+                                                    <!-- Col 2: Current Task -->
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding TaskDisplayText}" FontSize="11.5" Foreground="#38BDF8" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+
+                                                    <!-- Col 3: Foreground App -->
+                                                    <StackPanel Grid.Column="3" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding ActiveAppName}" FontSize="11.5" FontWeight="SemiBold" Foreground="#CBD5E1" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding WindowTitle}" FontSize="10" Foreground="#64748B" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+
+                                                    <!-- Col 4: Active Time Today -->
+                                                    <TextBlock Grid.Column="4" Text="{Binding ActiveTimeText}" FontFamily="Consolas, Cascadia Code, monospace" FontSize="11.5" Foreground="#34D399" VerticalAlignment="Center" />
+
+                                                    <!-- Col 5: User State Badge -->
+                                                    <Border Grid.Column="5" Background="{Binding StateBgBrush}" CornerRadius="6" Padding="8,3" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding State}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding StateFgBrush}" />
+                                                    </Border>
                                                 </Grid>
                                             </Border>
-
-                                            <!-- Bottom row: Active Task + Last Seen -->
-                                            <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto">
-                                                <TextBlock Grid.Column="0" Text="{Binding TaskDisplayText}" FontSize="11" Foreground="#34D399" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Grid.Column="1" Text="{Binding LastSeenText, StringFormat='Last Seen: {0}'}" FontSize="10.5" Foreground="#64748B" VerticalAlignment="Center" />
-                                            </Grid>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
                 </Grid>
 
                 <!-- 3. VIEW: TASK DISPATCH & WORKFORCE BOARD -->
@@ -364,64 +393,88 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- Tasks Items List -->
-                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl x:Name="AllTasksItemsControl">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:AdminTaskItemViewModel">
-                                    <Border Background="#25161A26" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="10" Padding="16,14" Margin="0,0,0,10">
-                                        <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
-                                            
-                                            <!-- Top row: Task code, Title, Assignee, Priority -->
-                                            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Border Background="#25E11D48" BorderBrush="#40E11D48" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,8,0">
-                                                    <TextBlock Text="{Binding TaskCode}" FontSize="11" FontWeight="Bold" Foreground="#FB7185" />
-                                                </Border>
-                                                <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" Foreground="#F8FAFC" VerticalAlignment="Center" />
-                                                <Border Background="#20FFFFFF" CornerRadius="6" Padding="6,2" Margin="10,0,0,0">
-                                                    <TextBlock Text="{Binding AssigneeName, StringFormat='Assignee: {0}'}" FontSize="10.5" Foreground="#CBD5E1" />
-                                                </Border>
-                                            </StackPanel>
+                    <!-- Tasks Data Table -->
+                    <Border Grid.Row="2" Background="#151720" BorderBrush="#262938" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+                        <Grid RowDefinitions="Auto,*">
+                            <!-- Table Header -->
+                            <Border Grid.Row="0" Background="#0F1117" BorderBrush="#262938" BorderThickness="0,0,0,1" Padding="16,10">
+                                <Grid ColumnDefinitions="3*,1.6*,1.1*,1.2*,2*,0.9*,1.6*">
+                                    <TextBlock Grid.Column="0" Text="TASK CODE &amp; TITLE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="1" Text="ASSIGNEE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="2" Text="PRIORITY" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="3" Text="STATUS" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="4" Text="DELIVERABLE PROOF" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="5" Text="TRACKED" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="6" Text="ACTIONS" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" HorizontalAlignment="Right" />
+                                </Grid>
+                            </Border>
 
-                                            <!-- Priority & Status Badges -->
-                                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                                                <Border Background="{Binding PriorityBgBrush}" CornerRadius="6" Padding="8,2">
-                                                    <TextBlock Text="{Binding Priority}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding PriorityFgBrush}" />
-                                                </Border>
-                                                <Border Background="{Binding StatusBgBrush}" CornerRadius="6" Padding="8,2">
-                                                    <TextBlock Text="{Binding Status}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding StatusFgBrush}" />
-                                                </Border>
-                                            </StackPanel>
-
-                                            <!-- Description -->
-                                            <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding Description}" 
-                                                       FontSize="12" Foreground="#94A3B8" Margin="0,8,0,10" TextWrapping="Wrap" />
-
-                                            <!-- Bottom Row: Deliverable Inspector, Delete & Time Tracked -->
-                                            <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto">
-                                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                                    <Border IsVisible="{Binding HasDeliverable}" Background="#2510B981" BorderBrush="#4010B981" BorderThickness="1" CornerRadius="6" Padding="8,4">
-                                                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                                            <TextBlock Text="✓ Deliverable:" FontSize="10.5" FontWeight="Bold" Foreground="#34D399" />
-                                                            <TextBlock Text="{Binding DeliverableName}" FontSize="10.5" Foreground="#A7F3D0" />
+                            <!-- Table Rows -->
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="AllTasksItemsControl">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AdminTaskItemViewModel">
+                                            <Border BorderBrush="#1C1F2B" BorderThickness="0,0,0,1" Padding="16,9">
+                                                <Grid ColumnDefinitions="3*,1.6*,1.1*,1.2*,2*,0.9*,1.6*">
+                                                    <!-- Col 0: Task Code, Title & Description -->
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <Border Background="#25E11D48" BorderBrush="#40E11D48" BorderThickness="1" CornerRadius="4" Padding="6,2">
+                                                                <TextBlock Text="{Binding TaskCode}" FontSize="10.5" FontWeight="Bold" Foreground="#FB7185" />
+                                                            </Border>
+                                                            <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="Bold" Foreground="#F8FAFC" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="320" />
                                                         </StackPanel>
-                                                    </Border>
-                                                    <Button Classes="glass" Content="🔗 View Deliverable" IsVisible="{Binding HasDeliverable}" Padding="8,3" Tag="{Binding Id}" Click="BtnViewDeliverable_Click" />
-                                                    <Button Classes="glass" Content="🗑 Delete" Foreground="#FB7185" Padding="8,3" Tag="{Binding Id}" Click="BtnDeleteAdminTask_Click" />
-                                                </StackPanel>
+                                                        <TextBlock Text="{Binding Description}" FontSize="11" Foreground="#94A3B8" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" MaxLines="1" />
+                                                    </StackPanel>
 
-                                                <TextBlock Grid.Column="1" Text="{Binding TrackedTimeText, StringFormat='Tracked: {0}'}" FontSize="11" Foreground="#64748B" VerticalAlignment="Center" />
-                                            </Grid>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
+                                                    <!-- Col 1: Assignee & Station -->
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <Border Background="#20FFFFFF" CornerRadius="12" Width="24" Height="24">
+                                                                <TextBlock Text="{Binding AssigneeInitial}" FontSize="11" FontWeight="Bold" Foreground="#F8FAFC" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                            </Border>
+                                                            <StackPanel VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding AssigneeName}" FontSize="12" FontWeight="SemiBold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Text="{Binding AssigneeStation, StringFormat='Station: {0}'}" FontSize="10" Foreground="#64748B" />
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </StackPanel>
+
+                                                    <!-- Col 2: Priority Badge -->
+                                                    <Border Grid.Column="2" Background="{Binding PriorityBgBrush}" CornerRadius="6" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Priority}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding PriorityFgBrush}" />
+                                                    </Border>
+
+                                                    <!-- Col 3: Status Badge -->
+                                                    <Border Grid.Column="3" Background="{Binding StatusBgBrush}" CornerRadius="6" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Status}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding StatusFgBrush}" />
+                                                    </Border>
+
+                                                    <!-- Col 4: Deliverable Proof -->
+                                                    <Border Grid.Column="4" Background="{Binding DeliverableStatusBgBrush}" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding DeliverableStatusText}" FontSize="10.5" FontWeight="SemiBold" Foreground="{Binding DeliverableStatusFgBrush}" TextTrimming="CharacterEllipsis" MaxWidth="180" />
+                                                    </Border>
+
+                                                    <!-- Col 5: Tracked Time -->
+                                                    <TextBlock Grid.Column="5" Text="{Binding TrackedTimeText}" FontFamily="Consolas, Cascadia Code, monospace" FontSize="11.5" Foreground="#64748B" VerticalAlignment="Center" />
+
+                                                    <!-- Col 6: Actions -->
+                                                    <StackPanel Grid.Column="6" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" VerticalAlignment="Center">
+                                                        <Button Classes="glass" Content="🔗 View" IsVisible="{Binding HasDeliverable}" Padding="7,3" FontSize="10.5" Tag="{Binding Id}" Click="BtnViewDeliverable_Click" />
+                                                        <Button Classes="glass" Content="🗑 Delete" Foreground="#FB7185" Padding="7,3" FontSize="10.5" Tag="{Binding Id}" Click="BtnDeleteAdminTask_Click" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
                 </Grid>
 
                 <!-- 4. VIEW: TIMESHEETS & PRODUCTIVITY -->
-                <Grid x:Name="ViewTimesheets" Margin="24,18,24,12" RowDefinitions="Auto,Auto,Auto,*" IsVisible="False">
+                <Grid x:Name="ViewTimesheets" Margin="24,18,24,12" RowDefinitions="Auto,Auto,*" IsVisible="False">
                     <!-- Header -->
                     <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
                         <StackPanel>
@@ -467,46 +520,79 @@
                         </Border>
                     </Grid>
 
-                    <!-- Timesheet Table Header -->
-                    <Border Grid.Row="2" Background="#18FFFFFF" CornerRadius="6" Padding="14,8" Margin="0,0,0,8">
-                        <Grid ColumnDefinitions="110,180,130,90,90,80,80,80,*">
-                            <TextBlock Grid.Column="0" Text="DATE" FontSize="10" FontWeight="Bold" Foreground="#94A3B8" />
-                            <TextBlock Grid.Column="1" Text="EMPLOYEE" FontSize="10" FontWeight="Bold" Foreground="#94A3B8" />
-                            <TextBlock Grid.Column="2" Text="STATION" FontSize="10" FontWeight="Bold" Foreground="#94A3B8" />
-                            <TextBlock Grid.Column="3" Text="CLOCK IN" FontSize="10" FontWeight="Bold" Foreground="#94A3B8" />
-                            <TextBlock Grid.Column="4" Text="CLOCK OUT" FontSize="10" FontWeight="Bold" Foreground="#94A3B8" />
-                            <TextBlock Grid.Column="5" Text="TOTAL" FontSize="10" FontWeight="Bold" Foreground="#94A3B8" />
-                            <TextBlock Grid.Column="6" Text="ACTIVE" FontSize="10" FontWeight="Bold" Foreground="#94A3B8" />
-                            <TextBlock Grid.Column="7" Text="FOCUS" FontSize="10" FontWeight="Bold" Foreground="#94A3B8" />
-                            <TextBlock Grid.Column="8" Text="TASKS DONE" FontSize="10" FontWeight="Bold" Foreground="#94A3B8" />
+                    <!-- Timesheet Data Table -->
+                    <Border Grid.Row="2" Background="#151720" BorderBrush="#262938" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+                        <Grid RowDefinitions="Auto,*">
+                            <!-- Table Header -->
+                            <Border Grid.Row="0" Background="#0F1117" BorderBrush="#262938" BorderThickness="0,0,0,1" Padding="16,10">
+                                <Grid ColumnDefinitions="1.1*,2*,1.2*,0.9*,0.9*,1*,1*,1*,1.1*,1*">
+                                    <TextBlock Grid.Column="0" Text="DATE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="1" Text="EMPLOYEE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="2" Text="STATION" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="3" Text="CLOCK IN" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="4" Text="CLOCK OUT" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="5" Text="TOTAL TIME" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="6" Text="ACTIVE TIME" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="7" Text="IDLE TIME" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="8" Text="EFFICIENCY" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="9" Text="TASKS DONE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" HorizontalAlignment="Right" />
+                                </Grid>
+                            </Border>
+
+                            <!-- Table Rows -->
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="TimesheetsItemsControl">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AdminTimesheetRowViewModel">
+                                            <Border BorderBrush="#1C1F2B" BorderThickness="0,0,0,1" Padding="16,9">
+                                                <Grid ColumnDefinitions="1.1*,2*,1.2*,0.9*,0.9*,1*,1*,1*,1.1*,1*">
+                                                    <!-- Col 0: Date -->
+                                                    <TextBlock Grid.Column="0" Text="{Binding Date}" FontFamily="Consolas, Cascadia Code, monospace" FontSize="11" Foreground="#CBD5E1" VerticalAlignment="Center" />
+
+                                                    <!-- Col 1: Employee -->
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                        <Border Background="#20FFFFFF" CornerRadius="12" Width="24" Height="24">
+                                                            <TextBlock Text="{Binding InitialLetter}" FontSize="11" FontWeight="Bold" Foreground="#F8FAFC" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        </Border>
+                                                        <StackPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding UserFullName}" FontSize="12" FontWeight="SemiBold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding UserEmail}" FontSize="10" Foreground="#64748B" TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+
+                                                    <!-- Col 2: Station -->
+                                                    <TextBlock Grid.Column="2" Text="{Binding StationId}" FontFamily="Consolas, Cascadia Code, monospace" FontSize="11.5" FontWeight="SemiBold" Foreground="#F8FAFC" VerticalAlignment="Center" />
+
+                                                    <!-- Col 3: Clock In -->
+                                                    <TextBlock Grid.Column="3" Text="{Binding ClockInText}" FontFamily="Consolas, Cascadia Code, monospace" FontSize="11" Foreground="#34D399" VerticalAlignment="Center" />
+
+                                                    <!-- Col 4: Clock Out -->
+                                                    <TextBlock Grid.Column="4" Text="{Binding ClockOutText}" FontFamily="Consolas, Cascadia Code, monospace" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" />
+
+                                                    <!-- Col 5: Total Time -->
+                                                    <TextBlock Grid.Column="5" Text="{Binding TotalHoursText}" FontFamily="Consolas, Cascadia Code, monospace" FontSize="11.5" FontWeight="Bold" Foreground="#F8FAFC" VerticalAlignment="Center" />
+
+                                                    <!-- Col 6: Active Time -->
+                                                    <TextBlock Grid.Column="6" Text="{Binding ActiveHoursText}" FontFamily="Consolas, Cascadia Code, monospace" FontSize="11.5" FontWeight="Bold" Foreground="#34D399" VerticalAlignment="Center" />
+
+                                                    <!-- Col 7: Idle Time -->
+                                                    <TextBlock Grid.Column="7" Text="{Binding IdleHoursText}" FontFamily="Consolas, Cascadia Code, monospace" FontSize="11.5" FontWeight="Bold" Foreground="#FBBF24" VerticalAlignment="Center" />
+
+                                                    <!-- Col 8: Efficiency -->
+                                                    <Border Grid.Column="8" Background="#15000000" CornerRadius="6" Padding="6,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding FocusScoreText}" FontSize="11" FontWeight="Bold" Foreground="{Binding FocusColorBrush}" />
+                                                    </Border>
+
+                                                    <!-- Col 9: Tasks Completed -->
+                                                    <TextBlock Grid.Column="9" Text="{Binding TasksCompletedText}" FontSize="11" FontWeight="Bold" Foreground="#38BDF8" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
                         </Grid>
                     </Border>
-
-                    <!-- Timesheet Table Rows -->
-                    <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl x:Name="TimesheetsItemsControl">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:AdminTimesheetRowViewModel">
-                                    <Border Background="#20161A26" BorderBrush="#15FFFFFF" BorderThickness="1" CornerRadius="6" Padding="14,10" Margin="0,0,0,6">
-                                        <Grid ColumnDefinitions="110,180,130,90,90,80,80,80,*">
-                                            <TextBlock Grid.Column="0" Text="{Binding Date}" FontSize="11" Foreground="#CBD5E1" VerticalAlignment="Center" />
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding UserFullName}" FontSize="12" FontWeight="SemiBold" Foreground="#F8FAFC" />
-                                                <TextBlock Text="{Binding UserEmail}" FontSize="10" Foreground="#64748B" />
-                                            </StackPanel>
-                                            <TextBlock Grid.Column="2" Text="{Binding StationId}" FontSize="11" Foreground="#CBD5E1" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="3" Text="{Binding ClockInText}" FontSize="11" Foreground="#34D399" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="4" Text="{Binding ClockOutText}" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="5" Text="{Binding TotalHoursText}" FontSize="12" FontWeight="SemiBold" Foreground="#F8FAFC" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="6" Text="{Binding ActiveHoursText}" FontSize="12" FontWeight="SemiBold" Foreground="#38BDF8" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="7" Text="{Binding FocusScoreText}" FontSize="12" FontWeight="Bold" Foreground="{Binding FocusColorBrush}" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="8" Text="{Binding TasksCompletedText}" FontSize="11" Foreground="#CBD5E1" VerticalAlignment="Center" />
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
                 </Grid>
 
                 <!-- 5. VIEW: LEAVE APPROVALS -->
@@ -520,47 +606,79 @@
                         <Button Grid.Column="1" Classes="glass" Content="↻ Refresh Leaves" Click="BtnRefreshAdminLeaves_Click" />
                     </Grid>
 
-                    <!-- Leaves Scrollable List -->
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl x:Name="LeaveApprovalsItemsControl">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:AdminLeaveApprovalViewModel">
-                                    <Border Background="#25161A26" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="10" Padding="16,14" Margin="0,0,0,10">
-                                        <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
-                                            
-                                            <!-- Top row: Employee Name + Leave Type Badge -->
-                                            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding UserName}" FontSize="14" FontWeight="Bold" Foreground="#F8FAFC" VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding UserEmail, StringFormat='({0})'}" FontSize="11" Foreground="#64748B" Margin="6,0,0,0" VerticalAlignment="Center" />
-                                                <Border Background="#25E11D48" BorderBrush="#40E11D48" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="10,0,0,0">
-                                                    <TextBlock Text="{Binding LeaveType}" FontSize="10.5" FontWeight="Bold" Foreground="#FB7185" />
-                                                </Border>
-                                            </StackPanel>
+                    <!-- Leave Applications Data Table -->
+                    <Border Grid.Row="1" Background="#151720" BorderBrush="#262938" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+                        <Grid RowDefinitions="Auto,*">
+                            <!-- Table Header -->
+                            <Border Grid.Row="0" Background="#0F1117" BorderBrush="#262938" BorderThickness="0,0,0,1" Padding="16,10">
+                                <Grid ColumnDefinitions="2.2*,1.1*,1.7*,2.4*,1.1*,1.9*,1.6*">
+                                    <TextBlock Grid.Column="0" Text="APPLICANT / STATION" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="1" Text="TYPE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="2" Text="PERIOD &amp; DAYS" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="3" Text="REASON" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="4" Text="STATUS" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="5" Text="REVIEWED BY / NOTES" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="6" Text="ACTIONS" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" HorizontalAlignment="Right" />
+                                </Grid>
+                            </Border>
 
-                                            <!-- Status Badge -->
-                                            <Border Grid.Row="0" Grid.Column="1" Background="{Binding StatusBgBrush}" CornerRadius="6" Padding="8,2">
-                                                <TextBlock Text="{Binding Status}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding StatusFgBrush}" />
+                            <!-- Table Rows -->
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="LeaveApprovalsItemsControl">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AdminLeaveApprovalViewModel">
+                                            <Border BorderBrush="#1C1F2B" BorderThickness="0,0,0,1" Padding="16,9">
+                                                <Grid ColumnDefinitions="2.2*,1.1*,1.7*,2.4*,1.1*,1.9*,1.6*">
+                                                    <!-- Col 0: Applicant & Station -->
+                                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                        <Border Background="#25E11D48" BorderBrush="#40E11D48" BorderThickness="1" CornerRadius="12" Width="24" Height="24">
+                                                            <TextBlock Text="{Binding InitialLetter}" FontSize="11" FontWeight="Bold" Foreground="#FB7185" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        </Border>
+                                                        <StackPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding UserName}" FontSize="12" FontWeight="Bold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
+                                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                <TextBlock Text="{Binding UserEmail}" FontSize="10" Foreground="#64748B" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Text="{Binding StationId, StringFormat='• {0}'}" FontSize="10" Foreground="#FB7185" FontFamily="Consolas, monospace" />
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </StackPanel>
+
+                                                    <!-- Col 1: Leave Type Badge -->
+                                                    <Border Grid.Column="1" Background="{Binding LeaveTypeBgBrush}" CornerRadius="6" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding LeaveType}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding LeaveTypeFgBrush}" />
+                                                    </Border>
+
+                                                    <!-- Col 2: Period & Days -->
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding DateRangeText}" FontSize="11.5" FontWeight="SemiBold" Foreground="#F8FAFC" />
+                                                        <TextBlock Text="{Binding TotalDaysText}" FontSize="10.5" Foreground="#94A3B8" Margin="0,2,0,0" />
+                                                    </StackPanel>
+
+                                                    <!-- Col 3: Reason -->
+                                                    <TextBlock Grid.Column="3" Text="{Binding Reason}" FontSize="11" Foreground="#CBD5E1" VerticalAlignment="Center" TextWrapping="Wrap" MaxLines="2" />
+
+                                                    <!-- Col 4: Status -->
+                                                    <Border Grid.Column="4" Background="{Binding StatusBgBrush}" CornerRadius="6" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Status}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding StatusFgBrush}" />
+                                                    </Border>
+
+                                                    <!-- Col 5: Reviewed By / Notes -->
+                                                    <TextBlock Grid.Column="5" Text="{Binding ReviewInfo}" FontSize="10.5" Foreground="#94A3B8" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+
+                                                    <!-- Col 6: Actions -->
+                                                    <StackPanel Grid.Column="6" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" VerticalAlignment="Center">
+                                                        <Button Classes="glass" Content="✕ Reject" Foreground="#F87171" Tag="{Binding Id}" Click="BtnRejectLeave_Click" IsVisible="{Binding IsPending}" Padding="7,3" FontSize="10.5" />
+                                                        <Button Classes="accentGreen" Content="✓ Approve" Tag="{Binding Id}" Click="BtnApproveLeave_Click" IsVisible="{Binding IsPending}" Padding="7,3" FontSize="10.5" />
+                                                        <TextBlock Text="—" Foreground="#64748B" FontSize="11" IsVisible="{Binding !IsPending}" />
+                                                    </StackPanel>
+                                                </Grid>
                                             </Border>
-
-                                            <!-- Middle: Dates & Reason -->
-                                            <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,8,0,10">
-                                                <TextBlock Text="{Binding DateRangeText, StringFormat='📅 Duration: {0}'}" FontSize="12" FontWeight="SemiBold" Foreground="#38BDF8" />
-                                                <TextBlock Text="{Binding Reason, StringFormat='Reason: {0}'}" FontSize="11.5" Foreground="#CBD5E1" Margin="0,4,0,0" TextWrapping="Wrap" />
-                                                <TextBlock Text="{Binding ReviewInfo}" FontSize="10.5" Foreground="#94A3B8" Margin="0,4,0,0" />
-                                            </StackPanel>
-
-                                            <!-- Bottom Actions (Approve / Reject) -->
-                                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8"
-                                                        IsVisible="{Binding IsPending}">
-                                                <Button Classes="glass" Content="✕ Reject" Foreground="#F87171" Tag="{Binding Id}" Click="BtnRejectLeave_Click" />
-                                                <Button Classes="accentGreen" Content="✓ Approve Leave" Tag="{Binding Id}" Click="BtnApproveLeave_Click" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
                 </Grid>
 
                 <!-- 6. VIEW: STAFF DIRECTORY -->
@@ -587,57 +705,83 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- Staff Cards Grid/List -->
-                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl x:Name="StaffItemsControl">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:AdminStaffMemberViewModel">
-                                    <Border Background="#25161A26" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="10" Padding="16,14" Margin="0,0,0,10">
-                                        <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
-                                            
-                                            <!-- Left: Name, Role, Work Mode, Email -->
-                                            <StackPanel Grid.Row="0" Grid.Column="0">
-                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding FullName}" FontSize="14" FontWeight="Bold" Foreground="#F8FAFC" />
-                                                    <Border Background="{Binding RoleBadgeBrush}" CornerRadius="6" Padding="6,2" Margin="8,0,0,0">
-                                                        <TextBlock Text="{Binding Role}" FontSize="10" FontWeight="Bold" Foreground="{Binding RoleFgBrush}" />
+                    <!-- Staff Data Table -->
+                    <Border Grid.Row="2" Background="#151720" BorderBrush="#262938" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+                        <Grid RowDefinitions="Auto,*">
+                            <!-- Table Header -->
+                            <Border Grid.Row="0" Background="#0F1117" BorderBrush="#262938" BorderThickness="0,0,0,1" Padding="16,10">
+                                <Grid ColumnDefinitions="2.6*,1.1*,1.3*,1.4*,1.1*,1.1*,1.1*,2.2*">
+                                    <TextBlock Grid.Column="0" Text="STAFF MEMBER" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="1" Text="ROLE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="2" Text="WORK MODE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="3" Text="PAIRED STATION" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="4" Text="SHIFT TODAY" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="5" Text="ACTIVE TASKS" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="6" Text="STATUS" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock Grid.Column="7" Text="ACTIONS" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" HorizontalAlignment="Right" />
+                                </Grid>
+                            </Border>
+
+                            <!-- Table Rows -->
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="StaffItemsControl">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AdminStaffMemberViewModel">
+                                            <Border BorderBrush="#1C1F2B" BorderThickness="0,0,0,1" Padding="16,9">
+                                                <Grid ColumnDefinitions="2.6*,1.1*,1.3*,1.4*,1.1*,1.1*,1.1*,2.2*">
+                                                    <!-- Col 0: Staff Member -->
+                                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                        <Border Background="#25E11D48" BorderBrush="#40E11D48" BorderThickness="1" CornerRadius="13" Width="26" Height="26">
+                                                            <TextBlock Text="{Binding InitialLetter}" FontSize="11" FontWeight="Bold" Foreground="#FB7185" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        </Border>
+                                                        <StackPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding FullName}" FontSize="12" FontWeight="Bold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
+                                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                <TextBlock Text="{Binding Username, StringFormat='@{0}'}" FontSize="10" Foreground="#FB7185" FontFamily="Consolas, monospace" />
+                                                                <TextBlock Text="{Binding Email, StringFormat='• {0}'}" FontSize="10" Foreground="#64748B" TextTrimming="CharacterEllipsis" />
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </StackPanel>
+
+                                                    <!-- Col 1: Role -->
+                                                    <Border Grid.Column="1" Background="{Binding RoleBadgeBrush}" CornerRadius="6" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Role}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding RoleFgBrush}" />
                                                     </Border>
-                                                    <Border Background="#15FFFFFF" CornerRadius="6" Padding="6,2" Margin="6,0,0,0">
-                                                        <TextBlock Text="{Binding WorkMode}" FontSize="10" Foreground="#CBD5E1" />
+
+                                                    <!-- Col 2: Work Mode -->
+                                                    <Border Grid.Column="2" Background="{Binding WorkModeBgBrush}" CornerRadius="6" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding WorkModeDisplay}" FontSize="10.5" FontWeight="SemiBold" Foreground="{Binding WorkModeFgBrush}" />
                                                     </Border>
-                                                </StackPanel>
-                                                <TextBlock Text="{Binding Email}" FontSize="11" Foreground="#94A3B8" Margin="0,4,0,0" />
-                                            </StackPanel>
 
-                                            <!-- Right: Status Badges -->
-                                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                                                <Border Background="{Binding ActiveStatusBgBrush}" CornerRadius="6" Padding="8,4">
-                                                    <TextBlock Text="{Binding ActiveStatusText}" FontSize="10" FontWeight="Bold" Foreground="{Binding ActiveStatusFgBrush}" />
-                                                </Border>
-                                                <Border Background="#15000000" CornerRadius="6" Padding="8,4">
-                                                    <TextBlock Text="{Binding ShiftStatus}" FontSize="10" FontWeight="Bold" Foreground="{Binding ShiftStatusBrush}" />
-                                                </Border>
-                                            </StackPanel>
+                                                    <!-- Col 3: Paired Station -->
+                                                    <TextBlock Grid.Column="3" Text="{Binding StationId}" FontFamily="Consolas, Cascadia Code, monospace" FontSize="11.5" Foreground="#CBD5E1" VerticalAlignment="Center" />
 
-                                            <!-- Middle Info: Paired Station & Tasks -->
-                                            <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
-                                                <TextBlock Grid.Column="0" Text="{Binding StationId, StringFormat='Paired Station: {0}'}" FontSize="11" Foreground="#64748B" />
-                                                <TextBlock Grid.Column="1" Text="{Binding ActiveTasksCount, StringFormat='Active Tasks: {0}'}" FontSize="11" Foreground="#38BDF8" />
-                                            </Grid>
+                                                    <!-- Col 4: Shift Today -->
+                                                    <TextBlock Grid.Column="4" Text="{Binding ShiftStatus}" FontSize="11" FontWeight="Bold" Foreground="{Binding ShiftStatusBrush}" VerticalAlignment="Center" />
 
-                                            <!-- Bottom Actions Row -->
-                                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" Margin="0,12,0,0">
-                                                <Button Classes="glass" Content="✏ Edit" Tag="{Binding Id}" Click="BtnEditStaff_Click" Padding="10,4" />
-                                                <Button Classes="glass" Content="🔑 Reset Pass" Tag="{Binding Id}" Click="BtnResetStaffPassword_Click" Padding="10,4" />
-                                                <Button Classes="glass" Content="{Binding ToggleStatusButtonText}" Tag="{Binding Id}" Click="BtnToggleStaffStatus_Click" Padding="10,4" />
-                                                <Button Classes="glass" Content="🗑 Delete" Foreground="#FB7185" Tag="{Binding Id}" Click="BtnDeleteStaff_Click" Padding="10,4" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
+                                                    <!-- Col 5: Active Tasks -->
+                                                    <TextBlock Grid.Column="5" Text="{Binding ActiveTasksCount}" FontSize="11.5" FontWeight="Bold" Foreground="#38BDF8" VerticalAlignment="Center" />
+
+                                                    <!-- Col 6: Status -->
+                                                    <Border Grid.Column="6" Background="{Binding ActiveStatusBgBrush}" CornerRadius="6" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding ActiveStatusText}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding ActiveStatusFgBrush}" />
+                                                    </Border>
+
+                                                    <!-- Col 7: Actions -->
+                                                    <StackPanel Grid.Column="7" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="5" VerticalAlignment="Center">
+                                                        <Button Classes="glass" Content="✏ Edit" Tag="{Binding Id}" Click="BtnEditStaff_Click" Padding="7,3" FontSize="10.5" />
+                                                        <Button Classes="glass" Content="🔑 Pass" Tag="{Binding Id}" Click="BtnResetStaffPassword_Click" Padding="7,3" FontSize="10.5" />
+                                                        <Button Classes="glass" Content="{Binding ToggleStatusButtonText}" Tag="{Binding Id}" Click="BtnToggleStaffStatus_Click" Padding="7,3" FontSize="10.5" />
+                                                        <Button Classes="glass" Content="🗑 Del" Foreground="#FB7185" Tag="{Binding Id}" Click="BtnDeleteStaff_Click" Padding="7,3" FontSize="10.5" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
                 </Grid>
             </Grid>
 

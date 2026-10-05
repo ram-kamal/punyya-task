@@ -15,10 +15,12 @@ public class AdminWorkstationItemViewModel
 
     public string StationId => _dto.StationId;
     public string UserFullName => !string.IsNullOrWhiteSpace(_dto.FullName) ? _dto.FullName : "Unassigned Station";
+    public string InitialLetter => !string.IsNullOrWhiteSpace(_dto.FullName) ? _dto.FullName[..1].ToUpper() : "?";
     public string State => _dto.State?.ToUpper() ?? "OFFLINE";
     public string WindowTitle => !string.IsNullOrWhiteSpace(_dto.WindowTitle) ? _dto.WindowTitle : "—";
     public int ActiveMinutes => _dto.ActiveMinutesToday;
     public int IdleMinutes => _dto.IdleMinutesToday;
+    public string ActiveTimeText => $"{_dto.ActiveMinutesToday / 60}h {_dto.ActiveMinutesToday % 60}m";
     public string IdleText => IdleMinutes > 0 ? $"{IdleMinutes}m idle today" : "Active";
     public string? CurrentTaskCode => _dto.CurrentTaskCode;
     public string? CurrentTaskTitle => _dto.CurrentTaskTitle;
@@ -80,6 +82,7 @@ public class AdminTaskItemViewModel
     public string Priority => _dto.Priority ?? "MEDIUM";
     public string Status => _dto.Status ?? "ASSIGNED";
     public string AssigneeName => !string.IsNullOrWhiteSpace(_dto.AssignedToName) ? _dto.AssignedToName : "Unassigned";
+    public string AssigneeInitial => !string.IsNullOrWhiteSpace(_dto.AssignedToName) ? _dto.AssignedToName[..1].ToUpper() : "?";
     public string AssigneeStation => !string.IsNullOrWhiteSpace(_dto.AssignedToStation) ? _dto.AssignedToStation : "—";
     public string TrackedTimeText => $"{Math.Round(_dto.TotalTrackedSeconds / 60.0)}m";
     public bool HasDeliverable => !string.IsNullOrWhiteSpace(_dto.DeliverableFileName) || !string.IsNullOrWhiteSpace(_dto.DeliverableUrl) || (_dto.Attachments != null && _dto.Attachments.Count > 0);
@@ -87,6 +90,22 @@ public class AdminTaskItemViewModel
     public string? DeliverableUrl => _dto.DeliverableUrl;
     public bool DeliverableRequired => _dto.DeliverableRequired;
     public TaskResponseDto Dto => _dto;
+
+    public string DeliverableStatusText => HasDeliverable
+        ? $"✓ {DeliverableName}"
+        : (DeliverableRequired ? "⚠️ Proof Required" : "Optional");
+
+    public IBrush DeliverableStatusBgBrush => HasDeliverable
+        ? new SolidColorBrush(Color.FromArgb(35, 16, 185, 129))
+        : (DeliverableRequired
+            ? new SolidColorBrush(Color.FromArgb(35, 245, 158, 11))
+            : new SolidColorBrush(Color.FromArgb(20, 148, 163, 184)));
+
+    public IBrush DeliverableStatusFgBrush => HasDeliverable
+        ? new SolidColorBrush(Color.FromRgb(52, 211, 153))
+        : (DeliverableRequired
+            ? new SolidColorBrush(Color.FromRgb(252, 211, 77))
+            : new SolidColorBrush(Color.FromRgb(148, 163, 184)));
 
     public IBrush PriorityBgBrush => _dto.Priority switch
     {
@@ -132,6 +151,7 @@ public class AdminTimesheetRowViewModel
 
     public string Date => _dto.Date;
     public string UserFullName => _dto.EmployeeName;
+    public string InitialLetter => !string.IsNullOrWhiteSpace(_dto.EmployeeName) ? _dto.EmployeeName[..1].ToUpper() : "?";
     public string UserEmail => _dto.Email;
     public string StationId => _dto.StationId;
     public string ClockInText => !string.IsNullOrWhiteSpace(_dto.ClockIn) ? _dto.ClockIn : "—";
@@ -162,13 +182,31 @@ public class AdminLeaveApprovalViewModel
 
     public Guid Id => _dto.Id;
     public string UserName => _dto.UserName;
+    public string InitialLetter => !string.IsNullOrWhiteSpace(_dto.UserName) ? _dto.UserName[..1].ToUpper() : "?";
     public string UserEmail => _dto.UserEmail;
+    public string StationId => !string.IsNullOrWhiteSpace(_dto.StationId) ? _dto.StationId : "—";
     public string LeaveType => _dto.LeaveType;
     public string DateRangeText => $"{_dto.StartDate:MMM dd} – {_dto.EndDate:MMM dd, yyyy}";
     public string TotalDaysText => $"{_dto.TotalDays}d";
     public string Reason => _dto.Reason;
     public string Status => _dto.Status;
     public bool IsPending => _dto.Status.Equals("PENDING", StringComparison.OrdinalIgnoreCase);
+
+    public IBrush LeaveTypeBgBrush => _dto.LeaveType?.ToUpper() switch
+    {
+        "SICK" or "MEDICAL" => new SolidColorBrush(Color.FromArgb(40, 225, 29, 72)),
+        "EMERGENCY" => new SolidColorBrush(Color.FromArgb(40, 245, 158, 11)),
+        "ANNUAL" => new SolidColorBrush(Color.FromArgb(40, 99, 102, 241)),
+        _ => new SolidColorBrush(Color.FromArgb(40, 14, 165, 233))
+    };
+
+    public IBrush LeaveTypeFgBrush => _dto.LeaveType?.ToUpper() switch
+    {
+        "SICK" or "MEDICAL" => new SolidColorBrush(Color.FromRgb(251, 113, 133)),
+        "EMERGENCY" => new SolidColorBrush(Color.FromRgb(252, 211, 77)),
+        "ANNUAL" => new SolidColorBrush(Color.FromRgb(165, 180, 252)),
+        _ => new SolidColorBrush(Color.FromRgb(56, 189, 248))
+    };
 
     public IBrush StatusBgBrush => _dto.Status switch
     {
@@ -200,10 +238,21 @@ public class AdminStaffMemberViewModel
 
     public Guid Id => _dto.Id;
     public string FullName => _dto.FullName;
+    public string InitialLetter => !string.IsNullOrWhiteSpace(_dto.FullName) ? _dto.FullName[..1].ToUpper() : "?";
     public string Username => _dto.Username ?? "—";
     public string Email => _dto.Email;
     public string Role => _dto.Role;
     public string WorkMode => _dto.WorkMode;
+    public string WorkModeDisplay => WorkMode == "REMOTE_WFH" ? "Remote WFH" : "In-Office";
+
+    public IBrush WorkModeBgBrush => WorkMode == "REMOTE_WFH"
+        ? new SolidColorBrush(Color.FromArgb(35, 6, 182, 212))
+        : new SolidColorBrush(Color.FromArgb(35, 99, 102, 241));
+
+    public IBrush WorkModeFgBrush => WorkMode == "REMOTE_WFH"
+        ? new SolidColorBrush(Color.FromRgb(34, 211, 238))
+        : new SolidColorBrush(Color.FromRgb(165, 180, 252));
+
     public string StationId => !string.IsNullOrWhiteSpace(_dto.StationId) ? _dto.StationId : "—";
     public bool IsActive => _dto.IsActive;
     public int ActiveTasksCount => _dto.ActiveTasksCount;
