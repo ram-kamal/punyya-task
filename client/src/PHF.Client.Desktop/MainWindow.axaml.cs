@@ -687,6 +687,170 @@ public partial class MainWindow : Window
         }
     }
 
+    private Guid? _activeEditingTaskId;
+
+    private void BtnEditAdminTask_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is Guid taskId)
+        {
+            var taskVm = _allTasks.FirstOrDefault(t => t.Id == taskId);
+            if (taskVm == null) return;
+
+            _activeEditingTaskId = taskId;
+            TxtEditTaskCodeDisplay.Text = taskVm.TaskCode;
+            TxtEditTaskTitle.Text = taskVm.Title;
+            TxtEditTaskDescription.Text = taskVm.Description == "—" ? "" : taskVm.Description;
+
+            // Populate assignee combobox
+            CmbEditTaskAssignee.Items.Clear();
+            CmbEditTaskAssignee.Items.Add(new ComboBoxItem { Content = "Unassigned", Tag = null });
+            int selectIdx = 0;
+            int curIdx = 1;
+
+            foreach (var staff in _allStaff)
+            {
+                var item = new ComboBoxItem
+                {
+                    Content = $"{staff.FullName} ({staff.Email})",
+                    Tag = staff.Id
+                };
+                CmbEditTaskAssignee.Items.Add(item);
+                if (staff.FullName.Equals(taskVm.AssigneeName, StringComparison.OrdinalIgnoreCase))
+                {
+                    selectIdx = curIdx;
+                }
+                curIdx++;
+            }
+            CmbEditTaskAssignee.SelectedIndex = selectIdx;
+
+            // Priority
+            foreach (var item in CmbEditTaskPriority.Items.OfType<ComboBoxItem>())
+            {
+                if ((string?)item.Tag == taskVm.Priority)
+                {
+                    CmbEditTaskPriority.SelectedItem = item;
+                    break;
+                }
+            }
+
+            // Status
+            foreach (var item in CmbEditTaskStatus.Items.OfType<ComboBoxItem>())
+            {
+                if ((string?)item.Tag == taskVm.Status)
+                {
+                    CmbEditTaskStatus.SelectedItem = item;
+                    break;
+                }
+            }
+
+            // Due Date
+            TxtEditTaskDueDate.Text = taskVm.Dto.DueDate.HasValue
+                ? taskVm.Dto.DueDate.Value.ToString("yyyy-MM-dd HH:mm")
+                : "";
+
+            ChkEditTaskDeliverableRequired.IsChecked = taskVm.DeliverableRequired;
+            TxtEditTaskError.IsVisible = false;
+            EditTaskModal.IsVisible = true;
+        }
+    }
+
+    private void BtnCancelEditTask_Click(object? sender, RoutedEventArgs e)
+    {
+        EditTaskModal.IsVisible = false;
+        _activeEditingTaskId = null;
+    }
+
+    private async void BtnDeleteFromEditModal_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!_activeEditingTaskId.HasValue) return;
+
+        try
+        {
+            var ok = await _apiClient.DeleteTaskAsync(_activeEditingTaskId.Value);
+            if (ok)
+            {
+                EditTaskModal.IsVisible = false;
+                ShowToast("🗑 Task Removed", "Task was deleted from workforce board.");
+                await LoadAllAdminTasksAsync(silent: true);
+                await LoadAssignedTasksAsync(silent: true);
+            }
+            else
+            {
+                TxtEditTaskError.Text = "Failed to delete task.";
+                TxtEditTaskError.IsVisible = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            TxtEditTaskError.Text = ex.Message;
+            TxtEditTaskError.IsVisible = true;
+        }
+    }
+
+    private async void BtnSaveEditTask_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!_activeEditingTaskId.HasValue) return;
+
+        var title = TxtEditTaskTitle.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            TxtEditTaskError.Text = "Task title is required.";
+            TxtEditTaskError.IsVisible = true;
+            return;
+        }
+
+        Guid? assignedTo = null;
+        if (CmbEditTaskAssignee.SelectedItem is ComboBoxItem selStaff && selStaff.Tag is Guid staffId)
+        {
+            assignedTo = staffId;
+        }
+
+        var priority = (CmbEditTaskPriority.SelectedItem as ComboBoxItem)?.Tag as string ?? "MEDIUM";
+        var status = (CmbEditTaskStatus.SelectedItem as ComboBoxItem)?.Tag as string ?? "ASSIGNED";
+
+        DateTime? dueDate = null;
+        if (!string.IsNullOrWhiteSpace(TxtEditTaskDueDate.Text))
+        {
+            if (DateTime.TryParse(TxtEditTaskDueDate.Text.Trim(), out var parsedDate))
+            {
+                dueDate = parsedDate;
+            }
+        }
+
+        try
+        {
+            var request = new UpdateTaskRequest
+            {
+                Title = title,
+                Description = TxtEditTaskDescription.Text?.Trim(),
+                AssignedTo = assignedTo,
+                Priority = priority,
+                Status = status,
+                DueDate = dueDate,
+                DeliverableRequired = ChkEditTaskDeliverableRequired.IsChecked ?? true
+            };
+
+            var updated = await _apiClient.UpdateTaskAsync(_activeEditingTaskId.Value, request);
+            if (updated != null)
+            {
+                EditTaskModal.IsVisible = false;
+                ShowToast("✓ Task Updated", $"{updated.TaskCode} updated successfully.");
+                await LoadAllAdminTasksAsync(silent: true);
+                await LoadAssignedTasksAsync(silent: true);
+            }
+            else
+            {
+                TxtEditTaskError.Text = "Could not update task.";
+                TxtEditTaskError.IsVisible = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            TxtEditTaskError.Text = ex.Message;
+            TxtEditTaskError.IsVisible = true;
+        }
+    }
+
     private async Task LoadTimesheetSummaryAsync(bool silent = false)
     {
         try

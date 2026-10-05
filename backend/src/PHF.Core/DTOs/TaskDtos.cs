@@ -20,6 +20,17 @@ public record CreateTaskRequest
     public DateTime? DueDate { get; init; }
 }
 
+public record UpdateTaskRequest
+{
+    public string? Title { get; init; }
+    public string? Description { get; init; }
+    public Guid? AssignedTo { get; init; }
+    public string? Priority { get; init; }
+    public DateTime? DueDate { get; init; }
+    public bool? DeliverableRequired { get; init; }
+    public string? Status { get; init; }
+}
+
 public record UpdateTaskStatusRequest
 {
     [Required]

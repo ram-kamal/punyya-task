@@ -268,13 +268,116 @@ public class TaskService : ITaskService
         return result;
     }
 
+    public async Task<TaskResponseDto?> UpdateTaskAsync(
+        Guid id,
+        UpdateTaskRequest request,
+        Guid updatedBy,
+        CancellationToken cancellationToken = default)
+    {
+        var task = await _dbContext.Tasks
+            .Include(t => t.Attachments)
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+
+        if (task == null) return null;
+
+        var previousAssignedTo = task.AssignedTo;
+
+        if (!string.IsNullOrWhiteSpace(request.Title))
+            task.Title = request.Title.Trim();
+
+        if (request.Description != null)
+            task.Description = request.Description;
+
+        if (request.AssignedTo.HasValue)
+            task.AssignedTo = request.AssignedTo.Value;
+
+        if (!string.IsNullOrWhiteSpace(request.Priority))
+            task.Priority = request.Priority.ToUpperInvariant();
+
+        if (request.DeliverableRequired.HasValue)
+            task.DeliverableRequired = request.DeliverableRequired.Value;
+
+        if (request.DueDate.HasValue)
+            task.DueDate = request.DueDate.Value;
+
+        if (!string.IsNullOrWhiteSpace(request.Status))
+        {
+            var targetStatus = request.Status.ToUpperInvariant();
+            if (targetStatus == TaskItemStatus.COMPLETED.ToString() && task.DeliverableRequired)
+            {
+                var hasDeliverableUrl = !string.IsNullOrWhiteSpace(task.DeliverableUrl);
+                var hasAttachment = task.Attachments.Any();
+                if (!hasDeliverableUrl && !hasAttachment)
+                {
+                    throw new InvalidOperationException("Deliverable proof of work (file or link) is required before marking this task as Completed.");
+                }
+            }
+
+            if (targetStatus == TaskItemStatus.IN_PROGRESS.ToString() && !task.StartedAt.HasValue)
+            {
+                task.StartedAt = DateTime.UtcNow;
+            }
+            else if (targetStatus == TaskItemStatus.COMPLETED.ToString() && !task.CompletedAt.HasValue)
+            {
+                task.CompletedAt = DateTime.UtcNow;
+            }
+
+            task.Status = targetStatus;
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var updated = await GetTaskByIdAsync(task.Id, cancellationToken);
+        if (updated != null)
+        {
+            if (task.AssignedTo.HasValue && task.AssignedTo != previousAssignedTo)
+            {
+                await _realtimeNotifier.NotifyTaskAssignedAsync(task.AssignedTo.Value, updated);
+            }
+
+            await _realtimeNotifier.NotifyTaskStatusChangedAsync(task.Id, task.Status, task.DeliverableUrl);
+            await _realtimeNotifier.BroadcastWorkstationEventAsync(new LiveWorkstationEventDto
+            {
+                StationId = updated.AssignedToStation ?? "ALL",
+                UserName = updated.AssignedToName,
+                EventType = "TASK_UPDATED",
+                Details = $"Task updated/reassigned: {updated.TaskCode} - {updated.Title}",
+                TaskCode = updated.TaskCode
+            });
+        }
+
+        return updated;
+    }
+
     public async Task<bool> DeleteTaskAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var task = await _dbContext.Tasks.FindAsync(new object[] { id }, cancellationToken);
+        var task = await _dbContext.Tasks
+            .Include(t => t.Attachments)
+            .Include(t => t.ActivityLogs)
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
         if (task == null) return false;
+
+        if (task.ActivityLogs != null && task.ActivityLogs.Any())
+        {
+            _dbContext.AppActivityLogs.RemoveRange(task.ActivityLogs);
+        }
+
+        if (task.Attachments != null && task.Attachments.Any())
+        {
+            _dbContext.TaskAttachments.RemoveRange(task.Attachments);
+        }
 
         _dbContext.Tasks.Remove(task);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _realtimeNotifier.BroadcastWorkstationEventAsync(new LiveWorkstationEventDto
+        {
+            StationId = "ALL",
+            EventType = "TASK_DELETED",
+            Details = $"Task removed: {task.TaskCode} - {task.Title}",
+            TaskCode = task.TaskCode
+        });
+
         return true;
     }
 

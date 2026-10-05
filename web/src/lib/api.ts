@@ -221,6 +221,54 @@ export async function attachDeliverableLink(
   }
 }
 
+export async function updateTask(
+  taskId: string,
+  payload: {
+    title?: string;
+    description?: string;
+    assignedTo?: string;
+    priority?: string;
+    dueDate?: string;
+    deliverableRequired?: boolean;
+    status?: string;
+  }
+): Promise<{ success: boolean; data?: TaskItem; error?: string }> {
+  try {
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/tasks/${taskId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      return { success: false, error: err || 'Failed to update task.' };
+    }
+    const data = await res.json();
+    return { success: true, data };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function deleteTask(taskId: string): Promise<boolean> {
+  try {
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/tasks/${taskId}`, {
+      method: 'DELETE',
+      headers: { ...authHeaders },
+    });
+    return res.ok;
+  } catch (err) {
+    console.error('deleteTask error:', err);
+    return false;
+  }
+}
+
 export async function fetchTimesheetSummary(
   period?: string,
   startDate?: string,

@@ -63,6 +63,24 @@ public class TasksController : ControllerBase
         return CreatedAtAction(nameof(GetTaskById), new { id = task.Id }, task);
     }
 
+    [Authorize(Roles = "ADMIN,MANAGER")]
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> UpdateTask(Guid id, [FromBody] UpdateTaskRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var updated = await _taskService.UpdateTaskAsync(id, request, userId, cancellationToken);
+            if (updated == null) return NotFound(new { message = $"Task {id} not found" });
+
+            return Ok(updated);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpPatch("{id:guid}/status")]
     public async Task<IActionResult> UpdateStatus(
         Guid id, 

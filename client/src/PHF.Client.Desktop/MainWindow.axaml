@@ -459,9 +459,10 @@
                                                     <TextBlock Grid.Column="5" Text="{Binding TrackedTimeText}" FontFamily="Consolas, Cascadia Code, monospace" FontSize="11.5" Foreground="#64748B" VerticalAlignment="Center" />
 
                                                     <!-- Col 6: Actions -->
-                                                    <StackPanel Grid.Column="6" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" VerticalAlignment="Center">
-                                                        <Button Classes="glass" Content="🔗 View" IsVisible="{Binding HasDeliverable}" Padding="7,3" FontSize="10.5" Tag="{Binding Id}" Click="BtnViewDeliverable_Click" />
-                                                        <Button Classes="glass" Content="🗑 Delete" Foreground="#FB7185" Padding="7,3" FontSize="10.5" Tag="{Binding Id}" Click="BtnDeleteAdminTask_Click" />
+                                                    <StackPanel Grid.Column="6" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="5" VerticalAlignment="Center">
+                                                        <Button Classes="glass" Content="🔗 View" IsVisible="{Binding HasDeliverable}" Padding="6,3" FontSize="10.5" Tag="{Binding Id}" Click="BtnViewDeliverable_Click" />
+                                                        <Button Classes="glass" Content="✏ Edit" Padding="6,3" FontSize="10.5" Tag="{Binding Id}" Click="BtnEditAdminTask_Click" />
+                                                        <Button Classes="glass" Content="🗑 Del" Foreground="#FB7185" Padding="6,3" FontSize="10.5" Tag="{Binding Id}" Click="BtnDeleteAdminTask_Click" />
                                                     </StackPanel>
                                                 </Grid>
                                             </Border>
@@ -1005,6 +1006,74 @@
                     <Grid ColumnDefinitions="*,10,*" Margin="0,10,0,0">
                         <Button Grid.Column="0" Classes="glass" Content="Cancel" HorizontalAlignment="Stretch" Click="BtnCancelDispatch_Click" />
                         <Button Grid.Column="2" Classes="primary" Content="Dispatch Task 🚀" HorizontalAlignment="Stretch" Click="BtnSubmitDispatch_Click" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Glass Modal Dialog: Edit / Replace Task (Admin) -->
+        <Grid x:Name="EditTaskModal" IsVisible="False" Background="#CC000000">
+            <Border Background="#F0141722" BorderBrush="#40FFFFFF" BorderThickness="1" CornerRadius="14" Width="520" Padding="24"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel>
+                            <TextBlock Text="Edit / Replace Workforce Task" FontSize="16" FontWeight="Bold" Foreground="#F8FAFC" />
+                            <TextBlock x:Name="TxtEditTaskCodeDisplay" Text="TASK-101" FontSize="11.5" Foreground="#FB7185" FontFamily="Consolas, monospace" FontWeight="Bold" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Classes="glass" Content="✕" Click="BtnCancelEditTask_Click" Padding="8,4" />
+                    </Grid>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Task Title" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox x:Name="TxtEditTaskTitle" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Task Description / Scope" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox x:Name="TxtEditTaskDescription" Height="65" AcceptsReturn="True" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <Grid ColumnDefinitions="*,12,*">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="Reassign / Replace Staff" FontSize="11" Foreground="#94A3B8" />
+                            <ComboBox x:Name="CmbEditTaskAssignee" HorizontalAlignment="Stretch" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="4">
+                            <TextBlock Text="Priority" FontSize="11" Foreground="#94A3B8" />
+                            <ComboBox x:Name="CmbEditTaskPriority" HorizontalAlignment="Stretch">
+                                <ComboBoxItem Content="LOW" Tag="LOW" />
+                                <ComboBoxItem Content="MEDIUM" Tag="MEDIUM" />
+                                <ComboBoxItem Content="HIGH" Tag="HIGH" />
+                                <ComboBoxItem Content="CRITICAL" Tag="CRITICAL" />
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,12,*">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="Task Status" FontSize="11" Foreground="#94A3B8" />
+                            <ComboBox x:Name="CmbEditTaskStatus" HorizontalAlignment="Stretch">
+                                <ComboBoxItem Content="ASSIGNED" Tag="ASSIGNED" />
+                                <ComboBoxItem Content="IN_PROGRESS" Tag="IN_PROGRESS" />
+                                <ComboBoxItem Content="UNDER_REVIEW" Tag="UNDER_REVIEW" />
+                                <ComboBoxItem Content="COMPLETED" Tag="COMPLETED" />
+                            </ComboBox>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="4">
+                            <TextBlock Text="Due Date &amp; Time" FontSize="11" Foreground="#94A3B8" />
+                            <TextBox x:Name="TxtEditTaskDueDate" Watermark="YYYY-MM-DD HH:mm" />
+                        </StackPanel>
+                    </Grid>
+
+                    <CheckBox x:Name="ChkEditTaskDeliverableRequired" Content="Proof of Work Deliverable Required to Close" Foreground="#CBD5E1" FontSize="11" Margin="2,4,0,0" />
+
+                    <TextBlock x:Name="TxtEditTaskError" Text="" FontSize="11" Foreground="#EF4444" IsVisible="False" />
+
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,12,0,0">
+                        <Button Grid.Column="0" Classes="glass" Content="🗑 Delete Task" Foreground="#FB7185" Click="BtnDeleteFromEditModal_Click" />
+                        <Button Grid.Column="2" Classes="glass" Content="Cancel" Click="BtnCancelEditTask_Click" Margin="0,0,8,0" />
+                        <Button Grid.Column="3" Classes="primary" Content="Save Changes ✓" Click="BtnSaveEditTask_Click" />
                     </Grid>
                 </StackPanel>
             </Border>

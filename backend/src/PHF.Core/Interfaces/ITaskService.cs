@@ -8,6 +8,7 @@ public interface ITaskService
     Task<TaskResponseDto?> GetTaskByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<TaskResponseDto> CreateTaskAsync(CreateTaskRequest request, Guid assignedBy, CancellationToken cancellationToken = default);
     Task<TaskResponseDto?> UpdateTaskStatusAsync(Guid id, UpdateTaskStatusRequest request, Guid updatedBy, CancellationToken cancellationToken = default);
+    Task<TaskResponseDto?> UpdateTaskAsync(Guid id, UpdateTaskRequest request, Guid updatedBy, CancellationToken cancellationToken = default);
     Task<TaskAttachmentDto> AttachDeliverableAsync(AttachDeliverableRequest request, Guid uploadedBy, CancellationToken cancellationToken = default);
     Task<bool> DeleteTaskAsync(Guid id, CancellationToken cancellationToken = default);
 }

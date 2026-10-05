@@ -460,6 +460,18 @@ public class ApiClient
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<TaskResponseDto?> UpdateTaskAsync(Guid taskId, UpdateTaskRequest request, CancellationToken ct = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync($"/api/v1/tasks/{taskId}", request, _jsonOptions, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var err = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException($"Failed to update task: {response.StatusCode} - {err}");
+        }
+
+        return await response.Content.ReadFromJsonAsync<TaskResponseDto>(_jsonOptions, ct);
+    }
+
     public async Task<bool> DeleteTaskAsync(Guid taskId, CancellationToken ct = default)
     {
         var response = await _httpClient.DeleteAsync($"/api/v1/tasks/{taskId}", ct);

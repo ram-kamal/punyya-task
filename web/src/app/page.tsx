@@ -60,6 +60,8 @@ import {
   fetchTasks,
   fetchUsers,
   createTask,
+  updateTask,
+  deleteTask,
   fetchTimesheetSummary,
   getTimesheetCsvDownloadUrl,
   downloadTimesheetCsv,
@@ -205,6 +207,18 @@ export default function AdminDashboardPage() {
   const [dispatchDeliverableReq, setDispatchDeliverableReq] = useState(true);
   const [isDispatching, setIsDispatching] = useState(false);
   const [dispatchMessage, setDispatchMessage] = useState<string | null>(null);
+
+  // Edit / Replace Task Modal State
+  const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
+  const [editTaskTitle, setEditTaskTitle] = useState('');
+  const [editTaskDesc, setEditTaskDesc] = useState('');
+  const [editTaskAssignee, setEditTaskAssignee] = useState('');
+  const [editTaskPriority, setEditTaskPriority] = useState('MEDIUM');
+  const [editTaskStatus, setEditTaskStatus] = useState('ASSIGNED');
+  const [editTaskDueDate, setEditTaskDueDate] = useState('');
+  const [editTaskDeliverableReq, setEditTaskDeliverableReq] = useState(true);
+  const [isUpdatingTask, setIsUpdatingTask] = useState(false);
+  const [editTaskMessage, setEditTaskMessage] = useState<string | null>(null);
 
   // Bulk Task Import State
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -476,6 +490,65 @@ export default function AdminDashboardPage() {
       }, 1200);
     } else {
       setDispatchMessage(result.error || 'Failed to dispatch task. Central API check required.');
+    }
+  };
+
+  const handleOpenEditTaskModal = (task: TaskItem) => {
+    setEditingTask(task);
+    setEditTaskTitle(task.title);
+    setEditTaskDesc(task.description || '');
+    setEditTaskAssignee(task.assignedTo || '');
+    setEditTaskPriority(task.priority || 'MEDIUM');
+    setEditTaskStatus(task.status || 'ASSIGNED');
+    setEditTaskDueDate(task.dueDate ? task.dueDate.split('T')[0] : '');
+    setEditTaskDeliverableReq(task.deliverableRequired ?? true);
+    setEditTaskMessage(null);
+  };
+
+  const handleUpdateTaskSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTask) return;
+    if (!editTaskTitle.trim()) {
+      setEditTaskMessage('Task title is required.');
+      return;
+    }
+
+    setIsUpdatingTask(true);
+    setEditTaskMessage(null);
+
+    const res = await updateTask(editingTask.id, {
+      title: editTaskTitle.trim(),
+      description: editTaskDesc.trim() || undefined,
+      assignedTo: editTaskAssignee || undefined,
+      priority: editTaskPriority,
+      status: editTaskStatus,
+      dueDate: editTaskDueDate ? `${editTaskDueDate}T18:00:00Z` : undefined,
+      deliverableRequired: editTaskDeliverableReq,
+    });
+
+    setIsUpdatingTask(false);
+
+    if (res.success) {
+      setEditTaskMessage('✓ Task updated successfully!');
+      fetchTasks().then(setTasks);
+      setTimeout(() => {
+        setEditingTask(null);
+      }, 700);
+    } else {
+      setEditTaskMessage(res.error || 'Failed to update task.');
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string, taskTitle: string) => {
+    if (!window.confirm(`Are you sure you want to remove task "${taskTitle}"?`)) return;
+    const ok = await deleteTask(taskId);
+    if (ok) {
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      if (editingTask?.id === taskId) {
+        setEditingTask(null);
+      }
+    } else {
+      alert('Failed to delete task. Please try again.');
     }
   };
 
@@ -1958,6 +2031,30 @@ export default function AdminDashboardPage() {
                                 <span>Proof of work required before closing</span>
                               </div>
                             ) : null}
+
+                            {/* Admin Actions: Edit/Replace & Delete */}
+                            {!isReadOnlyMonitor && (
+                              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-[#1C1F2B]">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditTaskModal(task)}
+                                  className="text-[11px] text-slate-300 hover:text-white flex items-center space-x-1 px-2 py-0.5 rounded hover:bg-[#1A1D27] border border-transparent hover:border-[#262938] transition"
+                                  title="Edit / Replace Task Details"
+                                >
+                                  <Edit3 className="w-3 h-3 text-cyan-400" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteTask(task.id, task.title)}
+                                  className="text-[11px] text-rose-400 hover:text-rose-300 flex items-center space-x-1 px-2 py-0.5 rounded hover:bg-rose-950/40 border border-transparent hover:border-rose-500/30 transition"
+                                  title="Delete Task from System"
+                                >
+                                  <Trash2 className="w-3 h-3 text-rose-500" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
+                            )}
                           </div>
                         ))
                       )}
@@ -2972,6 +3069,165 @@ export default function AdminDashboardPage() {
                   <Plus className="w-3.5 h-3.5" />
                   <span>{isDispatching ? 'Dispatching...' : 'Dispatch Task'}</span>
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Windows 11 Enterprise Modal: EDIT / REPLACE WORKFORCE TASK */}
+      {editingTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-[#151720] border border-[#32364A] rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#262938]">
+              <div className="flex items-center space-x-2 text-white">
+                <Edit3 className="w-4 h-4 text-cyan-400" />
+                <h3 className="font-bold text-sm">Edit / Replace Workforce Task</h3>
+                <span className="font-mono text-xs text-rose-400 font-bold px-1.5 py-0.5 rounded bg-rose-950/60 border border-rose-500/30">
+                  {editingTask.taskCode}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingTask(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#262938] transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateTaskSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-300 mb-1">Task Title</label>
+                <input
+                  type="text"
+                  required
+                  value={editTaskTitle}
+                  onChange={(e) => setEditTaskTitle(e.target.value)}
+                  className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-300 mb-1">Detailed Scope / Instructions</label>
+                <textarea
+                  rows={3}
+                  value={editTaskDesc}
+                  onChange={(e) => setEditTaskDesc(e.target.value)}
+                  className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-300 mb-1">Reassign / Replace Staff</label>
+                <select
+                  value={editTaskAssignee}
+                  onChange={(e) => setEditTaskAssignee(e.target.value)}
+                  className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                >
+                  <option value="">Unassigned (Open Workforce Pool)</option>
+                  {users
+                    .filter((u) => u.role !== 'MONITOR')
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.fullName || u.username} ({u.email || u.username})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Priority</label>
+                  <select
+                    value={editTaskPriority}
+                    onChange={(e) => setEditTaskPriority(e.target.value)}
+                    className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                  >
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HIGH">High</option>
+                    <option value="CRITICAL">Critical</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Status</label>
+                  <select
+                    value={editTaskStatus}
+                    onChange={(e) => setEditTaskStatus(e.target.value)}
+                    className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                  >
+                    <option value="ASSIGNED">Assigned (Awaiting Start)</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="UNDER_REVIEW">Under Review</option>
+                    <option value="COMPLETED">Completed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-300 mb-1">Due Date (Optional)</label>
+                <input
+                  type="date"
+                  value={editTaskDueDate}
+                  onChange={(e) => setEditTaskDueDate(e.target.value)}
+                  className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="chkEditTaskDeliverable"
+                  checked={editTaskDeliverableReq}
+                  onChange={(e) => setEditTaskDeliverableReq(e.target.checked)}
+                  className="rounded border-[#262938] bg-[#0D0E12] text-rose-500 focus:ring-0 w-3.5 h-3.5"
+                />
+                <label htmlFor="chkEditTaskDeliverable" className="text-slate-300 text-xs cursor-pointer">
+                  Require proof of work / deliverable to close
+                </label>
+              </div>
+
+              {editTaskMessage && (
+                <div
+                  className={`p-3 rounded-lg text-xs font-semibold ${
+                    editTaskMessage.startsWith('✓')
+                      ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500/30'
+                      : 'bg-rose-950/80 text-rose-400 border border-rose-500/30'
+                  }`}
+                >
+                  {editTaskMessage}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-2 border-t border-[#1C1F2B]">
+                <button
+                  type="button"
+                  onClick={() => handleDeleteTask(editingTask.id, editingTask.title)}
+                  className="px-3 py-2 rounded-lg bg-rose-950/40 hover:bg-rose-950 border border-rose-500/30 text-rose-400 text-xs font-semibold transition flex items-center space-x-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Task</span>
+                </button>
+
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingTask(null)}
+                    className="px-4 py-2 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-300 hover:text-white transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingTask || !editTaskTitle.trim()}
+                    className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 text-white font-bold transition flex items-center space-x-2 shadow-md shadow-cyan-600/20"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{isUpdatingTask ? 'Saving...' : 'Save Changes'}</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>
