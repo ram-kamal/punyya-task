@@ -183,7 +183,7 @@ public class ApiClient
         }
 
         using var content = new MultipartFormDataContent();
-        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using var streamContent = new StreamContent(fileStream);
 
         var fileName = Path.GetFileName(filePath);

@@ -1,4 +1,4 @@
-﻿import { User } from './types';
+import { User } from './types';
 
 export interface ParsedImportTask {
   id: string;
@@ -25,8 +25,11 @@ export interface ParseResult {
 /**
  * Splits raw CSV/TSV text into an array of string rows
  */
-export function parseDelimitedRows(text: string): string[][] {
-  if (!text || !text.trim()) return [];
+export function parseDelimitedRows(rawText: string): string[][] {
+  if (!rawText || !rawText.trim()) return [];
+
+  // Strip UTF-8 BOM if present
+  const text = rawText.replace(/^\uFEFF/, '');
 
   // Detect delimiter (tab vs comma) from first few non-empty lines
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -82,11 +85,37 @@ export function parseDelimitedRows(text: string): string[][] {
 }
 
 /**
- * Parses dates like DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD into ISO string
+ * Parses dates like DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD, or with time HH:mm:ss into ISO string
  */
 export function parseDateToIso(dateStr?: string): string | undefined {
   if (!dateStr || !dateStr.trim()) return undefined;
   const clean = dateStr.trim();
+
+  // YYYY-MM-DD HH:mm:ss or YYYY-MM-DDTHH:mm:ss
+  const ymdTimeMatch = clean.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
+  if (ymdTimeMatch) {
+    const year = parseInt(ymdTimeMatch[1], 10);
+    const month = parseInt(ymdTimeMatch[2], 10) - 1;
+    const day = parseInt(ymdTimeMatch[3], 10);
+    const hours = parseInt(ymdTimeMatch[4], 10);
+    const mins = parseInt(ymdTimeMatch[5], 10);
+    const secs = ymdTimeMatch[6] ? parseInt(ymdTimeMatch[6], 10) : 0;
+    const d = new Date(Date.UTC(year, month, day, hours, mins, secs));
+    if (!isNaN(d.getTime())) return d.toISOString();
+  }
+
+  // DD-MM-YYYY HH:mm:ss or DD/MM/YYYY HH:mm:ss
+  const dmyTimeMatch = clean.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
+  if (dmyTimeMatch) {
+    const day = parseInt(dmyTimeMatch[1], 10);
+    const month = parseInt(dmyTimeMatch[2], 10) - 1;
+    const year = parseInt(dmyTimeMatch[3], 10);
+    const hours = parseInt(dmyTimeMatch[4], 10);
+    const mins = parseInt(dmyTimeMatch[5], 10);
+    const secs = dmyTimeMatch[6] ? parseInt(dmyTimeMatch[6], 10) : 0;
+    const d = new Date(Date.UTC(year, month, day, hours, mins, secs));
+    if (!isNaN(d.getTime())) return d.toISOString();
+  }
 
   // DD-MM-YYYY or DD/MM/YYYY
   const dmyMatch = clean.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
@@ -117,7 +146,7 @@ export function parseDateToIso(dateStr?: string): string | undefined {
  * Fuzzy matches a staff column header or name to a User object
  */
 export function matchUserByName(query: string, users: User[]): User | undefined {
-  if (!query || !query.trim()) return undefined;
+  if (!query || !query.trim() || !users || users.length === 0) return undefined;
   const q = query.trim().toLowerCase();
 
   // Exact match
@@ -139,6 +168,17 @@ export function matchUserByName(query: string, users: User[]): User | undefined 
       q.includes(u.fullName?.toLowerCase() || '')
   );
   if (partial) return partial;
+
+  // First word / token match (e.g. "Ayush" matches "Ayush Nautiyal")
+  const firstWord = q.split(/\s+/)[0];
+  if (firstWord && firstWord.length >= 3) {
+    const tokenMatch = users.find(
+      (u) =>
+        (u.fullName && u.fullName.toLowerCase().split(/\s+/).includes(firstWord)) ||
+        (u.username && u.username.toLowerCase() === firstWord)
+    );
+    if (tokenMatch) return tokenMatch;
+  }
 
   return undefined;
 }

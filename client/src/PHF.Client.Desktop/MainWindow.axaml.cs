@@ -1277,23 +1277,32 @@ public partial class MainWindow : Window
 
     private async void BtnBrowseFile_Click(object? sender, RoutedEventArgs e)
     {
-        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        try
         {
-            Title = "Select Work Deliverable Proof",
-            AllowMultiple = false
-        });
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Select Work Deliverable Proof",
+                AllowMultiple = false
+            });
 
-        if (files.Count > 0)
+            if (files.Count > 0)
+            {
+                _stagedFilePath = files[0].TryGetLocalPath() ?? (files[0].Path.IsFile ? files[0].Path.LocalPath : null);
+                if (!string.IsNullOrWhiteSpace(_stagedFilePath) && File.Exists(_stagedFilePath))
+                {
+                    TxtSelectedFilePath.Text = $"Selected: {Path.GetFileName(_stagedFilePath)} ({new FileInfo(_stagedFilePath).Length / 1024} KB)";
+                }
+                else
+                {
+                    TxtSelectedFilePath.Text = $"Selected: {files[0].Name}";
+                }
+            }
+        }
+        catch (Exception ex)
         {
-            _stagedFilePath = files[0].TryGetLocalPath() ?? files[0].Path.LocalPath;
-            if (File.Exists(_stagedFilePath))
-            {
-                TxtSelectedFilePath.Text = $"Selected: {Path.GetFileName(_stagedFilePath)} ({new FileInfo(_stagedFilePath).Length / 1024} KB)";
-            }
-            else
-            {
-                TxtSelectedFilePath.Text = $"Selected: {Path.GetFileName(_stagedFilePath)}";
-            }
+            Debug.WriteLine($"[Deliverable] Browse file error: {ex.Message}");
+            ShowToast("⚠️ File Selection Error", ex.Message);
+            TxtSelectedFilePath.Text = $"⚠️ Error: {ex.Message}";
         }
     }
 
@@ -1622,14 +1631,26 @@ public partial class MainWindow : Window
         }
     }
 
-    private void BtnOpenBulkImportModal_Click(object? sender, RoutedEventArgs e)
+    private async void BtnOpenBulkImportModal_Click(object? sender, RoutedEventArgs e)
     {
-        TxtBulkImportCsv.Text = string.Empty;
-        _parsedTasks.Clear();
-        TxtBulkImportSummary.Text = "Paste or load CSV data above and click 'Parse & Validate'.";
-        TxtBulkImportProgress.Text = string.Empty;
-        ChkBulkSelectAll.IsChecked = true;
-        BulkImportTasksModal.IsVisible = true;
+        try
+        {
+            TxtBulkImportCsv.Text = string.Empty;
+            _parsedTasks.Clear();
+            TxtBulkImportSummary.Text = "Paste or load CSV data above and click 'Parse & Validate'.";
+            TxtBulkImportProgress.Text = string.Empty;
+            ChkBulkSelectAll.IsChecked = true;
+            BulkImportTasksModal.IsVisible = true;
+
+            if (_staffMembers == null || _staffMembers.Count == 0)
+            {
+                await LoadStaffDirectoryAsync(silent: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[BulkImport] Open error: {ex.Message}");
+        }
     }
 
     private void BtnCloseBulkImport_Click(object? sender, RoutedEventArgs e)
@@ -1651,45 +1672,100 @@ public partial class MainWindow : Window
 
     private async void BtnBulkImportBrowse_Click(object? sender, RoutedEventArgs e)
     {
-        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        try
         {
-            Title = "Open CSV/TSV File for Task Dispatch",
-            AllowMultiple = false,
-            FileTypeFilter = new[]
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                new FilePickerFileType("CSV and TSV files") { Patterns = new[] { "*.csv", "*.tsv", "*.txt" } }
-            }
-        });
+                Title = "Open CSV/TSV File for Task Dispatch",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("CSV and TSV files") { Patterns = new[] { "*.csv", "*.tsv", "*.txt" } },
+                    new FilePickerFileType("All files") { Patterns = new[] { "*.*" } }
+                }
+            });
 
-        if (files.Count > 0)
-        {
-            var localPath = files[0].TryGetLocalPath() ?? files[0].Path.LocalPath;
-            if (File.Exists(localPath))
+            if (files.Count > 0)
             {
-                var text = await File.ReadAllTextAsync(localPath);
-                TxtBulkImportCsv.Text = text;
-                BtnBulkImportParse_Click();
+                var file = files[0];
+                string text = string.Empty;
+                var localPath = file.TryGetLocalPath() ?? (file.Path.IsFile ? file.Path.LocalPath : null);
+
+                if (!string.IsNullOrWhiteSpace(localPath) && File.Exists(localPath))
+                {
+                    try
+                    {
+                        // Open with FileShare.ReadWrite so even if Excel has the CSV open, it won't crash!
+                        await using var stream = new FileStream(localPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                        using var reader = new StreamReader(stream);
+                        text = await reader.ReadToEndAsync();
+                    }
+                    catch (IOException)
+                    {
+                        // Fallback to Avalonia storage provider stream
+                        await using var fallbackStream = await file.OpenReadAsync();
+                        using var fallbackReader = new StreamReader(fallbackStream);
+                        text = await fallbackReader.ReadToEndAsync();
+                    }
+                }
+                else
+                {
+                    await using var stream = await file.OpenReadAsync();
+                    using var reader = new StreamReader(stream);
+                    text = await reader.ReadToEndAsync();
+                }
+
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    TxtBulkImportCsv.Text = text;
+                    BtnBulkImportParse_Click();
+                }
+                else
+                {
+                    ShowToast("⚠️ Empty File", "The selected file contains no text.");
+                }
             }
+        }
+        catch (IOException ioEx)
+        {
+            Debug.WriteLine($"[BulkImport] File in use: {ioEx.Message}");
+            ShowToast("⚠️ File In Use", "The CSV file is currently open in Excel or another program. Please close Excel or paste the CSV text directly.");
+            TxtBulkImportSummary.Text = "⚠️ The file is in use by another program (e.g. Excel). Close Excel or paste the CSV text directly.";
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[BulkImport] Error opening file: {ex.Message}");
+            ShowToast("⚠️ Error Opening File", ex.Message);
+            TxtBulkImportSummary.Text = $"⚠️ Error opening file: {ex.Message}";
         }
     }
 
     private void BtnBulkImportParse_Click(object? sender = null, RoutedEventArgs? e = null)
     {
-        var text = TxtBulkImportCsv.Text?.Trim();
-        if (string.IsNullOrWhiteSpace(text))
+        try
         {
-            TxtBulkImportSummary.Text = "Please enter or paste CSV text first.";
-            return;
-        }
+            var text = TxtBulkImportCsv.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                TxtBulkImportSummary.Text = "Please enter or paste CSV text first.";
+                return;
+            }
 
-        var result = TaskCsvImporter.Parse(text, _staffMembers);
-        _parsedTasks.Clear();
-        foreach (var t in result.Tasks)
+            var result = TaskCsvImporter.Parse(text, _staffMembers);
+            _parsedTasks.Clear();
+            foreach (var t in result.Tasks)
+            {
+                _parsedTasks.Add(t);
+            }
+
+            TxtBulkImportSummary.Text = $"Parsed {result.TotalFound} tasks ({result.DetectedFormatLabel}) • {result.MatchedStaffCount} staff matched • {result.UnassignedCount} unassigned";
+        }
+        catch (Exception ex)
         {
-            _parsedTasks.Add(t);
+            Debug.WriteLine($"[BulkImport] Parse error: {ex.Message}");
+            ShowToast("⚠️ Parse Error", $"Failed to parse CSV: {ex.Message}");
+            TxtBulkImportSummary.Text = $"⚠️ Error parsing CSV: {ex.Message}";
         }
-
-        TxtBulkImportSummary.Text = $"Parsed {result.TotalFound} tasks ({result.DetectedFormatLabel}) • {result.MatchedStaffCount} staff matched • {result.UnassignedCount} unassigned";
     }
 
     private void ChkBulkSelectAll_CheckedChanged(object? sender, RoutedEventArgs e)
@@ -1699,55 +1775,68 @@ public partial class MainWindow : Window
         {
             t.IsSelected = isChecked;
         }
-
-        BulkImportItemsControl.ItemsSource = null;
-        BulkImportItemsControl.ItemsSource = _parsedTasks;
     }
 
     private async void BtnSubmitBulkImport_Click(object? sender, RoutedEventArgs e)
     {
-        var selected = _parsedTasks.Where(t => t.IsSelected && !string.IsNullOrWhiteSpace(t.Title)).ToList();
-        if (selected.Count == 0)
+        try
         {
-            TxtBulkImportProgress.Text = "⚠️ No tasks selected for import.";
-            return;
-        }
-
-        BtnSubmitBulkImport.IsEnabled = false;
-        int successCount = 0;
-        int failCount = 0;
-
-        for (int i = 0; i < selected.Count; i++)
-        {
-            var item = selected[i];
-            TxtBulkImportProgress.Text = $"Dispatching task {i + 1} of {selected.Count}: {item.Title}...";
-
-            try
+            var selected = _parsedTasks.Where(t => t.IsSelected && !string.IsNullOrWhiteSpace(t.Title)).ToList();
+            if (selected.Count == 0)
             {
-                await _apiClient.CreateTaskAsync(new CreateTaskRequest
+                TxtBulkImportProgress.Text = "⚠️ No tasks selected for import.";
+                return;
+            }
+
+            BtnSubmitBulkImport.IsEnabled = false;
+            int successCount = 0;
+            int failCount = 0;
+
+            for (int i = 0; i < selected.Count; i++)
+            {
+                var item = selected[i];
+                TxtBulkImportProgress.Text = $"Dispatching task {i + 1} of {selected.Count}: {item.Title}...";
+
+                try
                 {
-                    Title = item.Title,
-                    Description = item.Description,
-                    Priority = item.Priority,
-                    AssignedTo = item.AssignedTo,
-                    DeliverableRequired = item.DeliverableRequired,
-                    DueDate = item.DueDate
-                });
-                successCount++;
+                    DateTime? dueDateUtc = item.DueDate.HasValue
+                        ? DateTime.SpecifyKind(item.DueDate.Value, DateTimeKind.Utc)
+                        : null;
+
+                    await _apiClient.CreateTaskAsync(new CreateTaskRequest
+                    {
+                        Title = item.Title,
+                        Description = item.Description,
+                        Priority = item.Priority,
+                        AssignedTo = item.AssignedTo,
+                        DeliverableRequired = item.DeliverableRequired,
+                        DueDate = dueDateUtc
+                    });
+                    successCount++;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[BulkImport] Error creating task: {ex.Message}");
+                    failCount++;
+                }
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[BulkImport] Error creating task: {ex.Message}");
-                failCount++;
-            }
+
+            BulkImportTasksModal.IsVisible = false;
+            ShowToast("🚀 Bulk Tasks Dispatched", $"Successfully dispatched {successCount} tasks ({failCount} failed).");
+
+            await LoadAllAdminTasksAsync(silent: true);
+            await LoadAssignedTasksAsync(silent: true);
         }
-
-        BtnSubmitBulkImport.IsEnabled = true;
-        BulkImportTasksModal.IsVisible = false;
-        ShowToast("🚀 Bulk Tasks Dispatched", $"Successfully dispatched {successCount} tasks ({failCount} failed).");
-
-        await LoadAllAdminTasksAsync(silent: true);
-        await LoadAssignedTasksAsync(silent: true);
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[BulkImport] Dispatch error: {ex.Message}");
+            ShowToast("⚠️ Dispatch Error", ex.Message);
+            TxtBulkImportProgress.Text = $"⚠️ Error: {ex.Message}";
+        }
+        finally
+        {
+            BtnSubmitBulkImport.IsEnabled = true;
+        }
     }
 
     private void BtnEditStaff_Click(object? sender, RoutedEventArgs e)

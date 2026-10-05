@@ -1286,7 +1286,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="utils:ParsedCsvTask">
                                             <Border Background="#201C202E" BorderBrush="#15FFFFFF" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,0,0,6">
-                                                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                                                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
                                                     <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,8,0" />
                                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                         <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
@@ -1298,7 +1298,10 @@
                                                     <Border Grid.Column="3" Background="#20FFFFFF" CornerRadius="4" Padding="6,2" Margin="0,0,8,0" VerticalAlignment="Center">
                                                         <TextBlock Text="{Binding Priority}" FontSize="10" Foreground="#CBD5E1" />
                                                     </Border>
-                                                    <Border Grid.Column="4" Background="#1510B981" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" IsVisible="{Binding DeliverableRequired}">
+                                                    <Border Grid.Column="4" Background="#1538BDF8" CornerRadius="4" Padding="6,2" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding DueDateText}" FontSize="10" Foreground="#38BDF8" />
+                                                    </Border>
+                                                    <Border Grid.Column="5" Background="#1510B981" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" IsVisible="{Binding DeliverableRequired}">
                                                         <TextBlock Text="Proof Req" FontSize="10" Foreground="#34D399" />
                                                     </Border>
                                                 </Grid>

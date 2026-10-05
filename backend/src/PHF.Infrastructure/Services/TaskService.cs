@@ -128,7 +128,7 @@ public class TaskService : ITaskService
             Status = TaskItemStatus.ASSIGNED.ToString(),
             Priority = !string.IsNullOrWhiteSpace(request.Priority) ? request.Priority : TaskPriority.MEDIUM.ToString(),
             DeliverableRequired = request.DeliverableRequired,
-            DueDate = request.DueDate,
+            DueDate = request.DueDate.HasValue ? DateTime.SpecifyKind(request.DueDate.Value, DateTimeKind.Utc) : null,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -298,7 +298,7 @@ public class TaskService : ITaskService
             task.DeliverableRequired = request.DeliverableRequired.Value;
 
         if (request.DueDate.HasValue)
-            task.DueDate = request.DueDate.Value;
+            task.DueDate = DateTime.SpecifyKind(request.DueDate.Value, DateTimeKind.Utc);
 
         if (!string.IsNullOrWhiteSpace(request.Status))
         {

@@ -1,15 +1,22 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Avalonia.Media;
 using PHF.Core.DTOs;
 
 namespace PHF.Client.Desktop.Utils;
 
-public class ParsedCsvTask
+public class ParsedCsvTask : INotifyPropertyChanged
 {
+    private static readonly IBrush _emeraldBrush = new SolidColorBrush(Color.FromRgb(52, 211, 153));
+    private static readonly IBrush _amberBrush = new SolidColorBrush(Color.FromRgb(251, 191, 36));
+
+    private bool _isSelected = true;
+
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
@@ -18,15 +25,33 @@ public class ParsedCsvTask
     public string Priority { get; set; } = "MEDIUM";
     public DateTime? DueDate { get; set; }
     public bool DeliverableRequired { get; set; } = true;
-    public bool IsSelected { get; set; } = true;
     public string RawStaffHeader { get; set; } = string.Empty;
 
-    public bool IsMatched => AssignedTo.HasValue;
-    public string DueDateText => DueDate.HasValue ? DueDate.Value.ToString("yyyy-MM-dd") : "No due date";
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected != value)
+            {
+                _isSelected = value;
+                OnPropertyChanged();
+            }
+        }
+    }
 
-    public IBrush MatchBrush => IsMatched
-        ? new SolidColorBrush(Color.FromRgb(52, 211, 153)) // Emerald
-        : new SolidColorBrush(Color.FromRgb(251, 191, 36)); // Amber
+    public bool IsMatched => AssignedTo.HasValue;
+    public string DueDateText => DueDate.HasValue 
+        ? DueDate.Value.ToString("yyyy-MM-dd HH:mm") 
+        : "No due date";
+
+    public IBrush MatchBrush => IsMatched ? _emeraldBrush : _amberBrush;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
 }
 
 public class CsvParseResult
@@ -51,174 +76,209 @@ public static class TaskCsvImporter
 
     public static CsvParseResult Parse(string rawText, IEnumerable<StaffMemberDto> staffList)
     {
-        var staff = staffList.ToList();
-        var rows = ParseDelimitedRows(rawText);
-
-        if (rows.Count == 0)
+        try
         {
-            return new CsvParseResult
+            if (string.IsNullOrWhiteSpace(rawText))
             {
-                DetectedFormat = "unknown",
-                DetectedFormatLabel = "Empty or unrecognized CSV text"
-            };
-        }
-
-        // Find header row
-        int headerRowIdx = rows.FindIndex(r => r.Any(c =>
-        {
-            var l = c.Trim().ToLowerInvariant();
-            return l is "item" or "task" or "title" or "project" or "task title" or "project / task title" or "project work";
-        }));
-
-        if (headerRowIdx == -1) headerRowIdx = 0;
-
-        var headers = rows[headerRowIdx].Select(h => h.Trim()).ToList();
-
-        // Identify key column indices
-        int itemColIdx = headers.FindIndex(h =>
-        {
-            var l = h.ToLowerInvariant();
-            return l is "item" or "task" or "title" or "project" or "task title" or "project / task title" or "project work";
-        });
-
-        int dateColIdx = headers.FindIndex(h => h.ToLowerInvariant().Contains("date"));
-        int priorityColIdx = headers.FindIndex(h => h.ToLowerInvariant().Contains("priority"));
-        int assigneeColIdx = headers.FindIndex(h =>
-        {
-            var l = h.ToLowerInvariant();
-            return l is "assignee" or "assigned to" or "staff" or "assigned staff";
-        });
-        int descColIdx = headers.FindIndex(h =>
-        {
-            var l = h.ToLowerInvariant();
-            return l is "description" or "scope" or "scope / description" or "responsibility" or "remarks" or "remark";
-        });
-        int deliverableColIdx = headers.FindIndex(h =>
-        {
-            var l = h.ToLowerInvariant();
-            return l.Contains("proof") || l.Contains("deliverable");
-        });
-
-        // Determine if this is a Team Responsibility Matrix
-        var candidateStaffCols = headers
-            .Select((name, idx) => (name, idx))
-            .Where(col =>
-            {
-                if (col.idx == itemColIdx || col.idx == dateColIdx || col.idx == priorityColIdx) return false;
-                var l = col.name.ToLowerInvariant();
-                return !NonStaffKeywords.Contains(l) && col.name.Length > 0;
-            })
-            .ToList();
-
-        bool isMatrix = candidateStaffCols.Count > 0 && assigneeColIdx == -1;
-        var resultTasks = new List<ParsedCsvTask>();
-
-        if (isMatrix)
-        {
-            // Parse Matrix Format
-            for (int r = headerRowIdx + 1; r < rows.Count; r++)
-            {
-                var row = rows[r];
-                var projectTitle = itemColIdx >= 0 && itemColIdx < row.Count ? row[itemColIdx].Trim() : "";
-                if (string.IsNullOrWhiteSpace(projectTitle)) continue;
-
-                var dateVal = dateColIdx >= 0 && dateColIdx < row.Count ? row[dateColIdx] : null;
-                var dueDate = ParseDate(dateVal);
-
-                foreach (var sc in candidateStaffCols)
+                return new CsvParseResult
                 {
-                    if (sc.idx >= row.Count) continue;
-                    var cellScope = row[sc.idx].Trim();
-                    if (string.IsNullOrWhiteSpace(cellScope)) continue;
+                    DetectedFormat = "unknown",
+                    DetectedFormatLabel = "Empty CSV text"
+                };
+            }
 
-                    var lowerScope = cellScope.ToLowerInvariant();
-                    if (lowerScope is "on going" or "ongoing" or "completed" or "done") continue;
+            // Strip UTF-8 BOM if present
+            var cleanText = rawText.Trim().Trim('\uFEFF');
 
-                    var matched = MatchStaff(sc.name, staff);
+            var staff = staffList?.ToList() ?? new List<StaffMemberDto>();
+            var rows = ParseDelimitedRows(cleanText);
+
+            if (rows.Count == 0)
+            {
+                return new CsvParseResult
+                {
+                    DetectedFormat = "unknown",
+                    DetectedFormatLabel = "Empty or unrecognized CSV text"
+                };
+            }
+
+            // Find header row
+            int headerRowIdx = rows.FindIndex(r => r.Any(c =>
+            {
+                var l = c.Trim().Trim('\uFEFF').ToLowerInvariant();
+                return l is "item" or "task" or "title" or "project" or "task title" or "project / task title" or "project work";
+            }));
+
+            if (headerRowIdx == -1) headerRowIdx = 0;
+
+            var headers = rows[headerRowIdx].Select(h => h.Trim().Trim('\uFEFF')).ToList();
+
+            // Identify key column indices
+            int itemColIdx = headers.FindIndex(h =>
+            {
+                var l = h.ToLowerInvariant();
+                return l is "item" or "task" or "title" or "project" or "task title" or "project / task title" or "project work";
+            });
+
+            int dateColIdx = headers.FindIndex(h => h.ToLowerInvariant().Contains("date"));
+            int priorityColIdx = headers.FindIndex(h => h.ToLowerInvariant().Contains("priority"));
+            int assigneeColIdx = headers.FindIndex(h =>
+            {
+                var l = h.ToLowerInvariant();
+                return l is "assignee" or "assigned to" or "staff" or "assigned staff";
+            });
+            int descColIdx = headers.FindIndex(h =>
+            {
+                var l = h.ToLowerInvariant();
+                return l is "description" or "scope" or "scope / description" or "responsibility" or "remarks" or "remark";
+            });
+            int deliverableColIdx = headers.FindIndex(h =>
+            {
+                var l = h.ToLowerInvariant();
+                return l.Contains("proof") || l.Contains("deliverable");
+            });
+
+            // Determine if this is a Team Responsibility Matrix
+            var candidateStaffCols = headers
+                .Select((name, idx) => (name, idx))
+                .Where(col =>
+                {
+                    if (col.idx == itemColIdx || col.idx == dateColIdx || col.idx == priorityColIdx) return false;
+                    var l = col.name.ToLowerInvariant();
+                    return !NonStaffKeywords.Contains(l) && col.name.Length > 0;
+                })
+                .ToList();
+
+            bool isMatrix = candidateStaffCols.Count > 0 && assigneeColIdx == -1;
+            var resultTasks = new List<ParsedCsvTask>();
+
+            if (isMatrix)
+            {
+                // Parse Matrix Format
+                for (int r = headerRowIdx + 1; r < rows.Count; r++)
+                {
+                    var row = rows[r];
+                    var projectTitle = itemColIdx >= 0 && itemColIdx < row.Count ? row[itemColIdx].Trim() : "";
+                    if (string.IsNullOrWhiteSpace(projectTitle)) continue;
+
+                    var dateVal = dateColIdx >= 0 && dateColIdx < row.Count ? row[dateColIdx] : null;
+                    var dueDate = ParseDate(dateVal);
+
+                    foreach (var sc in candidateStaffCols)
+                    {
+                        if (sc.idx >= row.Count) continue;
+                        var cellScope = row[sc.idx].Trim();
+                        if (string.IsNullOrWhiteSpace(cellScope)) continue;
+
+                        var lowerScope = cellScope.ToLowerInvariant();
+                        if (lowerScope is "on going" or "ongoing" or "completed" or "done") continue;
+
+                        var matched = MatchStaff(sc.name, staff);
+
+                        resultTasks.Add(new ParsedCsvTask
+                        {
+                            Title = projectTitle,
+                            Description = cellScope,
+                            AssignedTo = matched?.Id,
+                            AssignedToName = matched?.FullName ?? sc.name,
+                            Priority = "MEDIUM",
+                            DueDate = dueDate,
+                            DeliverableRequired = true,
+                            IsSelected = true,
+                            RawStaffHeader = sc.name
+                        });
+                    }
+                }
+            }
+            else
+            {
+                // Parse Standard Linear Format
+                for (int r = headerRowIdx + 1; r < rows.Count; r++)
+                {
+                    var row = rows[r];
+                    var title = (itemColIdx >= 0 && itemColIdx < row.Count ? row[itemColIdx] : (row.Count > 0 ? row[0] : ""))?.Trim() ?? "";
+                    if (string.IsNullOrWhiteSpace(title)) continue;
+
+                    var staffStr = (assigneeColIdx >= 0 && assigneeColIdx < row.Count ? row[assigneeColIdx] : "")?.Trim() ?? "";
+                    var descStr = (descColIdx >= 0 && descColIdx < row.Count ? row[descColIdx] : "")?.Trim() ?? "";
+                    var priorityStr = (priorityColIdx >= 0 && priorityColIdx < row.Count ? row[priorityColIdx] : "")?.Trim().ToUpperInvariant() ?? "MEDIUM";
+                    var dateVal = dateColIdx >= 0 && dateColIdx < row.Count ? row[dateColIdx] : null;
+                    var deliverableVal = (deliverableColIdx >= 0 && deliverableColIdx < row.Count ? row[deliverableColIdx] : "")?.Trim().ToLowerInvariant() ?? "yes";
+
+                    var validPriority = priorityStr switch
+                    {
+                        "LOW" or "HIGH" or "CRITICAL" => priorityStr,
+                        _ => "MEDIUM"
+                    };
+
+                    var matched = MatchStaff(staffStr, staff);
 
                     resultTasks.Add(new ParsedCsvTask
                     {
-                        Title = projectTitle,
-                        Description = cellScope,
+                        Title = title,
+                        Description = descStr,
                         AssignedTo = matched?.Id,
-                        AssignedToName = matched?.FullName ?? sc.name,
-                        Priority = "MEDIUM",
-                        DueDate = dueDate,
-                        DeliverableRequired = true,
+                        AssignedToName = matched?.FullName ?? (string.IsNullOrWhiteSpace(staffStr) ? "Unassigned" : staffStr),
+                        Priority = validPriority,
+                        DueDate = ParseDate(dateVal),
+                        DeliverableRequired = deliverableVal != "no" && deliverableVal != "false",
                         IsSelected = true,
-                        RawStaffHeader = sc.name
+                        RawStaffHeader = staffStr
                     });
                 }
             }
-        }
-        else
-        {
-            // Parse Standard Linear Format
-            for (int r = headerRowIdx + 1; r < rows.Count; r++)
+
+            return new CsvParseResult
             {
-                var row = rows[r];
-                var title = (itemColIdx >= 0 && itemColIdx < row.Count ? row[itemColIdx] : (row.Count > 0 ? row[0] : ""))?.Trim() ?? "";
-                if (string.IsNullOrWhiteSpace(title)) continue;
-
-                var staffStr = (assigneeColIdx >= 0 && assigneeColIdx < row.Count ? row[assigneeColIdx] : "")?.Trim() ?? "";
-                var descStr = (descColIdx >= 0 && descColIdx < row.Count ? row[descColIdx] : "")?.Trim() ?? "";
-                var priorityStr = (priorityColIdx >= 0 && priorityColIdx < row.Count ? row[priorityColIdx] : "")?.Trim().ToUpperInvariant() ?? "MEDIUM";
-                var dateVal = dateColIdx >= 0 && dateColIdx < row.Count ? row[dateColIdx] : null;
-                var deliverableVal = (deliverableColIdx >= 0 && deliverableColIdx < row.Count ? row[deliverableColIdx] : "")?.Trim().ToLowerInvariant() ?? "yes";
-
-                var validPriority = priorityStr switch
-                {
-                    "LOW" or "HIGH" or "CRITICAL" => priorityStr,
-                    _ => "MEDIUM"
-                };
-
-                var matched = MatchStaff(staffStr, staff);
-
-                resultTasks.Add(new ParsedCsvTask
-                {
-                    Title = title,
-                    Description = descStr,
-                    AssignedTo = matched?.Id,
-                    AssignedToName = matched?.FullName ?? (string.IsNullOrWhiteSpace(staffStr) ? "Unassigned" : staffStr),
-                    Priority = validPriority,
-                    DueDate = ParseDate(dateVal),
-                    DeliverableRequired = deliverableVal != "no" && deliverableVal != "false",
-                    IsSelected = true,
-                    RawStaffHeader = staffStr
-                });
-            }
+                Tasks = resultTasks,
+                DetectedFormat = isMatrix ? "matrix" : "linear",
+                DetectedFormatLabel = isMatrix
+                    ? $"Team Responsibility Matrix ({string.Join(", ", candidateStaffCols.Select(c => c.name))})"
+                    : "Standard Linear CSV Format"
+            };
         }
-
-        return new CsvParseResult
+        catch (Exception ex)
         {
-            Tasks = resultTasks,
-            DetectedFormat = isMatrix ? "matrix" : "linear",
-            DetectedFormatLabel = isMatrix
-                ? $"Team Responsibility Matrix ({string.Join(", ", candidateStaffCols.Select(c => c.name))})"
-                : "Standard Linear CSV Format"
-        };
+            return new CsvParseResult
+            {
+                DetectedFormat = "error",
+                DetectedFormatLabel = $"Error: {ex.Message}"
+            };
+        }
     }
 
     private static StaffMemberDto? MatchStaff(string query, List<StaffMemberDto> staff)
     {
-        if (string.IsNullOrWhiteSpace(query)) return null;
+        if (string.IsNullOrWhiteSpace(query) || staff == null || staff.Count == 0) return null;
         var q = query.Trim().ToLowerInvariant();
 
-        // Exact match on username, full name, or email
+        // 1. Exact match on username, full name, or email
         var exact = staff.FirstOrDefault(s =>
-            (s.Username != null && s.Username.ToLowerInvariant() == q) ||
-            s.FullName.ToLowerInvariant() == q ||
-            s.Email.ToLowerInvariant() == q);
+            (!string.IsNullOrWhiteSpace(s.Username) && s.Username.Trim().Equals(q, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrWhiteSpace(s.FullName) && s.FullName.Trim().Equals(q, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrWhiteSpace(s.Email) && s.Email.Trim().Equals(q, StringComparison.OrdinalIgnoreCase)));
         if (exact != null) return exact;
 
-        // Partial / substring match
+        // 2. Partial / substring match
         var partial = staff.FirstOrDefault(s =>
-            s.FullName.ToLowerInvariant().Contains(q) ||
-            (s.Username != null && s.Username.ToLowerInvariant().Contains(q)) ||
-            s.Email.ToLowerInvariant().Contains(q) ||
-            q.Contains(s.FullName.ToLowerInvariant()) ||
-            (s.Username != null && q.Contains(s.Username.ToLowerInvariant())));
-        return partial;
+            (!string.IsNullOrWhiteSpace(s.FullName) && s.FullName.ToLowerInvariant().Contains(q)) ||
+            (!string.IsNullOrWhiteSpace(s.Username) && s.Username.ToLowerInvariant().Contains(q)) ||
+            (!string.IsNullOrWhiteSpace(s.Email) && s.Email.ToLowerInvariant().Contains(q)) ||
+            (!string.IsNullOrWhiteSpace(s.FullName) && q.Contains(s.FullName.ToLowerInvariant())) ||
+            (!string.IsNullOrWhiteSpace(s.Username) && q.Contains(s.Username.ToLowerInvariant())));
+        if (partial != null) return partial;
+
+        // 3. First token / word match (e.g. "Ayush" matches "Ayush Nautiyal")
+        var firstWord = q.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(firstWord) && firstWord.Length >= 3)
+        {
+            var wordMatch = staff.FirstOrDefault(s =>
+                (!string.IsNullOrWhiteSpace(s.FullName) && s.FullName.ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(firstWord)) ||
+                (!string.IsNullOrWhiteSpace(s.Username) && s.Username.Trim().Equals(firstWord, StringComparison.OrdinalIgnoreCase)));
+            if (wordMatch != null) return wordMatch;
+        }
+
+        return null;
     }
 
     private static DateTime? ParseDate(string? dateStr)
@@ -226,15 +286,26 @@ public static class TaskCsvImporter
         if (string.IsNullOrWhiteSpace(dateStr)) return null;
         var clean = dateStr.Trim();
 
-        string[] formats = { "dd-MM-yyyy", "dd/MM/yyyy", "yyyy-MM-dd", "MM/dd/yyyy", "d-M-yyyy", "d/M/yyyy" };
+        string[] formats = {
+            "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-ddTHH:mm:ss", "yyyy-MM-ddTHH:mm:ssZ",
+            "dd-MM-yyyy HH:mm:ss", "dd-MM-yyyy HH:mm", "dd/MM/yyyy HH:mm:ss", "dd/MM/yyyy HH:mm",
+            "MM/dd/yyyy HH:mm:ss", "MM/dd/yyyy HH:mm",
+            "dd-MM-yyyy", "dd/MM/yyyy", "yyyy-MM-dd", "MM/dd/yyyy", "d-M-yyyy", "d/M/yyyy"
+        };
+
         if (DateTime.TryParseExact(clean, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
         {
-            return dt;
+            return DateTime.SpecifyKind(dt, DateTimeKind.Utc);
         }
 
-        if (DateTime.TryParse(clean, out var fallback))
+        if (DateTime.TryParse(clean, CultureInfo.InvariantCulture, DateTimeStyles.None, out var fallback))
         {
-            return fallback;
+            return DateTime.SpecifyKind(fallback, DateTimeKind.Utc);
+        }
+
+        if (DateTime.TryParse(clean, out var fallbackLocal))
+        {
+            return DateTime.SpecifyKind(fallbackLocal, DateTimeKind.Utc);
         }
 
         return null;
