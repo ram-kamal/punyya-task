@@ -26,6 +26,9 @@ public class TaskItemViewModel : INotifyPropertyChanged
 
     public bool IsCompleted => _dto.Status == "COMPLETED";
     public bool HasDeliverable => !string.IsNullOrWhiteSpace(_dto.DeliverableFileName) || !string.IsNullOrWhiteSpace(_dto.DeliverableUrl) || (_dto.Attachments != null && _dto.Attachments.Count > 0);
+    public string? DeliverableUrl => _dto.DeliverableUrl;
+    public string DeliverableFileName => !string.IsNullOrWhiteSpace(_dto.DeliverableFileName) ? _dto.DeliverableFileName : "Deliverable";
+    public TaskResponseDto Dto => _dto;
     public bool CanComplete => HasDeliverable && _dto.Status != "COMPLETED";
 
     public bool IsActionButtonsVisible => !IsCompleted;

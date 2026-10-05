@@ -139,6 +139,21 @@ public class ApiClient
         return tasks ?? new List<TaskResponseDto>();
     }
 
+    public async Task<List<TaskResponseDto>> GetAllTasksAsync(string? status = null, CancellationToken ct = default)
+    {
+        var url = "/api/v1/tasks?includeUnassigned=true";
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            url += $"&status={Uri.EscapeDataString(status)}";
+        }
+
+        var response = await _httpClient.GetAsync(url, ct);
+        if (!response.IsSuccessStatusCode) return new List<TaskResponseDto>();
+
+        var tasks = await response.Content.ReadFromJsonAsync<List<TaskResponseDto>>(_jsonOptions, ct);
+        return tasks ?? new List<TaskResponseDto>();
+    }
+
     public async Task<TaskResponseDto?> UpdateTaskStatusAsync(
         Guid taskId, 
         string status, 
@@ -260,5 +275,125 @@ public class ApiClient
 
         var leaves = await response.Content.ReadFromJsonAsync<List<LeaveResponseDto>>(_jsonOptions, ct);
         return leaves ?? new List<LeaveResponseDto>();
+    }
+
+    public async Task<TaskAttachmentDto?> AttachDeliverableLinkAsync(Guid taskId, string url, string? fileName = null, CancellationToken ct = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync($"/api/v1/tasks/{taskId}/attachments/link", new AttachDeliverableLinkRequest
+        {
+            Url = url,
+            FileName = fileName
+        }, _jsonOptions, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var err = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException($"Attaching link failed: {response.StatusCode} - {err}");
+        }
+
+        return await response.Content.ReadFromJsonAsync<TaskAttachmentDto>(_jsonOptions, ct);
+    }
+
+    public async Task<List<WorkstationStatusDto>> GetWorkstationsStatusAsync(CancellationToken ct = default)
+    {
+        var response = await _httpClient.GetAsync("/api/v1/telemetry/workstations", ct);
+        if (!response.IsSuccessStatusCode) return new List<WorkstationStatusDto>();
+
+        var list = await response.Content.ReadFromJsonAsync<List<WorkstationStatusDto>>(_jsonOptions, ct);
+        return list ?? new List<WorkstationStatusDto>();
+    }
+
+    public async Task<List<LiveWorkstationEventDto>> GetRecentEventsAsync(int limit = 100, CancellationToken ct = default)
+    {
+        var response = await _httpClient.GetAsync($"/api/v1/telemetry/events?limit={limit}", ct);
+        if (!response.IsSuccessStatusCode) return new List<LiveWorkstationEventDto>();
+
+        var list = await response.Content.ReadFromJsonAsync<List<LiveWorkstationEventDto>>(_jsonOptions, ct);
+        return list ?? new List<LiveWorkstationEventDto>();
+    }
+
+    public async Task<TaskResponseDto?> CreateTaskAsync(CreateTaskRequest request, CancellationToken ct = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync("/api/v1/tasks", request, _jsonOptions, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var err = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException($"Failed to dispatch task: {response.StatusCode} - {err}");
+        }
+
+        return await response.Content.ReadFromJsonAsync<TaskResponseDto>(_jsonOptions, ct);
+    }
+
+    public async Task<TimesheetSummaryDto?> GetTimesheetSummaryAsync(string period = "today", DateTime? startDate = null, DateTime? endDate = null, CancellationToken ct = default)
+    {
+        var query = $"?period={Uri.EscapeDataString(period)}";
+        if (startDate.HasValue) query += $"&startDate={startDate.Value:yyyy-MM-dd}";
+        if (endDate.HasValue) query += $"&endDate={endDate.Value:yyyy-MM-dd}";
+
+        var response = await _httpClient.GetAsync($"/api/v1/timesheet/summary{query}", ct);
+        if (!response.IsSuccessStatusCode) return null;
+
+        return await response.Content.ReadFromJsonAsync<TimesheetSummaryDto>(_jsonOptions, ct);
+    }
+
+    public async Task<byte[]?> ExportTimesheetCsvAsync(DateTime? startDate = null, DateTime? endDate = null, string? period = "month", CancellationToken ct = default)
+    {
+        var query = $"?period={Uri.EscapeDataString(period ?? "today")}";
+        if (startDate.HasValue) query += $"&startDate={startDate.Value:yyyy-MM-dd}";
+        if (endDate.HasValue) query += $"&endDate={endDate.Value:yyyy-MM-dd}";
+
+        var response = await _httpClient.GetAsync($"/api/v1/timesheet/export/csv{query}", ct);
+        if (!response.IsSuccessStatusCode) return null;
+
+        return await response.Content.ReadAsByteArrayAsync(ct);
+    }
+
+    public async Task<List<LeaveResponseDto>> GetAllLeavesAsync(CancellationToken ct = default)
+    {
+        var response = await _httpClient.GetAsync("/api/v1/leaves", ct);
+        if (!response.IsSuccessStatusCode) return new List<LeaveResponseDto>();
+
+        var list = await response.Content.ReadFromJsonAsync<List<LeaveResponseDto>>(_jsonOptions, ct);
+        return list ?? new List<LeaveResponseDto>();
+    }
+
+    public async Task<LeaveResponseDto?> ReviewLeaveAsync(Guid leaveId, string status, string? comments = null, CancellationToken ct = default)
+    {
+        var action = status.Equals("REJECT", StringComparison.OrdinalIgnoreCase) || status.Equals("REJECTED", StringComparison.OrdinalIgnoreCase)
+            ? "reject"
+            : "approve";
+        var response = await _httpClient.PatchAsJsonAsync($"/api/v1/leaves/{leaveId}/{action}", new ReviewLeaveRequestDto
+        {
+            Comments = comments
+        }, _jsonOptions, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var err = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException($"Failed to review leave: {response.StatusCode} - {err}");
+        }
+
+        return await response.Content.ReadFromJsonAsync<LeaveResponseDto>(_jsonOptions, ct);
+    }
+
+    public async Task<List<StaffMemberDto>> GetAllStaffAsync(CancellationToken ct = default)
+    {
+        var response = await _httpClient.GetAsync("/api/v1/staff", ct);
+        if (!response.IsSuccessStatusCode) return new List<StaffMemberDto>();
+
+        var list = await response.Content.ReadFromJsonAsync<List<StaffMemberDto>>(_jsonOptions, ct);
+        return list ?? new List<StaffMemberDto>();
+    }
+
+    public async Task<StaffMemberDto?> CreateStaffAsync(CreateStaffRequest request, CancellationToken ct = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync("/api/v1/staff", request, _jsonOptions, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var err = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException($"Failed to create staff member: {response.StatusCode} - {err}");
+        }
+
+        return await response.Content.ReadFromJsonAsync<StaffMemberDto>(_jsonOptions, ct);
     }
 }

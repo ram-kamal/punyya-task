@@ -46,6 +46,14 @@ public record AttachDeliverableRequest
     public string? MimeType { get; init; }
 }
 
+public record AttachDeliverableLinkRequest
+{
+    [Required]
+    public string Url { get; init; } = string.Empty;
+
+    public string? FileName { get; init; }
+}
+
 public record TaskAttachmentDto
 {
     public Guid Id { get; init; }

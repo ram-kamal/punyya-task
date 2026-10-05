@@ -195,6 +195,32 @@ export async function updateTaskStatus(
   }
 }
 
+export async function attachDeliverableLink(
+  taskId: string,
+  url: string,
+  fileName?: string
+): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/tasks/${taskId}/attachments/link`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      },
+      body: JSON.stringify({ url, fileName }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      return { success: false, error: data.message || 'Failed to attach link.' };
+    }
+    return { success: true, data };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 export async function fetchTimesheetSummary(
   period?: string,
   startDate?: string,

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -38,13 +39,26 @@ public partial class MainWindow : Window
     private string? _activeTaskCode = null;
     private Guid? _modalTargetTaskId = null;
     private string? _stagedFilePath = null;
+    private Guid? _reviewTargetLeaveId = null;
+    private string _currentTab = "MY_DESK";
 
     private readonly ObservableCollection<TaskItemViewModel> _tasks = new();
     private readonly ObservableCollection<LeaveItemViewModel> _leaves = new();
+    private readonly ObservableCollection<AdminWorkstationItemViewModel> _workforce = new();
+    private readonly ObservableCollection<AdminTaskItemViewModel> _allTasks = new();
+    private readonly ObservableCollection<AdminTimesheetRowViewModel> _timesheets = new();
+    private readonly ObservableCollection<AdminLeaveApprovalViewModel> _adminLeaves = new();
+    private readonly ObservableCollection<AdminStaffMemberViewModel> _allStaff = new();
+    private List<StaffMemberDto> _staffMembers = new();
+
     private DispatcherTimer? _autoRefreshTimer;
     private DispatcherTimer? _toastDismissTimer;
     private DispatcherTimer? _shiftTimer;
     private DateTime? _shiftStartTime;
+
+    private bool IsAdminOrManager => _currentUser != null &&
+        (_currentUser.Role.Equals("ADMIN", StringComparison.OrdinalIgnoreCase) ||
+         _currentUser.Role.Equals("MANAGER", StringComparison.OrdinalIgnoreCase));
 
     public MainWindow()
     {
@@ -52,6 +66,11 @@ public partial class MainWindow : Window
 
         TasksItemsControl.ItemsSource = _tasks;
         LeavesItemsControl.ItemsSource = _leaves;
+        WorkforceItemsControl.ItemsSource = _workforce;
+        AllTasksItemsControl.ItemsSource = _allTasks;
+        TimesheetsItemsControl.ItemsSource = _timesheets;
+        LeaveApprovalsItemsControl.ItemsSource = _adminLeaves;
+        StaffItemsControl.ItemsSource = _allStaff;
 
         var defaultUrl = Environment.GetEnvironmentVariable("PHF_API_URL") ?? "https://punnya-api.onrender.com";
         _apiClient = new ApiClient(defaultUrl);
@@ -129,7 +148,7 @@ public partial class MainWindow : Window
             HeaderRightStack.Margin = new Avalonia.Thickness(0, 0, 0, 0);
             TxtPlatformEdition.Text = "Windows 11 Mica";
             TxtTelemetryHook.Text = "Win32 & System Hook";
-            Title = "Punnya Heart Desk — Windows 11 Mica Workstation";
+            Title = "Punnya Heart Desk — Workstation Desk & Management Console";
         }
         else
         {
@@ -139,7 +158,7 @@ public partial class MainWindow : Window
             HeaderRightStack.Margin = new Avalonia.Thickness(0, 0, 8, 0);
             TxtPlatformEdition.Text = "macOS Edition";
             TxtTelemetryHook.Text = "macOS CoreGraphics & Cocoa";
-            Title = "Punnya Heart Desk — macOS Workstation";
+            Title = "Punnya Heart Desk — macOS Console";
         }
         UpdateMaximizeButtonIcon();
     }
@@ -244,15 +263,103 @@ public partial class MainWindow : Window
             Debug.WriteLine($"[Realtime] Initial start failed: {ex.Message}");
         }
 
+        // Configure Role-Based Views
+        if (IsAdminOrManager)
+        {
+            AdminNavBarBorder.IsVisible = true;
+            RoleBadgeBorder.IsVisible = true;
+            TxtUserRoleBadge.Text = _currentUser?.Role.ToUpper() ?? "ADMIN";
+            await LoadStaffDirectoryAsync(silent: true);
+        }
+        else
+        {
+            AdminNavBarBorder.IsVisible = false;
+            RoleBadgeBorder.IsVisible = false;
+            await SwitchToTabAsync("MY_DESK");
+        }
+
         await LoadAssignedTasksAsync();
 
         _autoRefreshTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(20)
         };
-        _autoRefreshTimer.Tick += async (_, _) => await LoadAssignedTasksAsync(silent: true);
+        _autoRefreshTimer.Tick += async (_, _) =>
+        {
+            if (_currentTab == "MY_DESK")
+            {
+                await LoadAssignedTasksAsync(silent: true);
+            }
+            else if (_currentTab == "WORKFORCE")
+            {
+                await LoadWorkforceFleetAsync(silent: true);
+            }
+        };
         _autoRefreshTimer.Start();
     }
+
+    #region Tab Navigation
+
+    private async void BtnTabMyDesk_Click(object? sender, RoutedEventArgs e) => await SwitchToTabAsync("MY_DESK");
+    private async void BtnTabWorkforce_Click(object? sender, RoutedEventArgs e) => await SwitchToTabAsync("WORKFORCE");
+    private async void BtnTabTasks_Click(object? sender, RoutedEventArgs e) => await SwitchToTabAsync("TASKS");
+    private async void BtnTabTimesheets_Click(object? sender, RoutedEventArgs e) => await SwitchToTabAsync("TIMESHEETS");
+    private async void BtnTabLeaves_Click(object? sender, RoutedEventArgs e) => await SwitchToTabAsync("LEAVES");
+    private async void BtnTabStaff_Click(object? sender, RoutedEventArgs e) => await SwitchToTabAsync("STAFF");
+
+    private async Task SwitchToTabAsync(string tabName)
+    {
+        _currentTab = tabName;
+
+        // Reset tab button highlight styles
+        SetTabButtonStyle(BtnTabMyDesk, tabName == "MY_DESK");
+        SetTabButtonStyle(BtnTabWorkforce, tabName == "WORKFORCE");
+        SetTabButtonStyle(BtnTabTasks, tabName == "TASKS");
+        SetTabButtonStyle(BtnTabTimesheets, tabName == "TIMESHEETS");
+        SetTabButtonStyle(BtnTabLeaves, tabName == "LEAVES");
+        SetTabButtonStyle(BtnTabStaff, tabName == "STAFF");
+
+        // Toggle Content Visibility
+        ViewMyDesk.IsVisible = tabName == "MY_DESK";
+        ViewWorkforce.IsVisible = tabName == "WORKFORCE";
+        ViewTaskDispatch.IsVisible = tabName == "TASKS";
+        ViewTimesheets.IsVisible = tabName == "TIMESHEETS";
+        ViewLeaveApprovals.IsVisible = tabName == "LEAVES";
+        ViewStaffDirectory.IsVisible = tabName == "STAFF";
+
+        // Load data on demand
+        switch (tabName)
+        {
+            case "MY_DESK":
+                await LoadAssignedTasksAsync(silent: true);
+                break;
+            case "WORKFORCE":
+                await LoadWorkforceFleetAsync();
+                break;
+            case "TASKS":
+                await LoadAllAdminTasksAsync();
+                break;
+            case "TIMESHEETS":
+                await LoadTimesheetSummaryAsync();
+                break;
+            case "LEAVES":
+                await LoadAdminLeavesAsync();
+                break;
+            case "STAFF":
+                await LoadStaffDirectoryAsync();
+                break;
+        }
+    }
+
+    private static void SetTabButtonStyle(Button btn, bool isActive)
+    {
+        btn.Classes.Clear();
+        btn.Classes.Add(isActive ? "tabBtnActive" : "tabBtn");
+    }
+
+    #endregion
+
+    #region Telemetry & Realtime Callbacks
 
     private void OnForegroundFocusChanged(string process, string title)
     {
@@ -313,6 +420,10 @@ public partial class MainWindow : Window
                 var title = string.IsNullOrWhiteSpace(task.Title) ? "New Task" : task.Title;
                 ShowToast("📋 New Task Assigned", $"You have been assigned: {title}");
                 await LoadAssignedTasksAsync(silent: true);
+                if (IsAdminOrManager)
+                {
+                    await LoadAllAdminTasksAsync(silent: true);
+                }
             }
             catch (Exception ex)
             {
@@ -328,6 +439,10 @@ public partial class MainWindow : Window
             try
             {
                 await LoadAssignedTasksAsync(silent: true);
+                if (IsAdminOrManager)
+                {
+                    await LoadAllAdminTasksAsync(silent: true);
+                }
             }
             catch (Exception ex)
             {
@@ -347,11 +462,19 @@ public partial class MainWindow : Window
                 if (evt.EventType != null && evt.EventType.StartsWith("LEAVE_"))
                 {
                     await LoadLeaveHistoryAsync();
+                    if (IsAdminOrManager)
+                    {
+                        await LoadAdminLeavesAsync(silent: true);
+                    }
                     ShowToast("🏖️ Leave Request", evt.Details ?? "Leave update received");
                 }
                 else
                 {
                     await LoadAssignedTasksAsync(silent: true);
+                    if (IsAdminOrManager && _currentTab == "WORKFORCE")
+                    {
+                        await LoadWorkforceFleetAsync(silent: true);
+                    }
                 }
                 TxtStatusBar.Text = $"Event: {evt.EventType} • {evt.Details}";
             }
@@ -374,6 +497,10 @@ public partial class MainWindow : Window
                 {
                     await LoadLeaveHistoryAsync();
                 }
+                if (IsAdminOrManager && _currentTab == "LEAVES")
+                {
+                    await LoadAdminLeavesAsync(silent: true);
+                }
             }
             catch (Exception ex)
             {
@@ -381,6 +508,10 @@ public partial class MainWindow : Window
             }
         });
     }
+
+    #endregion
+
+    #region Data Loading Methods
 
     private async Task LoadAssignedTasksAsync(bool silent = false)
     {
@@ -393,44 +524,6 @@ public partial class MainWindow : Window
             {
                 bool isActive = _activeTaskId == t.Id;
                 _tasks.Add(new TaskItemViewModel(t, isActive));
-            }
-
-            if (_tasks.Count == 0)
-            {
-                _tasks.Add(new TaskItemViewModel(new TaskResponseDto
-                {
-                    Id = Guid.NewGuid(),
-                    TaskCode = "TSK-101",
-                    Title = "Verify Ambulatory ECG Telemetry Stream",
-                    Description = "Inspect real-time holter telemetry packets and log baseline cardiac metrics.",
-                    Priority = "CRITICAL",
-                    Status = "IN_PROGRESS",
-                    DeliverableRequired = true,
-                    DeliverableFileName = "ECG_Telemetry_Batch.pdf"
-                }, true));
-
-                _tasks.Add(new TaskItemViewModel(new TaskResponseDto
-                {
-                    Id = Guid.NewGuid(),
-                    TaskCode = "TSK-102",
-                    Title = "Weekly Cardiac Screening Camp Schedule",
-                    Description = "Coordinate medical van dispatch, nurse assignments, and diagnostic kits.",
-                    Priority = "HIGH",
-                    Status = "ASSIGNED",
-                    DeliverableRequired = true
-                }, false));
-
-                _tasks.Add(new TaskItemViewModel(new TaskResponseDto
-                {
-                    Id = Guid.NewGuid(),
-                    TaskCode = "TSK-103",
-                    Title = "Foundation OPD Workstation Audit",
-                    Description = "Confirm clinician availability and workstation pairing for upcoming week.",
-                    Priority = "MEDIUM",
-                    Status = "COMPLETED",
-                    DeliverableRequired = true,
-                    DeliverableFileName = "OPD_Audit_Approved.xlsx"
-                }, false));
             }
 
             if (!silent)
@@ -447,6 +540,167 @@ public partial class MainWindow : Window
             }
         }
     }
+
+    private async Task LoadWorkforceFleetAsync(bool silent = false)
+    {
+        try
+        {
+            var stations = await _apiClient.GetWorkstationsStatusAsync();
+            _workforce.Clear();
+
+            int activeCount = 0;
+            int idleCount = 0;
+
+            foreach (var s in stations)
+            {
+                _workforce.Add(new AdminWorkstationItemViewModel(s));
+                if (s.State.Equals("ACTIVE", StringComparison.OrdinalIgnoreCase)) activeCount++;
+                else if (s.State.Equals("IDLE", StringComparison.OrdinalIgnoreCase)) idleCount++;
+            }
+
+            TxtFleetActiveCount.Text = activeCount.ToString();
+            TxtFleetIdleCount.Text = idleCount.ToString();
+            TxtFleetTotalCount.Text = stations.Count.ToString();
+
+            if (!silent)
+            {
+                TxtStatusBar.Text = $"Fleet telemetry updated ({stations.Count} workstations) at {DateTime.Now:HH:mm:ss}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Workforce] Error: {ex.Message}");
+        }
+    }
+
+    private async Task LoadAllAdminTasksAsync(bool silent = false)
+    {
+        try
+        {
+            var tasks = await _apiClient.GetAllTasksAsync();
+            _allTasks.Clear();
+
+            foreach (var t in tasks)
+            {
+                _allTasks.Add(new AdminTaskItemViewModel(t));
+            }
+
+            TxtAdminTasksCount.Text = $"All Workforce Tasks ({tasks.Count} total)";
+
+            if (!silent)
+            {
+                TxtStatusBar.Text = $"Workforce tasks updated ({tasks.Count} tasks) at {DateTime.Now:HH:mm:ss}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[AllTasks] Error: {ex.Message}");
+        }
+    }
+
+    private async Task LoadTimesheetSummaryAsync(bool silent = false)
+    {
+        try
+        {
+            var summary = await _apiClient.GetTimesheetSummaryAsync("today");
+            _timesheets.Clear();
+
+            if (summary != null)
+            {
+                TxtTsActiveStations.Text = summary.ActiveStationsCount.ToString();
+                TxtTsTotalHours.Text = $"{summary.TotalHoursLoggedToday:F1}h";
+                TxtTsAvgFocus.Text = $"{summary.AverageEfficiencyPercentage:F0}%";
+                TxtTsActiveTasks.Text = summary.TasksInProgressCount.ToString();
+
+                foreach (var row in summary.Rows)
+                {
+                    _timesheets.Add(new AdminTimesheetRowViewModel(row));
+                }
+            }
+
+            if (!silent)
+            {
+                TxtStatusBar.Text = $"Timesheet metrics loaded at {DateTime.Now:HH:mm:ss}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Timesheets] Error: {ex.Message}");
+        }
+    }
+
+    private async Task LoadAdminLeavesAsync(bool silent = false)
+    {
+        try
+        {
+            var leaves = await _apiClient.GetAllLeavesAsync();
+            _adminLeaves.Clear();
+
+            foreach (var l in leaves)
+            {
+                _adminLeaves.Add(new AdminLeaveApprovalViewModel(l));
+            }
+
+            if (!silent)
+            {
+                TxtStatusBar.Text = $"Leave applications updated ({leaves.Count} records) at {DateTime.Now:HH:mm:ss}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[AdminLeaves] Error: {ex.Message}");
+        }
+    }
+
+    private async Task LoadStaffDirectoryAsync(bool silent = false)
+    {
+        try
+        {
+            var staff = await _apiClient.GetAllStaffAsync();
+            _staffMembers = staff;
+            _allStaff.Clear();
+
+            foreach (var s in staff)
+            {
+                _allStaff.Add(new AdminStaffMemberViewModel(s));
+            }
+
+            PopulateDispatchAssigneeDropdown();
+
+            if (!silent)
+            {
+                TxtStatusBar.Text = $"Staff directory updated ({staff.Count} members) at {DateTime.Now:HH:mm:ss}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Staff] Error: {ex.Message}");
+        }
+    }
+
+    private void PopulateDispatchAssigneeDropdown()
+    {
+        var items = new List<ComboBoxItem>
+        {
+            new() { Content = "Unassigned (Team Pool)", Tag = "" }
+        };
+
+        foreach (var s in _staffMembers.OrderBy(m => m.FullName))
+        {
+            items.Add(new ComboBoxItem
+            {
+                Content = $"{s.FullName} ({s.Role} • {s.WorkMode})",
+                Tag = s.Id.ToString()
+            });
+        }
+
+        CmbDispatchAssignee.ItemsSource = items;
+        CmbDispatchAssignee.SelectedIndex = 0;
+    }
+
+    #endregion
+
+    #region Authentication & Shift Management
 
     private async void BtnDoLogin_Click(object? sender, RoutedEventArgs e)
     {
@@ -585,7 +839,7 @@ public partial class MainWindow : Window
             if (_shiftStartTime.HasValue)
             {
                 var elapsed = DateTime.UtcNow - _shiftStartTime.Value;
-                TxtShiftDigitalClock.Text = elapsed.ToString(@"hh\:mm\:ss");
+                TxtShiftDigitalClock.Text = $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
             }
         };
         _shiftTimer.Start();
@@ -598,37 +852,90 @@ public partial class MainWindow : Window
         ShiftClockBadge.IsVisible = false;
     }
 
-    private void BtnStartPauseTask_Click(object? sender, RoutedEventArgs e)
+    #endregion
+
+    #region Task Item Actions & Deliverables
+
+    private async void BtnStartPauseTask_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is Button btn && btn.Tag is Guid taskId)
         {
-            var taskVm = _tasks.FirstOrDefault(t => t.Id == taskId);
-            if (taskVm == null) return;
+            var target = _tasks.FirstOrDefault(t => t.Id == taskId);
+            if (target == null) return;
 
             if (_activeTaskId == taskId)
             {
-                // Pause current task
+                // Pause task
                 _activeTaskId = null;
                 _activeTaskCode = null;
-                taskVm.IsCurrentActive = false;
+                target.IsCurrentActive = false;
                 _engine.SetCurrentTask(null, null);
-
                 TxtActiveTaskBadge.Text = "No task linked";
-                TxtActiveTaskBadge.Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184));
+
+                try
+                {
+                    await _apiClient.UpdateTaskStatusAsync(taskId, TaskItemStatus.ASSIGNED.ToString());
+                }
+                catch { }
+
+                ShowToast("Task Paused", $"Paused tracking for {target.TaskCode}");
             }
             else
             {
-                // Clear any other active task
+                // Start or switch to this task
                 foreach (var t in _tasks) t.IsCurrentActive = false;
+                target.IsCurrentActive = true;
+                _activeTaskId = target.Id;
+                _activeTaskCode = target.TaskCode;
 
-                // Start this task
-                _activeTaskId = taskId;
-                _activeTaskCode = taskVm.TaskCode;
-                taskVm.IsCurrentActive = true;
-                _engine.SetCurrentTask(taskId, taskVm.TaskCode);
+                _engine.SetCurrentTask(target.Id, target.TaskCode);
+                TxtActiveTaskBadge.Text = $"Linked: {target.TaskCode}";
 
-                TxtActiveTaskBadge.Text = $"Linked: {taskVm.TaskCode}";
-                TxtActiveTaskBadge.Foreground = new SolidColorBrush(Color.FromRgb(52, 211, 153));
+                try
+                {
+                    await _apiClient.UpdateTaskStatusAsync(taskId, TaskItemStatus.IN_PROGRESS.ToString());
+                }
+                catch { }
+
+                ShowToast("Task Active", $"Now tracking {target.TaskCode}: {target.Title}");
+            }
+        }
+    }
+
+    private void BtnViewDeliverable_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is Guid taskId)
+        {
+            var personalTask = _tasks.FirstOrDefault(t => t.Id == taskId)?.Dto;
+            var adminTask = _allTasks.FirstOrDefault(t => t.Id == taskId)?.Dto;
+            var task = personalTask ?? adminTask;
+
+            if (task == null) return;
+
+            string targetUrl;
+            if (!string.IsNullOrWhiteSpace(task.DeliverableUrl) &&
+                (task.DeliverableUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                 task.DeliverableUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+            {
+                targetUrl = task.DeliverableUrl;
+            }
+            else
+            {
+                var baseUri = _apiClient.BaseUrl.TrimEnd('/');
+                targetUrl = $"{baseUri}/api/v1/tasks/{task.Id}/deliverable";
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = targetUrl,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                ShowToast("⚠️ Deliverable Link", ex.Message);
             }
         }
     }
@@ -686,12 +993,16 @@ public partial class MainWindow : Window
             }
             else if (!string.IsNullOrWhiteSpace(url))
             {
-                await _apiClient.UpdateTaskStatusAsync(_modalTargetTaskId.Value, TaskItemStatus.IN_PROGRESS.ToString(), url, "External Link");
+                await _apiClient.AttachDeliverableLinkAsync(_modalTargetTaskId.Value, url, "External Proof Link");
             }
 
             AttachDeliverableModal.IsVisible = false;
             ShowToast("✓ Deliverable Attached", "Work proof recorded. You may now complete this task.");
             await LoadAssignedTasksAsync(silent: true);
+            if (IsAdminOrManager)
+            {
+                await LoadAllAdminTasksAsync(silent: true);
+            }
         }
         catch (Exception ex)
         {
@@ -716,6 +1027,10 @@ public partial class MainWindow : Window
 
                 ShowToast("🎉 Task Completed", "Marked complete and submitted for manager review.");
                 await LoadAssignedTasksAsync(silent: true);
+                if (IsAdminOrManager)
+                {
+                    await LoadAllAdminTasksAsync(silent: true);
+                }
             }
             catch (Exception ex)
             {
@@ -724,16 +1039,262 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void BtnRefresh_Click(object? sender, RoutedEventArgs e)
+    #endregion
+
+    #region Admin Management Console Actions
+
+    private void BtnOpenDispatchModal_Click(object? sender, RoutedEventArgs e)
     {
-        await LoadAssignedTasksAsync();
+        TxtDispatchTitle.Text = "";
+        TxtDispatchDescription.Text = "";
+        TxtDispatchDueDate.Text = "";
+        TxtDispatchError.IsVisible = false;
+        ChkDispatchDeliverableRequired.IsChecked = true;
+        DispatchTaskModal.IsVisible = true;
     }
 
-    private async void BtnSyncNow_Click(object? sender, RoutedEventArgs e)
+    private void BtnCancelDispatch_Click(object? sender, RoutedEventArgs e)
     {
-        TxtSyncInfo.Text = "Syncing now...";
-        await _syncWorker.SyncPendingBatchAsync();
+        DispatchTaskModal.IsVisible = false;
     }
+
+    private async void BtnSubmitDispatch_Click(object? sender, RoutedEventArgs e)
+    {
+        TxtDispatchError.IsVisible = false;
+        var title = TxtDispatchTitle.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            TxtDispatchError.Text = "Please enter a task title.";
+            TxtDispatchError.IsVisible = true;
+            return;
+        }
+
+        var description = TxtDispatchDescription.Text?.Trim();
+        var priorityItem = CmbDispatchPriority.SelectedItem as ComboBoxItem;
+        var priority = priorityItem?.Tag?.ToString() ?? "MEDIUM";
+        var deliverableReq = ChkDispatchDeliverableRequired.IsChecked == true;
+
+        Guid? assignedTo = null;
+        if (CmbDispatchAssignee.SelectedItem is ComboBoxItem assigneeItem &&
+            assigneeItem.Tag is string assigneeStr &&
+            Guid.TryParse(assigneeStr, out var assignedGuid))
+        {
+            assignedTo = assignedGuid;
+        }
+
+        DateTime? dueDate = null;
+        if (DateTime.TryParse(TxtDispatchDueDate.Text?.Trim(), out var parsedDue))
+        {
+            dueDate = parsedDue;
+        }
+
+        try
+        {
+            var request = new CreateTaskRequest
+            {
+                Title = title,
+                Description = description,
+                Priority = priority,
+                AssignedTo = assignedTo,
+                DeliverableRequired = deliverableReq,
+                DueDate = dueDate
+            };
+
+            await _apiClient.CreateTaskAsync(request);
+            DispatchTaskModal.IsVisible = false;
+            ShowToast("🚀 Task Dispatched", $"Created: {title}");
+
+            await LoadAllAdminTasksAsync(silent: true);
+            await LoadAssignedTasksAsync(silent: true);
+        }
+        catch (Exception ex)
+        {
+            TxtDispatchError.Text = $"Failed to dispatch: {ex.Message}";
+            TxtDispatchError.IsVisible = true;
+        }
+    }
+
+    private void BtnApproveLeave_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is Guid leaveId)
+        {
+            _reviewTargetLeaveId = leaveId;
+            var item = _adminLeaves.FirstOrDefault(l => l.Id == leaveId);
+
+            TxtReviewLeaveTitle.Text = "Approve Leave Request";
+            TxtReviewLeaveDetails.Text = $"Employee: {item?.UserName} ({item?.TotalDaysText}) — {item?.DateRangeText}";
+            TxtReviewLeaveReason.Text = $"Reason: {item?.Reason}";
+            TxtReviewSupervisorComments.Text = "Approved.";
+            ReviewLeaveModal.IsVisible = true;
+        }
+    }
+
+    private void BtnRejectLeave_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is Guid leaveId)
+        {
+            _reviewTargetLeaveId = leaveId;
+            var item = _adminLeaves.FirstOrDefault(l => l.Id == leaveId);
+
+            TxtReviewLeaveTitle.Text = "Reject Leave Request";
+            TxtReviewLeaveDetails.Text = $"Employee: {item?.UserName} ({item?.TotalDaysText}) — {item?.DateRangeText}";
+            TxtReviewLeaveReason.Text = $"Reason: {item?.Reason}";
+            TxtReviewSupervisorComments.Text = "";
+            ReviewLeaveModal.IsVisible = true;
+        }
+    }
+
+    private void BtnCancelReviewLeave_Click(object? sender, RoutedEventArgs e)
+    {
+        ReviewLeaveModal.IsVisible = false;
+        _reviewTargetLeaveId = null;
+    }
+
+    private async void BtnConfirmApproveLeave_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!_reviewTargetLeaveId.HasValue) return;
+
+        try
+        {
+            var comments = TxtReviewSupervisorComments.Text?.Trim();
+            await _apiClient.ReviewLeaveAsync(_reviewTargetLeaveId.Value, "APPROVE", comments);
+            ReviewLeaveModal.IsVisible = false;
+            _reviewTargetLeaveId = null;
+
+            ShowToast("✓ Leave Approved", "Employee application was approved.");
+            await LoadAdminLeavesAsync(silent: true);
+        }
+        catch (Exception ex)
+        {
+            ShowToast("⚠️ Review Error", ex.Message);
+        }
+    }
+
+    private async void BtnConfirmRejectLeave_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!_reviewTargetLeaveId.HasValue) return;
+
+        try
+        {
+            var comments = TxtReviewSupervisorComments.Text?.Trim();
+            await _apiClient.ReviewLeaveAsync(_reviewTargetLeaveId.Value, "REJECT", comments);
+            ReviewLeaveModal.IsVisible = false;
+            _reviewTargetLeaveId = null;
+
+            ShowToast("✕ Leave Rejected", "Employee application was rejected.");
+            await LoadAdminLeavesAsync(silent: true);
+        }
+        catch (Exception ex)
+        {
+            ShowToast("⚠️ Review Error", ex.Message);
+        }
+    }
+
+    private void BtnOpenAddStaffModal_Click(object? sender, RoutedEventArgs e)
+    {
+        TxtAddStaffFullName.Text = "";
+        TxtAddStaffEmail.Text = "";
+        TxtAddStaffUsername.Text = "";
+        TxtAddStaffPassword.Text = "";
+        TxtAddStaffStationId.Text = "";
+        TxtAddStaffError.IsVisible = false;
+        AddStaffModal.IsVisible = true;
+    }
+
+    private void BtnCancelAddStaff_Click(object? sender, RoutedEventArgs e)
+    {
+        AddStaffModal.IsVisible = false;
+    }
+
+    private async void BtnSubmitAddStaff_Click(object? sender, RoutedEventArgs e)
+    {
+        TxtAddStaffError.IsVisible = false;
+        var fullName = TxtAddStaffFullName.Text?.Trim();
+        var email = TxtAddStaffEmail.Text?.Trim();
+        var password = TxtAddStaffPassword.Text?.Trim();
+
+        if (string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            TxtAddStaffError.Text = "Full Name, Email and Password are required.";
+            TxtAddStaffError.IsVisible = true;
+            return;
+        }
+
+        var roleItem = CmbAddStaffRole.SelectedItem as ComboBoxItem;
+        var role = roleItem?.Tag?.ToString() ?? "EMPLOYEE";
+
+        var workModeItem = CmbAddStaffWorkMode.SelectedItem as ComboBoxItem;
+        var workMode = workModeItem?.Tag?.ToString() ?? "IN_OFFICE";
+
+        var username = TxtAddStaffUsername.Text?.Trim();
+        var stationId = TxtAddStaffStationId.Text?.Trim();
+
+        try
+        {
+            var request = new CreateStaffRequest
+            {
+                FullName = fullName,
+                Email = email,
+                Username = string.IsNullOrWhiteSpace(username) ? null : username,
+                Password = password,
+                Role = role,
+                WorkMode = workMode,
+                StationId = string.IsNullOrWhiteSpace(stationId) ? null : stationId
+            };
+
+            await _apiClient.CreateStaffAsync(request);
+            AddStaffModal.IsVisible = false;
+            ShowToast("👥 Team Member Created", $"{fullName} has been added.");
+
+            await LoadStaffDirectoryAsync(silent: true);
+        }
+        catch (Exception ex)
+        {
+            TxtAddStaffError.Text = $"Failed to add staff: {ex.Message}";
+            TxtAddStaffError.IsVisible = true;
+        }
+    }
+
+    private async void BtnExportTimesheetCsv_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            TxtStatusBar.Text = "Downloading timesheet CSV export...";
+            var csvBytes = await _apiClient.ExportTimesheetCsvAsync(period: "today");
+
+            if (csvBytes != null && csvBytes.Length > 0)
+            {
+                var desktopDir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                var filePath = Path.Combine(desktopDir, $"Punnya_Timesheet_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+                await File.WriteAllBytesAsync(filePath, csvBytes);
+
+                ShowToast("⬇ CSV Exported", $"Saved to Desktop: {Path.GetFileName(filePath)}");
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = filePath,
+                    UseShellExecute = true
+                });
+            }
+            else
+            {
+                ShowToast("⚠️ Export CSV", "No timesheet records available for today.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast("⚠️ Export Failed", ex.Message);
+        }
+    }
+
+    private async void BtnRefreshWorkforce_Click(object? sender, RoutedEventArgs e) => await LoadWorkforceFleetAsync();
+    private async void BtnRefreshAllTasks_Click(object? sender, RoutedEventArgs e) => await LoadAllAdminTasksAsync();
+    private async void BtnRefreshTimesheet_Click(object? sender, RoutedEventArgs e) => await LoadTimesheetSummaryAsync();
+    private async void BtnRefreshAdminLeaves_Click(object? sender, RoutedEventArgs e) => await LoadAdminLeavesAsync();
+    private async void BtnRefreshStaff_Click(object? sender, RoutedEventArgs e) => await LoadStaffDirectoryAsync();
+
+    #endregion
+
+    #region Leave Center (Personal)
 
     private async void BtnOpenLeaveCenter_Click(object? sender, RoutedEventArgs e)
     {
@@ -826,6 +1387,21 @@ public partial class MainWindow : Window
         }
     }
 
+    #endregion
+
+    #region Standard Desktop Actions & Lifecycle
+
+    private async void BtnRefresh_Click(object? sender, RoutedEventArgs e)
+    {
+        await LoadAssignedTasksAsync();
+    }
+
+    private async void BtnSyncNow_Click(object? sender, RoutedEventArgs e)
+    {
+        TxtSyncInfo.Text = "Syncing now...";
+        await _syncWorker.SyncPendingBatchAsync();
+    }
+
     private void ShowToast(string title, string message)
     {
         TxtToastTitle.Text = title;
@@ -856,8 +1432,22 @@ public partial class MainWindow : Window
         _apiClient.Logout();
         _tasks.Clear();
         _leaves.Clear();
+        _workforce.Clear();
+        _allTasks.Clear();
+        _timesheets.Clear();
+        _adminLeaves.Clear();
+        _allStaff.Clear();
 
-        // Reload remembered credentials into textboxes so employee doesn't have to retype
+        AdminNavBarBorder.IsVisible = false;
+        RoleBadgeBorder.IsVisible = false;
+        ViewMyDesk.IsVisible = true;
+        ViewWorkforce.IsVisible = false;
+        ViewTaskDispatch.IsVisible = false;
+        ViewTimesheets.IsVisible = false;
+        ViewLeaveApprovals.IsVisible = false;
+        ViewStaffDirectory.IsVisible = false;
+
+        // Reload remembered credentials into textboxes
         var (savedUser, savedPass, remember) = CredentialStorage.LoadCredentials();
         if (remember && !string.IsNullOrEmpty(savedUser))
         {
@@ -923,4 +1513,6 @@ public partial class MainWindow : Window
             Environment.Exit(0);
         }
     }
+
+    #endregion
 }

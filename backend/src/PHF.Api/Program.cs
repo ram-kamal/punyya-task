@@ -10,6 +10,7 @@ using PHF.Infrastructure.Data;
 using PHF.Infrastructure.Services;
 using PHF.Realtime.Hubs;
 using PHF.Realtime.Services;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -323,6 +324,23 @@ app.UseCors("AllowConfigured");
 app.UseRateLimiter();
 app.UseDefaultFiles();
 app.UseStaticFiles();
+
+// Serve uploaded deliverables
+var storagePath = builder.Configuration["Storage:LocalPath"];
+var deliverablesDir = !string.IsNullOrWhiteSpace(storagePath) 
+    ? storagePath 
+    : Path.Combine(AppContext.BaseDirectory, "storage", "deliverables");
+
+if (!Directory.Exists(deliverablesDir))
+{
+    Directory.CreateDirectory(deliverablesDir);
+}
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(deliverablesDir),
+    RequestPath = "/storage/deliverables"
+});
 
 app.UseAuthentication();
 app.UseAuthorization();

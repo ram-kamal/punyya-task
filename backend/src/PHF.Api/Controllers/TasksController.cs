@@ -153,6 +153,42 @@ public class TasksController : ControllerBase
         return Ok(attachment);
     }
 
+    [Authorize]
+    [HttpPost("{id:guid}/attachments/link")]
+    public async Task<IActionResult> AttachDeliverableLink(
+        Guid id,
+        [FromBody] AttachDeliverableLinkRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request == null || string.IsNullOrWhiteSpace(request.Url))
+        {
+            return BadRequest(new { message = "Deliverable URL or link is required." });
+        }
+
+        var trimmedUrl = request.Url.Trim();
+        if (!trimmedUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !trimmedUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            trimmedUrl = "https://" + trimmedUrl;
+        }
+
+        var userId = GetCurrentUserId();
+        var fileName = !string.IsNullOrWhiteSpace(request.FileName) 
+            ? request.FileName.Trim() 
+            : "External Proof Link";
+
+        var attachment = await _taskService.AttachDeliverableAsync(new AttachDeliverableRequest
+        {
+            TaskId = id,
+            DeliverableUrl = trimmedUrl,
+            FileName = fileName,
+            FileSizeBytes = 0,
+            MimeType = "text/uri-list"
+        }, userId, cancellationToken);
+
+        return Ok(attachment);
+    }
+
     [HttpGet("{id:guid}/deliverable")]
     public async Task<IActionResult> DownloadDeliverable(Guid id, CancellationToken cancellationToken)
     {
@@ -160,6 +196,13 @@ public class TasksController : ControllerBase
         if (task == null || string.IsNullOrWhiteSpace(task.DeliverableUrl))
         {
             return NotFound(new { message = "No deliverable found for this task." });
+        }
+
+        // External Link Deliverable: Redirect immediately to destination URL
+        if (task.DeliverableUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            task.DeliverableUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return Redirect(task.DeliverableUrl);
         }
 
         var fileResult = await _storageService.GetFileAsync(task.DeliverableUrl, cancellationToken);

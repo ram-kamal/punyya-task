@@ -107,5 +107,34 @@
             <Setter Property="BorderBrush" Value="#E11D48" />
             <Setter Property="Background" Value="#28000000" />
         </Style>
+        <!-- Navigation Tab Buttons -->
+        <Style Selector="Button.tabBtn">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#94A3B8" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="13,7" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.tabBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#15FFFFFF" />
+            <Setter Property="Foreground" Value="#F8FAFC" />
+        </Style>
+        <Style Selector="Button.tabBtnActive">
+            <Setter Property="Background" Value="#25E11D48" />
+            <Setter Property="Foreground" Value="#FDA4AF" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="13,7" />
+            <Setter Property="BorderBrush" Value="#50E11D48" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.tabBtnActive:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#35E11D48" />
+        </Style>
     </Application.Styles>
 </Application>
