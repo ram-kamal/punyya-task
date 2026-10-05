@@ -352,23 +352,22 @@ public class TaskService : ITaskService
     public async Task<bool> DeleteTaskAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var task = await _dbContext.Tasks
-            .Include(t => t.Attachments)
-            .Include(t => t.ActivityLogs)
+            .AsNoTracking()
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
         if (task == null) return false;
 
-        if (task.ActivityLogs != null && task.ActivityLogs.Any())
-        {
-            _dbContext.AppActivityLogs.RemoveRange(task.ActivityLogs);
-        }
+        // Disassociate activity logs so historical timesheet data remains intact without FK violation
+        await _dbContext.AppActivityLogs
+            .Where(l => l.TaskId == id)
+            .ExecuteUpdateAsync(s => s.SetProperty(l => l.TaskId, (Guid?)null), cancellationToken);
 
-        if (task.Attachments != null && task.Attachments.Any())
-        {
-            _dbContext.TaskAttachments.RemoveRange(task.Attachments);
-        }
+        await _dbContext.TaskAttachments
+            .Where(a => a.TaskId == id)
+            .ExecuteDeleteAsync(cancellationToken);
 
-        _dbContext.Tasks.Remove(task);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.Tasks
+            .Where(t => t.Id == id)
+            .ExecuteDeleteAsync(cancellationToken);
 
         await _realtimeNotifier.BroadcastWorkstationEventAsync(new LiveWorkstationEventDto
         {
@@ -383,6 +382,50 @@ public class TaskService : ITaskService
 
     private static readonly int[] ReminderMilestoneDays = { 5, 15, 20, 25, 28, 29, 30 };
 
+    private async Task EnsureBackupTableExistsAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (_dbContext.Database.IsSqlite())
+            {
+                await _dbContext.Database.ExecuteSqlRawAsync(@"
+                    CREATE TABLE IF NOT EXISTS task_backups (
+                        id TEXT PRIMARY KEY,
+                        task_count INTEGER NOT NULL,
+                        tasks_json TEXT NOT NULL,
+                        created_at TEXT NOT NULL,
+                        expires_at TEXT NOT NULL,
+                        deleted_by TEXT,
+                        deleted_by_name TEXT,
+                        is_restored INTEGER NOT NULL DEFAULT 0,
+                        restored_at TEXT,
+                        restored_by TEXT,
+                        dismissed_days_json TEXT
+                    );
+                ", cancellationToken);
+            }
+            else
+            {
+                await _dbContext.Database.ExecuteSqlRawAsync(@"
+                    CREATE TABLE IF NOT EXISTS task_backups (
+                        id UUID PRIMARY KEY,
+                        task_count INTEGER NOT NULL,
+                        tasks_json TEXT NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                        deleted_by UUID,
+                        deleted_by_name TEXT,
+                        is_restored BOOLEAN NOT NULL DEFAULT FALSE,
+                        restored_at TIMESTAMP WITH TIME ZONE,
+                        restored_by UUID,
+                        dismissed_days_json TEXT
+                    );
+                ", cancellationToken);
+            }
+        }
+        catch { /* Ignore if already exists */ }
+    }
+
     public async Task<BulkDeleteTasksResponse> BulkDeleteTasksAsync(List<Guid> taskIds, CancellationToken cancellationToken = default)
     {
         if (taskIds == null || taskIds.Count == 0)
@@ -390,52 +433,43 @@ public class TaskService : ITaskService
             return new BulkDeleteTasksResponse { DeletedCount = 0, Message = "No task IDs provided." };
         }
 
-        var tasks = await _dbContext.Tasks
-            .Include(t => t.Attachments)
-            .Include(t => t.ActivityLogs)
+        // Disassociate activity logs to preserve payroll timesheets
+        await _dbContext.AppActivityLogs
+            .Where(l => l.TaskId != null && taskIds.Contains(l.TaskId.Value))
+            .ExecuteUpdateAsync(s => s.SetProperty(l => l.TaskId, (Guid?)null), cancellationToken);
+
+        await _dbContext.TaskAttachments
+            .Where(a => taskIds.Contains(a.TaskId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var count = await _dbContext.Tasks
             .Where(t => taskIds.Contains(t.Id))
-            .ToListAsync(cancellationToken);
-
-        if (tasks.Count == 0)
-        {
-            return new BulkDeleteTasksResponse { DeletedCount = 0, Message = "No matching tasks found." };
-        }
-
-        foreach (var task in tasks)
-        {
-            if (task.ActivityLogs != null && task.ActivityLogs.Any())
-            {
-                _dbContext.AppActivityLogs.RemoveRange(task.ActivityLogs);
-            }
-            if (task.Attachments != null && task.Attachments.Any())
-            {
-                _dbContext.TaskAttachments.RemoveRange(task.Attachments);
-            }
-        }
-
-        _dbContext.Tasks.RemoveRange(tasks);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+            .ExecuteDeleteAsync(cancellationToken);
 
         await _realtimeNotifier.BroadcastWorkstationEventAsync(new LiveWorkstationEventDto
         {
             StationId = "ALL",
             EventType = "TASKS_BULK_DELETED",
-            Details = $"Bulk removed {tasks.Count} tasks",
-            TaskCode = $"{tasks.Count} TASKS"
+            Details = $"Bulk removed {count} tasks",
+            TaskCode = $"{count} TASKS"
         });
 
         return new BulkDeleteTasksResponse
         {
-            DeletedCount = tasks.Count,
-            Message = $"Successfully deleted {tasks.Count} tasks."
+            DeletedCount = count,
+            Message = $"Successfully deleted {count} tasks."
         };
     }
 
     public async Task<DeleteAllTasksResponse> DeleteAllTasksAsync(Guid deletedBy, string deletedByName, CancellationToken cancellationToken = default)
     {
+        await EnsureBackupTableExistsAsync(cancellationToken);
+
         var allTasks = await _dbContext.Tasks
             .Include(t => t.Attachments)
-            .Include(t => t.ActivityLogs)
+            .Include(t => t.AssignedToUser)
+            .Include(t => t.AssignedByUser)
+            .AsNoTracking()
             .ToListAsync(cancellationToken);
 
         if (allTasks.Count == 0)
@@ -450,8 +484,15 @@ public class TaskService : ITaskService
             };
         }
 
+        // Fast aggregate tracked seconds query without loading thousands of individual activity log entities
+        var trackedSecondsMap = await _dbContext.AppActivityLogs
+            .Where(l => l.TaskId != null)
+            .GroupBy(l => l.TaskId!.Value)
+            .Select(g => new { TaskId = g.Key, Total = g.Sum(l => l.DurationSeconds) })
+            .ToDictionaryAsync(x => x.TaskId, x => x.Total, cancellationToken);
+
         // Prepare backup payload
-        var backupDtos = allTasks.Select(MapToDto).ToList();
+        var backupDtos = allTasks.Select(t => MapToDtoWithSeconds(t, trackedSecondsMap.GetValueOrDefault(t.Id, 0))).ToList();
         var backupJson = System.Text.Json.JsonSerializer.Serialize(backupDtos);
 
         var now = DateTime.UtcNow;
@@ -471,22 +512,16 @@ public class TaskService : ITaskService
         };
 
         _dbContext.TaskBackups.Add(backup);
-
-        // Remove all task activity logs and attachments
-        foreach (var task in allTasks)
-        {
-            if (task.ActivityLogs != null && task.ActivityLogs.Any())
-            {
-                _dbContext.AppActivityLogs.RemoveRange(task.ActivityLogs);
-            }
-            if (task.Attachments != null && task.Attachments.Any())
-            {
-                _dbContext.TaskAttachments.RemoveRange(task.Attachments);
-            }
-        }
-
-        _dbContext.Tasks.RemoveRange(allTasks);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Disassociate activity logs so payroll tracking remains intact
+        await _dbContext.AppActivityLogs
+            .Where(l => l.TaskId != null)
+            .ExecuteUpdateAsync(s => s.SetProperty(l => l.TaskId, (Guid?)null), cancellationToken);
+
+        // Fast batch delete
+        await _dbContext.TaskAttachments.ExecuteDeleteAsync(cancellationToken);
+        await _dbContext.Tasks.ExecuteDeleteAsync(cancellationToken);
 
         await _realtimeNotifier.BroadcastWorkstationEventAsync(new LiveWorkstationEventDto
         {
@@ -508,6 +543,8 @@ public class TaskService : ITaskService
 
     public async Task<List<TaskBackupDto>> GetTaskBackupsAsync(CancellationToken cancellationToken = default)
     {
+        await EnsureBackupTableExistsAsync(cancellationToken);
+
         var backups = await _dbContext.TaskBackups
             .OrderByDescending(b => b.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -567,6 +604,8 @@ public class TaskService : ITaskService
 
     public async Task<RestoreBackupResponse?> RestoreTaskBackupAsync(Guid backupId, Guid restoredBy, CancellationToken cancellationToken = default)
     {
+        await EnsureBackupTableExistsAsync(cancellationToken);
+
         var backup = await _dbContext.TaskBackups
             .FirstOrDefaultAsync(b => b.Id == backupId, cancellationToken);
         if (backup == null) return null;
@@ -648,6 +687,8 @@ public class TaskService : ITaskService
 
     public async Task<bool> DismissBackupReminderAsync(Guid backupId, int milestoneDay, CancellationToken cancellationToken = default)
     {
+        await EnsureBackupTableExistsAsync(cancellationToken);
+
         var backup = await _dbContext.TaskBackups.FirstOrDefaultAsync(b => b.Id == backupId, cancellationToken);
         if (backup == null) return false;
 
@@ -668,7 +709,9 @@ public class TaskService : ITaskService
         return true;
     }
 
-    private static TaskResponseDto MapToDto(TaskItem t)
+    private static TaskResponseDto MapToDto(TaskItem t) => MapToDtoWithSeconds(t, t.ActivityLogs?.Sum(l => l.DurationSeconds) ?? 0);
+
+    private static TaskResponseDto MapToDtoWithSeconds(TaskItem t, int explicitTrackedSeconds)
     {
         return new TaskResponseDto
         {
@@ -690,8 +733,8 @@ public class TaskService : ITaskService
             StartedAt = t.StartedAt,
             CompletedAt = t.CompletedAt,
             CreatedAt = t.CreatedAt,
-            TotalTrackedSeconds = t.ActivityLogs?.Sum(l => l.DurationSeconds) ?? 0,
-            Attachments = t.Attachments.Select(a => new TaskAttachmentDto
+            TotalTrackedSeconds = explicitTrackedSeconds,
+            Attachments = t.Attachments?.Select(a => new TaskAttachmentDto
             {
                 Id = a.Id,
                 FileName = a.FileName,
@@ -699,7 +742,7 @@ public class TaskService : ITaskService
                 FileSizeBytes = a.FileSizeBytes,
                 MimeType = a.MimeType,
                 UploadedAt = a.UploadedAt
-            }).ToList()
+            }).ToList() ?? new List<TaskAttachmentDto>()
         };
     }
 }

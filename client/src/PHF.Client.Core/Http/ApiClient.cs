@@ -44,7 +44,7 @@ public class ApiClient
         var client = new HttpClient
         {
             BaseAddress = new Uri(baseUrl),
-            Timeout = TimeSpan.FromSeconds(15)
+            Timeout = TimeSpan.FromSeconds(60)
         };
         if (!string.IsNullOrWhiteSpace(token))
         {
