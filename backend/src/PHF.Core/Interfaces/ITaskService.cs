@@ -11,4 +11,9 @@ public interface ITaskService
     Task<TaskResponseDto?> UpdateTaskAsync(Guid id, UpdateTaskRequest request, Guid updatedBy, CancellationToken cancellationToken = default);
     Task<TaskAttachmentDto> AttachDeliverableAsync(AttachDeliverableRequest request, Guid uploadedBy, CancellationToken cancellationToken = default);
     Task<bool> DeleteTaskAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<BulkDeleteTasksResponse> BulkDeleteTasksAsync(List<Guid> taskIds, CancellationToken cancellationToken = default);
+    Task<DeleteAllTasksResponse> DeleteAllTasksAsync(Guid deletedBy, string deletedByName, CancellationToken cancellationToken = default);
+    Task<List<TaskBackupDto>> GetTaskBackupsAsync(CancellationToken cancellationToken = default);
+    Task<RestoreBackupResponse?> RestoreTaskBackupAsync(Guid backupId, Guid restoredBy, CancellationToken cancellationToken = default);
+    Task<bool> DismissBackupReminderAsync(Guid backupId, int milestoneDay, CancellationToken cancellationToken = default);
 }

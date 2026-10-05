@@ -279,6 +279,48 @@ using (var scope = app.Services.CreateScope())
                 ");
             }
             catch { }
+
+            // Ensure task_backups table exists
+            try
+            {
+                if (dbProvider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase))
+                {
+                    await dbContext.Database.ExecuteSqlRawAsync(@"
+                        CREATE TABLE IF NOT EXISTS task_backups (
+                            id UUID PRIMARY KEY,
+                            task_count INTEGER NOT NULL,
+                            tasks_json TEXT NOT NULL,
+                            created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                            deleted_by UUID,
+                            deleted_by_name TEXT,
+                            is_restored BOOLEAN NOT NULL DEFAULT FALSE,
+                            restored_at TIMESTAMP WITH TIME ZONE,
+                            restored_by UUID,
+                            dismissed_days_json TEXT
+                        );
+                    ");
+                }
+                else
+                {
+                    await dbContext.Database.ExecuteSqlRawAsync(@"
+                        CREATE TABLE IF NOT EXISTS task_backups (
+                            id TEXT PRIMARY KEY,
+                            task_count INTEGER NOT NULL,
+                            tasks_json TEXT NOT NULL,
+                            created_at TEXT NOT NULL,
+                            expires_at TEXT NOT NULL,
+                            deleted_by TEXT,
+                            deleted_by_name TEXT,
+                            is_restored INTEGER NOT NULL DEFAULT 0,
+                            restored_at TEXT,
+                            restored_by TEXT,
+                            dismissed_days_json TEXT
+                        );
+                    ");
+                }
+            }
+            catch { }
         }
 
         await dbContext.EnsureSeedDataAsync();

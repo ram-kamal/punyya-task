@@ -1,4 +1,4 @@
-import { WorkstationStatus, LiveWorkstationEvent, TaskItem, TimesheetSummary, User, LeaveRequestItem, StaffMember, CreateStaffPayload, UpdateStaffPayload } from './types';
+import { WorkstationStatus, LiveWorkstationEvent, TaskItem, TimesheetSummary, User, LeaveRequestItem, StaffMember, CreateStaffPayload, UpdateStaffPayload, TaskBackupDto, BulkDeleteTasksResponse, DeleteAllTasksResponse, RestoreBackupResponse } from './types';
 
 export const API_BASE = (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.trim() !== '')
   ? process.env.NEXT_PUBLIC_API_URL.trim()
@@ -521,4 +521,109 @@ export async function updateStaff(
     return { success: false, error: err.message || 'Failed to update staff member' };
   }
 }
+
+export async function bulkDeleteTasks(taskIds: string[]): Promise<{ success: boolean; deletedCount?: number; message?: string; error?: string }> {
+  try {
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/tasks/bulk-delete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      },
+      body: JSON.stringify({ taskIds }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      return { success: false, error: err?.message || `Failed to delete selected tasks (HTTP ${res.status})` };
+    }
+
+    const data: BulkDeleteTasksResponse = await res.json();
+    return { success: true, deletedCount: data.deletedCount, message: data.message };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error deleting tasks' };
+  }
+}
+
+export async function deleteAllTasks(): Promise<{ success: boolean; deletedCount?: number; backupId?: string; expiresAt?: string; message?: string; error?: string }> {
+  try {
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/tasks/delete-all`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      },
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      return { success: false, error: err?.message || `Failed to delete all tasks (HTTP ${res.status})` };
+    }
+
+    const data: DeleteAllTasksResponse = await res.json();
+    return { success: true, deletedCount: data.deletedCount, backupId: data.backupId, expiresAt: data.expiresAt, message: data.message };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error deleting all tasks' };
+  }
+}
+
+export async function fetchTaskBackups(): Promise<TaskBackupDto[]> {
+  try {
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/tasks/backups`, {
+      cache: 'no-store',
+      headers: { ...authHeaders },
+    });
+
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (err) {
+    console.error('fetchTaskBackups error:', err);
+    return [];
+  }
+}
+
+export async function restoreTaskBackup(backupId: string): Promise<{ success: boolean; restoredCount?: number; message?: string; error?: string }> {
+  try {
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/tasks/backups/${backupId}/restore`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      },
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      return { success: false, error: err?.message || `Failed to restore backup (HTTP ${res.status})` };
+    }
+
+    const data: RestoreBackupResponse = await res.json();
+    return { success: true, restoredCount: data.restoredCount, message: data.message };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error restoring backup' };
+  }
+}
+
+export async function dismissBackupReminder(backupId: string, milestoneDay: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/api/v1/tasks/backups/${backupId}/dismiss-reminder`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      },
+      body: JSON.stringify({ milestoneDay }),
+    });
+
+    return { success: res.ok };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 

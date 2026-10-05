@@ -477,4 +477,50 @@ public class ApiClient
         var response = await _httpClient.DeleteAsync($"/api/v1/tasks/{taskId}", ct);
         return response.IsSuccessStatusCode;
     }
+
+    public async Task<BulkDeleteTasksResponse?> BulkDeleteTasksAsync(List<Guid> taskIds, CancellationToken ct = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync("/api/v1/tasks/bulk-delete", new BulkDeleteTasksRequest { TaskIds = taskIds }, _jsonOptions, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var err = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException($"Bulk delete failed: {response.StatusCode} - {err}");
+        }
+        return await response.Content.ReadFromJsonAsync<BulkDeleteTasksResponse>(_jsonOptions, ct);
+    }
+
+    public async Task<DeleteAllTasksResponse?> DeleteAllTasksAsync(CancellationToken ct = default)
+    {
+        var response = await _httpClient.PostAsync("/api/v1/tasks/delete-all", null, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var err = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException($"Delete all failed: {response.StatusCode} - {err}");
+        }
+        return await response.Content.ReadFromJsonAsync<DeleteAllTasksResponse>(_jsonOptions, ct);
+    }
+
+    public async Task<List<TaskBackupDto>> GetTaskBackupsAsync(CancellationToken ct = default)
+    {
+        var response = await _httpClient.GetAsync("/api/v1/tasks/backups", ct);
+        if (!response.IsSuccessStatusCode) return new List<TaskBackupDto>();
+        return await response.Content.ReadFromJsonAsync<List<TaskBackupDto>>(_jsonOptions, ct) ?? new List<TaskBackupDto>();
+    }
+
+    public async Task<RestoreBackupResponse?> RestoreTaskBackupAsync(Guid backupId, CancellationToken ct = default)
+    {
+        var response = await _httpClient.PostAsync($"/api/v1/tasks/backups/{backupId}/restore", null, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var err = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException($"Restore failed: {response.StatusCode} - {err}");
+        }
+        return await response.Content.ReadFromJsonAsync<RestoreBackupResponse>(_jsonOptions, ct);
+    }
+
+    public async Task<bool> DismissBackupReminderAsync(Guid backupId, int milestoneDay, CancellationToken ct = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync($"/api/v1/tasks/backups/{backupId}/dismiss-reminder", new DismissReminderRequest { MilestoneDay = milestoneDay }, _jsonOptions, ct);
+        return response.IsSuccessStatusCode;
+    }
 }

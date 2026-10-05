@@ -17,6 +17,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<AppActivityLog> AppActivityLogs => Set<AppActivityLog>();
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
+    public DbSet<TaskBackup> TaskBackups => Set<TaskBackup>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

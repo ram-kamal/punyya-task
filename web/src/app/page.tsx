@@ -51,8 +51,10 @@ import {
   Trash2,
   Table,
   FileUp,
+  Archive,
+  LayoutGrid,
 } from 'lucide-react';
-import { WorkstationStatus, LiveWorkstationEvent, TaskItem, TimesheetSummary, User, LeaveRequestItem, StaffMember } from '@/lib/types';
+import { WorkstationStatus, LiveWorkstationEvent, TaskItem, TimesheetSummary, User, LeaveRequestItem, StaffMember, TaskBackupDto } from '@/lib/types';
 import { parseSheetToTasks, getSampleMatrixCsv, getSampleLinearCsv, ParsedImportTask } from '@/lib/taskImporter';
 import {
   fetchStations,
@@ -62,6 +64,11 @@ import {
   createTask,
   updateTask,
   deleteTask,
+  bulkDeleteTasks,
+  deleteAllTasks,
+  fetchTaskBackups,
+  restoreTaskBackup,
+  dismissBackupReminder,
   fetchTimesheetSummary,
   getTimesheetCsvDownloadUrl,
   downloadTimesheetCsv,
@@ -198,6 +205,21 @@ export default function AdminDashboardPage() {
   const [taskSearchQuery, setTaskSearchQuery] = useState<string>('');
   const [taskPriorityFilter, setTaskPriorityFilter] = useState<string>('ALL');
 
+  // Task View Mode & Multi-Selection State
+  const [taskViewMode, setTaskViewMode] = useState<'kanban' | 'table'>('table');
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState<boolean>(false);
+
+  // Delete All & 30-Day Backup State
+  const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState<boolean>(false);
+  const [isDeletingAll, setIsDeletingAll] = useState<boolean>(false);
+  const [isBackupsModalOpen, setIsBackupsModalOpen] = useState<boolean>(false);
+  const [taskBackups, setTaskBackups] = useState<TaskBackupDto[]>([]);
+  const [isLoadingBackups, setIsLoadingBackups] = useState<boolean>(false);
+  const [isRestoringBackupId, setIsRestoringBackupId] = useState<string | null>(null);
+  const [backupActionMessage, setBackupActionMessage] = useState<string | null>(null);
+  const [activeReminderBackup, setActiveReminderBackup] = useState<TaskBackupDto | null>(null);
+
   // Dispatch Task Modal State
   const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
   const [dispatchTitle, setDispatchTitle] = useState('');
@@ -235,7 +257,7 @@ export default function AdminDashboardPage() {
   // Load Initial Data
   const loadDashboardData = async () => {
     try {
-      const [stData, evData, tData, tsData, uData, lData, staffData] = await Promise.all([
+      const [stData, evData, tData, tsData, uData, lData, staffData, backupData] = await Promise.all([
         fetchStations(),
         fetchRecentEvents(100),
         fetchTasks(),
@@ -243,6 +265,7 @@ export default function AdminDashboardPage() {
         fetchUsers(),
         fetchLeaves(),
         fetchStaff(),
+        fetchTaskBackups(),
       ]);
 
       setStations(stData);
@@ -255,6 +278,9 @@ export default function AdminDashboardPage() {
       setUsers(uData);
       setLeaves(lData);
       setStaff(staffData);
+      setTaskBackups(backupData || []);
+      const activeReminder = (backupData || []).find((b) => !b.isRestored && !b.isExpired && b.activeReminderMilestone != null);
+      setActiveReminderBackup(activeReminder || null);
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {
@@ -544,11 +570,127 @@ export default function AdminDashboardPage() {
     const ok = await deleteTask(taskId);
     if (ok) {
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      setSelectedTaskIds((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
       if (editingTask?.id === taskId) {
         setEditingTask(null);
       }
     } else {
       alert('Failed to delete task. Please try again.');
+    }
+  };
+
+  // --- Task Multi-Selection & Bulk Delete Handlers ---
+  const toggleSelectTask = (taskId: string) => {
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAllTasks = (allTaskIds: string[]) => {
+    setSelectedTaskIds((prev) => {
+      const allSelected = allTaskIds.length > 0 && allTaskIds.every((id) => prev.has(id));
+      const next = new Set(prev);
+      if (allSelected) {
+        allTaskIds.forEach((id) => next.delete(id));
+      } else {
+        allTaskIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const handleBulkDeleteSelected = async () => {
+    if (selectedTaskIds.size === 0) return;
+    const count = selectedTaskIds.size;
+    if (!window.confirm(`Are you sure you want to permanently delete ${count} selected tasks?`)) return;
+
+    setIsBulkDeleting(true);
+    try {
+      const res = await bulkDeleteTasks(Array.from(selectedTaskIds));
+      if (res.success) {
+        setTasks((prev) => prev.filter((t) => !selectedTaskIds.has(t.id)));
+        setSelectedTaskIds(new Set());
+        alert(res.message || `Successfully removed ${count} tasks.`);
+      } else {
+        alert(res.error || 'Failed to delete selected tasks.');
+      }
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  // --- Delete All Tasks with 30-Day Backup Handler ---
+  const handleConfirmDeleteAll = async () => {
+    setIsDeletingAll(true);
+    try {
+      const res = await deleteAllTasks();
+      if (res.success) {
+        setTasks([]);
+        setSelectedTaskIds(new Set());
+        setIsDeleteAllModalOpen(false);
+        alert(res.message || `All ${res.deletedCount} tasks were removed and backed up for 30 days.`);
+        // Reload backups list
+        const backups = await fetchTaskBackups();
+        setTaskBackups(backups);
+      } else {
+        alert(res.error || 'Failed to delete all tasks.');
+      }
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
+
+  // --- Task Backups & Restoration Handlers ---
+  const refreshBackupsList = async () => {
+    setIsLoadingBackups(true);
+    try {
+      const backups = await fetchTaskBackups();
+      setTaskBackups(backups);
+      const reminder = backups.find((b) => !b.isRestored && !b.isExpired && b.activeReminderMilestone != null);
+      setActiveReminderBackup(reminder || null);
+    } finally {
+      setIsLoadingBackups(false);
+    }
+  };
+
+  const handleRestoreBackupSnapshot = async (backupId: string) => {
+    if (!window.confirm('Restore tasks from this backup snapshot back to the board?')) return;
+    setIsRestoringBackupId(backupId);
+    setBackupActionMessage(null);
+    try {
+      const res = await restoreTaskBackup(backupId);
+      if (res.success) {
+        setBackupActionMessage(`✓ ${res.message || 'Tasks restored successfully!'}`);
+        const [tData, bData] = await Promise.all([fetchTasks(), fetchTaskBackups()]);
+        setTasks(tData);
+        setTaskBackups(bData);
+        setActiveReminderBackup(null);
+      } else {
+        setBackupActionMessage(res.error || 'Failed to restore tasks from backup.');
+      }
+    } finally {
+      setIsRestoringBackupId(null);
+    }
+  };
+
+  const handleDismissRetentionReminder = async (backupId: string, milestoneDay: number) => {
+    try {
+      await dismissBackupReminder(backupId, milestoneDay);
+      setActiveReminderBackup(null);
+      const bData = await fetchTaskBackups();
+      setTaskBackups(bData);
+    } catch (err) {
+      console.error('Failed to dismiss reminder:', err);
     }
   };
 
@@ -1894,16 +2036,62 @@ export default function AdminDashboardPage() {
         {/* TAB 2: TASK DISTRIBUTION BOARD & DELIVERABLES */}
         {activeTab === 'tasks' && (
           <div className="space-y-5">
+            {/* Active Retention Reminder Banner (Days 5, 15, 20, 25, 28, 29, 30) */}
+            {activeReminderBackup && (
+              <div className="bg-gradient-to-r from-amber-950/80 via-rose-950/60 to-amber-950/80 border border-amber-500/40 rounded-xl p-4 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-3 animate-in fade-in duration-200">
+                <div className="flex items-start md:items-center space-x-3">
+                  <div className="p-2 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 shrink-0">
+                    <AlertCircle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <h4 className="text-xs font-bold text-amber-200 uppercase tracking-wider">
+                        Task Backup Retention Reminder (Day {activeReminderBackup.activeReminderMilestone} of 30)
+                      </h4>
+                      <span className="text-[10px] font-bold bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-400/30">
+                        {activeReminderBackup.remainingDays} days remaining
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1">
+                      Snapshot contains <span className="font-semibold text-white">{activeReminderBackup.taskCount} deleted tasks</span> (created {new Date(activeReminderBackup.createdAt).toLocaleDateString()} at {new Date(activeReminderBackup.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} by {activeReminderBackup.deletedByName || 'Admin'}). Would you like to restore them to the board before permanent deletion?
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2 shrink-0 self-end md:self-center">
+                  <button
+                    onClick={() => handleRestoreBackupSnapshot(activeReminderBackup.id)}
+                    disabled={isRestoringBackupId === activeReminderBackup.id}
+                    className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition flex items-center space-x-1.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRestoringBackupId === activeReminderBackup.id ? 'animate-spin' : ''}`} />
+                    <span>Restore Tasks Now</span>
+                  </button>
+                  <button
+                    onClick={() => handleDismissRetentionReminder(activeReminderBackup.id, activeReminderBackup.activeReminderMilestone!)}
+                    className="px-3 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-300 hover:text-white text-xs font-semibold transition"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Header & Filter Controls */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-[#151720] p-4 rounded-xl border border-[#262938]">
+            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 bg-[#151720] p-4 rounded-xl border border-[#262938]">
               <div>
-                <h2 className="text-sm font-bold text-white">Workforce Task Distribution &amp; Deliverables</h2>
-                <p className="text-xs text-slate-400">
+                <h2 className="text-sm font-bold text-white flex items-center space-x-2">
+                  <span>Workforce Task Distribution &amp; Deliverables</span>
+                  <span className="text-[11px] font-bold bg-[#0D0E12] text-slate-300 px-2 py-0.5 rounded-full border border-[#262938]">
+                    {tasks.length} total
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
                   Deliverable-linked task workflow • All deliverables require file or URL proof before closing
                 </p>
               </div>
 
-              <div className="flex items-center space-x-3">
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Search */}
                 <div className="relative">
                   <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
@@ -1911,10 +2099,11 @@ export default function AdminDashboardPage() {
                     placeholder="Search tasks or assignee..."
                     value={taskSearchQuery}
                     onChange={(e) => setTaskSearchQuery(e.target.value)}
-                    className="bg-[#0D0E12] border border-[#262938] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 w-52"
+                    className="bg-[#0D0E12] border border-[#262938] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 w-48"
                   />
                 </div>
 
+                {/* Priority Filter */}
                 <select
                   value={taskPriorityFilter}
                   onChange={(e) => setTaskPriorityFilter(e.target.value)}
@@ -1927,17 +2116,86 @@ export default function AdminDashboardPage() {
                   <option value="LOW">Low</option>
                 </select>
 
+                {/* View Switcher: Table vs Kanban */}
+                <div className="flex items-center bg-[#0D0E12] border border-[#262938] rounded-lg p-0.5">
+                  <button
+                    onClick={() => setTaskViewMode('table')}
+                    className={`flex items-center space-x-1 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                      taskViewMode === 'table' ? 'bg-[#252A3A] text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Table View (with multi-select)"
+                  >
+                    <Table className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Table</span>
+                  </button>
+                  <button
+                    onClick={() => setTaskViewMode('kanban')}
+                    className={`flex items-center space-x-1 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                      taskViewMode === 'kanban' ? 'bg-[#252A3A] text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Kanban Board View"
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Kanban</span>
+                  </button>
+                </div>
+
                 {!isReadOnlyMonitor && (
                   <>
+                    {/* Delete Selected (Bulk Delete) */}
+                    {selectedTaskIds.size > 0 && (
+                      <button
+                        onClick={handleBulkDeleteSelected}
+                        disabled={isBulkDeleting}
+                        className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/30 transition animate-in fade-in"
+                        title="Delete selected tasks"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>{isBulkDeleting ? 'Deleting...' : `Delete Selected (${selectedTaskIds.size})`}</span>
+                      </button>
+                    )}
+
+                    {/* Backups (30d) Modal Button */}
+                    <button
+                      onClick={() => {
+                        setIsBackupsModalOpen(true);
+                        refreshBackupsList();
+                      }}
+                      className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-200 hover:text-white text-xs font-semibold transition"
+                      title="View 30-day task backup snapshots"
+                    >
+                      <Archive className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Backups (30d)</span>
+                      {taskBackups.length > 0 && (
+                        <span className="bg-cyan-500/20 text-cyan-400 text-[10px] font-bold px-1.5 py-0.2 rounded-full border border-cyan-500/30">
+                          {taskBackups.length}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Delete All Tasks Button */}
+                    {tasks.length > 0 && (
+                      <button
+                        onClick={() => setIsDeleteAllModalOpen(true)}
+                        className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/30 text-rose-300 hover:text-rose-200 text-xs font-semibold transition"
+                        title="Delete all tasks with 30-day snapshot backup"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Delete All</span>
+                      </button>
+                    )}
+
+                    {/* Import Sheet Button */}
                     <button
                       onClick={() => setIsImportModalOpen(true)}
                       className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-200 hover:text-white text-xs font-semibold transition"
                       title="Import from Google Sheets or CSV"
                     >
                       <Upload className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>Import Sheet</span>
+                      <span>Import</span>
                     </button>
 
+                    {/* New Task Button */}
                     <button
                       onClick={() => setIsDispatchModalOpen(true)}
                       className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition"
@@ -1950,119 +2208,294 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* Kanban Columns */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {(['ASSIGNED', 'IN_PROGRESS', 'UNDER_REVIEW', 'COMPLETED'] as const).map((columnStatus) => {
-                const columnTasks = filteredTasks.filter((t) => t.status === columnStatus);
-                const colTitle =
-                  columnStatus === 'ASSIGNED'
-                    ? 'Awaiting Start'
-                    : columnStatus === 'IN_PROGRESS'
-                    ? 'In Progress'
-                    : columnStatus === 'UNDER_REVIEW'
-                    ? 'Under Review'
-                    : 'Completed';
-
-                return (
-                  <div key={columnStatus} className="bg-[#151720] rounded-xl border border-[#262938] flex flex-col max-h-[700px]">
-                    <div className="p-3 border-b border-[#262938] bg-[#12141C] flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-300">{colTitle}</span>
-                      <span className="text-[11px] font-bold bg-[#0D0E12] text-slate-300 px-2 py-0.5 rounded-full border border-[#262938]">
-                        {columnTasks.length}
-                      </span>
-                    </div>
-
-                    <div className="p-3 overflow-y-auto space-y-3 flex-1">
-                      {columnTasks.length === 0 ? (
-                        <div className="text-xs text-slate-500 text-center py-6 italic">No tasks in this column</div>
+            {/* TASK DISPLAY: TABLE VIEW OR KANBAN BOARD */}
+            {taskViewMode === 'table' ? (
+              <div className="bg-[#151720] rounded-xl border border-[#262938] overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#0F1117] text-[11px] uppercase tracking-wider text-slate-400 border-b border-[#262938]">
+                      <tr>
+                        {!isReadOnlyMonitor && (
+                          <th className="px-4 py-3 w-10 text-center">
+                            <input
+                              type="checkbox"
+                              checked={filteredTasks.length > 0 && filteredTasks.every((t) => selectedTaskIds.has(t.id))}
+                              onChange={() => handleToggleSelectAllTasks(filteredTasks.map((t) => t.id))}
+                              className="rounded border-[#32364A] bg-[#0D0E12] text-rose-600 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                              title="Select / Deselect all visible tasks"
+                            />
+                          </th>
+                        )}
+                        <th className="px-4 py-3">Task Code</th>
+                        <th className="px-4 py-3">Task Title &amp; Details</th>
+                        <th className="px-4 py-3">Assignee</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Priority</th>
+                        <th className="px-4 py-3">Due Date</th>
+                        <th className="px-4 py-3">Deliverable Proof</th>
+                        {!isReadOnlyMonitor && <th className="px-4 py-3 text-right">Actions</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#1C1F2B]">
+                      {filteredTasks.length === 0 ? (
+                        <tr>
+                          <td colSpan={isReadOnlyMonitor ? 7 : 9} className="text-center py-12 text-slate-500 italic">
+                            No tasks found matching your search or filters.
+                          </td>
+                        </tr>
                       ) : (
-                        columnTasks.map((task) => (
-                          <div
-                            key={task.id}
-                            className="bg-[#0D0E12] border border-[#262938] rounded-lg p-3 space-y-2 hover:border-slate-500 transition shadow-sm"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-mono font-bold text-rose-400">{task.taskCode}</span>
-                              <span
-                                className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
-                                  task.priority === 'CRITICAL'
-                                    ? 'bg-rose-950 text-rose-400 border border-rose-500/30'
-                                    : task.priority === 'HIGH'
-                                    ? 'bg-amber-950 text-amber-400 border border-amber-500/30'
-                                    : task.priority === 'MEDIUM'
-                                    ? 'bg-rose-950 text-rose-400 border border-rose-500/30'
-                                    : 'bg-slate-800 text-slate-300'
+                        filteredTasks.map((task) => {
+                          const isSelected = selectedTaskIds.has(task.id);
+                          return (
+                            <tr
+                              key={task.id}
+                              className={`hover:bg-[#1A1D27] transition ${isSelected ? 'bg-rose-950/20' : ''}`}
+                            >
+                              {!isReadOnlyMonitor && (
+                                <td className="px-4 py-3 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => toggleSelectTask(task.id)}
+                                    className="rounded border-[#32364A] bg-[#0D0E12] text-rose-600 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                                  />
+                                </td>
+                              )}
+                              <td className="px-4 py-3 font-mono font-bold text-rose-400 whitespace-nowrap">
+                                {task.taskCode}
+                              </td>
+                              <td className="px-4 py-3 max-w-xs">
+                                <div className="font-semibold text-white truncate">{task.title}</div>
+                                {task.description && (
+                                  <div className="text-[11px] text-slate-400 truncate mt-0.5">{task.description}</div>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="text-slate-200 font-medium">{task.assignedToName || 'Unassigned'}</div>
+                                {task.assignedToStation && (
+                                  <div className="text-[10px] text-slate-500 font-mono">{task.assignedToStation}</div>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <span
+                                  className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full border ${
+                                    task.status === 'COMPLETED'
+                                      ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/30'
+                                      : task.status === 'UNDER_REVIEW'
+                                      ? 'bg-purple-950/60 text-purple-400 border-purple-500/30'
+                                      : task.status === 'IN_PROGRESS'
+                                      ? 'bg-cyan-950/60 text-cyan-400 border-cyan-500/30'
+                                      : 'bg-slate-800 text-slate-300 border-slate-700'
+                                  }`}
+                                >
+                                  {task.status === 'ASSIGNED'
+                                    ? 'Awaiting Start'
+                                    : task.status === 'IN_PROGRESS'
+                                    ? 'In Progress'
+                                    : task.status === 'UNDER_REVIEW'
+                                    ? 'Under Review'
+                                    : 'Completed'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <span
+                                  className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded border ${
+                                    task.priority === 'CRITICAL'
+                                      ? 'bg-rose-950 text-rose-400 border-rose-500/30'
+                                      : task.priority === 'HIGH'
+                                      ? 'bg-amber-950 text-amber-400 border-amber-500/30'
+                                      : task.priority === 'MEDIUM'
+                                      ? 'bg-rose-950/60 text-rose-400 border-rose-500/20'
+                                      : 'bg-slate-800 text-slate-300 border-slate-700'
+                                  }`}
+                                >
+                                  {task.priority}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-slate-400 whitespace-nowrap font-mono text-[11px]">
+                                {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                {task.deliverableFileName || task.deliverableUrl ? (
+                                  <a
+                                    href={`${API_BASE}/api/v1/tasks/${task.id}/deliverable`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center space-x-1.5 text-[11px] text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded transition"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span className="truncate max-w-[120px]">{task.deliverableFileName || 'Proof File'}</span>
+                                    <Download className="w-3 h-3 ml-1" />
+                                  </a>
+                                ) : task.deliverableRequired ? (
+                                  <span className="inline-flex items-center space-x-1 text-[10.5px] text-amber-400 bg-amber-950/30 border border-amber-500/20 px-2 py-0.5 rounded">
+                                    <AlertCircle className="w-3.5 h-3.5" />
+                                    <span>Proof Required</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-500 text-[11px]">None</span>
+                                )}
+                              </td>
+                              {!isReadOnlyMonitor && (
+                                <td className="px-4 py-3 text-right whitespace-nowrap">
+                                  <div className="flex items-center justify-end space-x-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEditTaskModal(task)}
+                                      className="p-1.5 rounded hover:bg-[#252A3A] text-slate-400 hover:text-cyan-300 transition"
+                                      title="Edit / Replace Task"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteTask(task.id, task.title)}
+                                      className="p-1.5 rounded hover:bg-rose-950/50 text-slate-400 hover:text-rose-400 transition"
+                                      title="Delete Task"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              /* Kanban Columns */
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {(['ASSIGNED', 'IN_PROGRESS', 'UNDER_REVIEW', 'COMPLETED'] as const).map((columnStatus) => {
+                  const columnTasks = filteredTasks.filter((t) => t.status === columnStatus);
+                  const colTitle =
+                    columnStatus === 'ASSIGNED'
+                      ? 'Awaiting Start'
+                      : columnStatus === 'IN_PROGRESS'
+                      ? 'In Progress'
+                      : columnStatus === 'UNDER_REVIEW'
+                      ? 'Under Review'
+                      : 'Completed';
+
+                  return (
+                    <div key={columnStatus} className="bg-[#151720] rounded-xl border border-[#262938] flex flex-col max-h-[700px]">
+                      <div className="p-3 border-b border-[#262938] bg-[#12141C] flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-300">{colTitle}</span>
+                        <span className="text-[11px] font-bold bg-[#0D0E12] text-slate-300 px-2 py-0.5 rounded-full border border-[#262938]">
+                          {columnTasks.length}
+                        </span>
+                      </div>
+
+                      <div className="p-3 overflow-y-auto space-y-3 flex-1">
+                        {columnTasks.length === 0 ? (
+                          <div className="text-xs text-slate-500 text-center py-6 italic">No tasks in this column</div>
+                        ) : (
+                          columnTasks.map((task) => {
+                            const isSelected = selectedTaskIds.has(task.id);
+                            return (
+                              <div
+                                key={task.id}
+                                className={`bg-[#0D0E12] border rounded-lg p-3 space-y-2 hover:border-slate-500 transition shadow-sm ${
+                                  isSelected ? 'border-rose-500/80 bg-rose-950/10' : 'border-[#262938]'
                                 }`}
                               >
-                                {task.priority}
-                              </span>
-                            </div>
-
-                            <h3 className="text-xs font-semibold text-white leading-snug">{task.title}</h3>
-                            {task.description && (
-                              <p className="text-[11px] text-slate-400 line-clamp-2">{task.description}</p>
-                            )}
-
-                            <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1 border-t border-[#1C1F2B]">
-                              <span>{task.assignedToName || 'Unassigned'}</span>
-                              <span>{Math.round(task.totalTrackedSeconds / 60)}m tracked</span>
-                            </div>
-
-                            {/* Deliverable Proof of Work Section */}
-                            {task.deliverableFileName || task.deliverableUrl ? (
-                              <div className="bg-emerald-950/40 border border-emerald-500/30 rounded p-2 text-xs flex items-center justify-between">
-                                <div className="flex items-center space-x-1.5 text-emerald-300 truncate text-[11px]">
-                                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                                  <span className="truncate">{task.deliverableFileName || 'Deliverable attached'}</span>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2">
+                                    {!isReadOnlyMonitor && (
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => toggleSelectTask(task.id)}
+                                        className="rounded border-[#32364A] bg-[#0D0E12] text-rose-600 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                                      />
+                                    )}
+                                    <span className="text-xs font-mono font-bold text-rose-400">{task.taskCode}</span>
+                                  </div>
+                                  <span
+                                    className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
+                                      task.priority === 'CRITICAL'
+                                        ? 'bg-rose-950 text-rose-400 border border-rose-500/30'
+                                        : task.priority === 'HIGH'
+                                        ? 'bg-amber-950 text-amber-400 border border-amber-500/30'
+                                        : task.priority === 'MEDIUM'
+                                        ? 'bg-rose-950 text-rose-400 border border-rose-500/30'
+                                        : 'bg-slate-800 text-slate-300'
+                                    }`}
+                                  >
+                                    {task.priority}
+                                  </span>
                                 </div>
-                                <a
-                                  href={`${API_BASE}/api/v1/tasks/${task.id}/deliverable`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-rose-400 hover:text-rose-300 shrink-0 ml-2"
-                                  title="Download Deliverable"
-                                >
-                                  <Download className="w-3.5 h-3.5" />
-                                </a>
-                              </div>
-                            ) : task.deliverableRequired ? (
-                              <div className="bg-amber-950/30 border border-amber-500/20 rounded p-1.5 text-[10.5px] text-amber-400/90 flex items-center space-x-1">
-                                <AlertCircle className="w-3 h-3 shrink-0" />
-                                <span>Proof of work required before closing</span>
-                              </div>
-                            ) : null}
 
-                            {/* Admin Actions: Edit/Replace & Delete */}
-                            {!isReadOnlyMonitor && (
-                              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-[#1C1F2B]">
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEditTaskModal(task)}
-                                  className="text-[11px] text-slate-300 hover:text-white flex items-center space-x-1 px-2 py-0.5 rounded hover:bg-[#1A1D27] border border-transparent hover:border-[#262938] transition"
-                                  title="Edit / Replace Task Details"
-                                >
-                                  <Edit3 className="w-3 h-3 text-cyan-400" />
-                                  <span>Edit</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteTask(task.id, task.title)}
-                                  className="text-[11px] text-rose-400 hover:text-rose-300 flex items-center space-x-1 px-2 py-0.5 rounded hover:bg-rose-950/40 border border-transparent hover:border-rose-500/30 transition"
-                                  title="Delete Task from System"
-                                >
-                                  <Trash2 className="w-3 h-3 text-rose-500" />
-                                  <span>Delete</span>
-                                </button>
+                                <h3 className="text-xs font-semibold text-white leading-snug">{task.title}</h3>
+                                {task.description && (
+                                  <p className="text-[11px] text-slate-400 line-clamp-2">{task.description}</p>
+                                )}
+
+                                <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1 border-t border-[#1C1F2B]">
+                                  <span>{task.assignedToName || 'Unassigned'}</span>
+                                  <span>{Math.round(task.totalTrackedSeconds / 60)}m tracked</span>
+                                </div>
+
+                                {/* Deliverable Proof of Work Section */}
+                                {task.deliverableFileName || task.deliverableUrl ? (
+                                  <div className="bg-emerald-950/40 border border-emerald-500/30 rounded p-2 text-xs flex items-center justify-between">
+                                    <div className="flex items-center space-x-1.5 text-emerald-300 truncate text-[11px]">
+                                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                                      <span className="truncate">{task.deliverableFileName || 'Deliverable attached'}</span>
+                                    </div>
+                                    <a
+                                      href={`${API_BASE}/api/v1/tasks/${task.id}/deliverable`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-rose-400 hover:text-rose-300 shrink-0 ml-2"
+                                      title="Download Deliverable"
+                                    >
+                                      <Download className="w-3.5 h-3.5" />
+                                    </a>
+                                  </div>
+                                ) : task.deliverableRequired ? (
+                                  <div className="bg-amber-950/30 border border-amber-500/20 rounded p-1.5 text-[10.5px] text-amber-400/90 flex items-center space-x-1">
+                                    <AlertCircle className="w-3 h-3 shrink-0" />
+                                    <span>Proof of work required before closing</span>
+                                  </div>
+                                ) : null}
+
+                                {/* Admin Actions: Edit/Replace & Delete */}
+                                {!isReadOnlyMonitor && (
+                                  <div className="flex items-center justify-end space-x-2 pt-2 border-t border-[#1C1F2B]">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEditTaskModal(task)}
+                                      className="text-[11px] text-slate-300 hover:text-white flex items-center space-x-1 px-2 py-0.5 rounded hover:bg-[#1A1D27] border border-transparent hover:border-[#262938] transition"
+                                      title="Edit / Replace Task Details"
+                                    >
+                                      <Edit3 className="w-3 h-3 text-cyan-400" />
+                                      <span>Edit</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteTask(task.id, task.title)}
+                                      className="text-[11px] text-rose-400 hover:text-rose-300 flex items-center space-x-1 px-2 py-0.5 rounded hover:bg-rose-950/40 border border-transparent hover:border-rose-500/30 transition"
+                                      title="Delete Task from System"
+                                    >
+                                      <Trash2 className="w-3 h-3 text-rose-500" />
+                                      <span>Delete</span>
+                                    </button>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        ))
-                      )}
+                            );
+                          })
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -3230,6 +3663,163 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: DELETE ALL TASKS CONFIRMATION */}
+      {isDeleteAllModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-[#151720] border border-rose-500/40 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+            <div className="flex items-center space-x-3 text-rose-400">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Delete All Assigned Tasks?</h3>
+                <p className="text-xs text-rose-300">Automatic 30-Day Snapshot Backup Protection</p>
+              </div>
+            </div>
+
+            <div className="bg-[#0D0E12] border border-[#262938] rounded-xl p-4 text-xs text-slate-300 space-y-2.5">
+              <p>
+                You are about to remove <span className="font-bold text-white">{tasks.length} active tasks</span> from the entire system.
+              </p>
+              <div className="p-2.5 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 space-y-1">
+                <div className="font-bold flex items-center space-x-1.5">
+                  <Archive className="w-3.5 h-3.5" />
+                  <span>30-Day Safe Retention Active</span>
+                </div>
+                <p className="text-[11px] text-cyan-200/90">
+                  A restorable backup snapshot will be immediately archived for 30 days. You will receive automatic dashboard reminders on Days 5, 15, 20, 25, 28, 29, and 30 allowing one-click restoration anytime.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-[#1C1F2B]">
+              <button
+                type="button"
+                onClick={() => setIsDeleteAllModalOpen(false)}
+                disabled={isDeletingAll}
+                className="px-4 py-2 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-300 hover:text-white text-xs font-semibold transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteAll}
+                disabled={isDeletingAll}
+                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md shadow-rose-600/30"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeletingAll ? 'Archiving & Deleting...' : 'Confirm Delete All Tasks'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: 30-DAY TASK BACKUP SNAPSHOTS */}
+      {isBackupsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="bg-[#151720] border border-[#32364A] rounded-2xl w-full max-w-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-[#262938] shrink-0">
+              <div className="flex items-center space-x-2.5 text-white">
+                <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                  <Archive className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider">30-Day Task Backup Snapshots</h3>
+                  <p className="text-[11px] text-slate-400">Restore deleted task batches created during "Delete All"</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsBackupsModalOpen(false);
+                  setBackupActionMessage(null);
+                }}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#262938] transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {backupActionMessage && (
+              <div className="p-3 rounded-lg text-xs font-medium border bg-cyan-950/50 border-cyan-500/40 text-cyan-300">
+                {backupActionMessage}
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto space-y-3 min-h-[160px] max-h-[380px] pr-1">
+              {isLoadingBackups ? (
+                <div className="flex items-center justify-center py-12 text-xs text-slate-400 space-x-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
+                  <span>Loading backup archives...</span>
+                </div>
+              ) : taskBackups.length === 0 ? (
+                <div className="text-center py-12 text-slate-500 text-xs italic">
+                  No 30-day task backup snapshots found. Snapshots are created whenever "Delete All Tasks" is used.
+                </div>
+              ) : (
+                taskBackups.map((backup) => (
+                  <div
+                    key={backup.id}
+                    className="bg-[#0D0E12] border border-[#262938] rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-600 transition"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-bold text-white">{backup.taskCount} Tasks</span>
+                        <span className="text-[10px] font-bold bg-cyan-950/60 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded-full">
+                          {backup.remainingDays} days left
+                        </span>
+                        {backup.isRestored && (
+                          <span className="text-[10px] font-bold bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                            ✓ Restored
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        Backed up on {new Date(backup.createdAt).toLocaleString()} by {backup.deletedByName || 'Admin'}
+                      </div>
+                      <div className="text-[10.5px] text-slate-500">
+                        Expires: {new Date(backup.expiresAt).toLocaleDateString()}
+                      </div>
+                    </div>
+
+                    <div className="shrink-0">
+                      <button
+                        onClick={() => handleRestoreBackupSnapshot(backup.id)}
+                        disabled={backup.isExpired || isRestoringBackupId === backup.id}
+                        className="w-full sm:w-auto px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:bg-slate-700 text-white text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-600/20"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isRestoringBackupId === backup.id ? 'animate-spin' : ''}`} />
+                        <span>{isRestoringBackupId === backup.id ? 'Restoring...' : 'Restore Tasks'}</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="bg-[#12141C] p-3 rounded-xl border border-[#262938] text-[11px] text-slate-400 flex items-start space-x-2">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <span>
+                Task snapshots are retained for 30 calendar days. Retention reminders trigger at Days 5, 15, 20, 25, 28, 29, and 30 before automatic purging.
+              </span>
+            </div>
+
+            <div className="flex items-center justify-end pt-2 border-t border-[#1C1F2B] shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBackupsModalOpen(false);
+                  setBackupActionMessage(null);
+                }}
+                className="px-4 py-2 rounded-lg bg-[#1C1F2B] hover:bg-[#262938] border border-[#32364A] text-slate-300 hover:text-white text-xs font-semibold transition"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

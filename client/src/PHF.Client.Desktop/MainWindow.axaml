@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:PHF.Client.Desktop.ViewModels"
         xmlns:utils="using:PHF.Client.Desktop.Utils"
+        xmlns:dto="using:PHF.Core.DTOs"
         x:Class="PHF.Client.Desktop.MainWindow"
         Title="Punnya Heart Desk — Workstation Desk &amp; Management Console"
         Width="1180" Height="860"
@@ -365,22 +366,38 @@
                 </Grid>
 
                 <!-- 3. VIEW: TASK DISPATCH & WORKFORCE BOARD -->
-                <Grid x:Name="ViewTaskDispatch" Margin="24,18,24,12" RowDefinitions="Auto,Auto,*" IsVisible="False">
+                <Grid x:Name="ViewTaskDispatch" Margin="24,18,24,12" RowDefinitions="Auto,Auto,Auto,*" IsVisible="False">
                     <!-- Header -->
-                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
                         <StackPanel>
                             <TextBlock Text="Workforce Task Dispatch &amp; Review" FontSize="18" FontWeight="Bold" Foreground="#F8FAFC" />
                             <TextBlock Text="Assign tasks to employees, inspect deliverables and track active work streams" FontSize="12" Foreground="#94A3B8" Margin="0,2,0,0" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="BtnDeleteSelectedTasks" Classes="danger" Content="🗑️ Delete Selected (0)" Click="BtnDeleteSelectedTasks_Click" IsVisible="False" Padding="12,6" />
                             <Button Classes="accentGreen" Content="📂 Bulk Import (CSV)" Click="BtnOpenBulkImportModal_Click" />
                             <Button Classes="primary" Content="+ Dispatch Task" Click="BtnOpenDispatchModal_Click" />
+                            <Button Classes="glass" Content="📦 Backups (30d)" Click="BtnOpenBackupsModal_Click" />
+                            <Button Classes="danger" Content="⚠️ Delete All Tasks" Click="BtnOpenDeleteAllModal_Click" />
                             <Button Classes="glass" Content="↻ Refresh Tasks" Click="BtnRefreshAllTasks_Click" />
                         </StackPanel>
                     </Grid>
 
+                    <!-- Active 30-Day Backup Reminder Banner (Milestones: 5, 15, 20, 25, 28, 29, 30 days) -->
+                    <Border x:Name="AdminBackupReminderBanner" Grid.Row="1" IsVisible="False" Background="#2DF59E0B" BorderBrush="#F59E0B" BorderThickness="1.5" CornerRadius="10" Padding="14,10" Margin="0,0,0,12">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                            <TextBlock Grid.Column="0" Text="🔔" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock x:Name="TxtReminderTitle" Text="Task Backup Retention Reminder" FontSize="12.5" FontWeight="Bold" Foreground="#FDE68A" />
+                                <TextBlock x:Name="TxtReminderSubtitle" Text="A snapshot of deleted tasks is stored. You can restore it before permanent expiry." FontSize="11" Foreground="#CBD5E1" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <Button x:Name="BtnReminderRestore" Grid.Column="2" Classes="accentGreen" Content="🔄 Restore Tasks Now" Click="BtnReminderRestore_Click" Padding="12,6" Margin="0,0,8,0" />
+                            <Button x:Name="BtnReminderDismiss" Grid.Column="3" Classes="glass" Content="✕ Dismiss Reminder" Click="BtnReminderDismiss_Click" Padding="10,6" />
+                        </Grid>
+                    </Border>
+
                     <!-- Filter & Search Row -->
-                    <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
+                    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
                         <TextBlock x:Name="TxtAdminTasksCount" Grid.Column="0" Text="All Workforce Tasks (0 total)" FontSize="13" FontWeight="SemiBold" Foreground="#CBD5E1" VerticalAlignment="Center" />
                         
                         <TextBox x:Name="TxtAdminTaskSearch" Grid.Column="1" Margin="16,0,16,0" Watermark="🔍 Search task title, code, staff..." TextChanged="TxtAdminTaskSearch_TextChanged" VerticalAlignment="Center" MaxWidth="320" HorizontalAlignment="Left" />
@@ -394,18 +411,19 @@
                     </Grid>
 
                     <!-- Tasks Data Table -->
-                    <Border Grid.Row="2" Background="#151720" BorderBrush="#262938" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+                    <Border Grid.Row="3" Background="#151720" BorderBrush="#262938" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
                         <Grid RowDefinitions="Auto,*">
                             <!-- Table Header -->
                             <Border Grid.Row="0" Background="#0F1117" BorderBrush="#262938" BorderThickness="0,0,0,1" Padding="16,10">
-                                <Grid ColumnDefinitions="3*,1.6*,1.1*,1.2*,2*,0.9*,1.6*">
-                                    <TextBlock Grid.Column="0" Text="TASK CODE &amp; TITLE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
-                                    <TextBlock Grid.Column="1" Text="ASSIGNEE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
-                                    <TextBlock Grid.Column="2" Text="PRIORITY" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
-                                    <TextBlock Grid.Column="3" Text="STATUS" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
-                                    <TextBlock Grid.Column="4" Text="DELIVERABLE PROOF" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
-                                    <TextBlock Grid.Column="5" Text="TRACKED" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
-                                    <TextBlock Grid.Column="6" Text="ACTIONS" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" HorizontalAlignment="Right" />
+                                <Grid ColumnDefinitions="Auto,3*,1.6*,1.1*,1.2*,2*,0.9*,1.6*">
+                                    <CheckBox x:Name="ChkAdminSelectAllTasks" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0" Checked="ChkAdminSelectAllTasks_CheckedChanged" Unchecked="ChkAdminSelectAllTasks_CheckedChanged" />
+                                    <TextBlock Grid.Column="1" Text="TASK CODE &amp; TITLE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="ASSIGNEE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="3" Text="PRIORITY" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="4" Text="STATUS" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="5" Text="DELIVERABLE PROOF" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="6" Text="TRACKED" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="7" Text="ACTIONS" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                 </Grid>
                             </Border>
 
@@ -415,9 +433,12 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:AdminTaskItemViewModel">
                                             <Border BorderBrush="#1C1F2B" BorderThickness="0,0,0,1" Padding="16,9">
-                                                <Grid ColumnDefinitions="3*,1.6*,1.1*,1.2*,2*,0.9*,1.6*">
-                                                    <!-- Col 0: Task Code, Title & Description -->
-                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <Grid ColumnDefinitions="Auto,3*,1.6*,1.1*,1.2*,2*,0.9*,1.6*">
+                                                    <!-- Col 0: Checkbox -->
+                                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,10,0" Checked="ChkAdminTaskItem_CheckedChanged" Unchecked="ChkAdminTaskItem_CheckedChanged" />
+
+                                                    <!-- Col 1: Task Code, Title & Description -->
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                                             <Border Background="#25E11D48" BorderBrush="#40E11D48" BorderThickness="1" CornerRadius="4" Padding="6,2">
                                                                 <TextBlock Text="{Binding TaskCode}" FontSize="10.5" FontWeight="Bold" Foreground="#FB7185" />
@@ -427,8 +448,8 @@
                                                         <TextBlock Text="{Binding Description}" FontSize="11" Foreground="#94A3B8" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" MaxLines="1" />
                                                     </StackPanel>
 
-                                                    <!-- Col 1: Assignee & Station -->
-                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <!-- Col 2: Assignee & Station -->
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                                             <Border Background="#20FFFFFF" CornerRadius="12" Width="24" Height="24">
                                                                 <TextBlock Text="{Binding AssigneeInitial}" FontSize="11" FontWeight="Bold" Foreground="#F8FAFC" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -440,26 +461,26 @@
                                                         </StackPanel>
                                                     </StackPanel>
 
-                                                    <!-- Col 2: Priority Badge -->
-                                                    <Border Grid.Column="2" Background="{Binding PriorityBgBrush}" CornerRadius="6" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                    <!-- Col 3: Priority Badge -->
+                                                    <Border Grid.Column="3" Background="{Binding PriorityBgBrush}" CornerRadius="6" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
                                                         <TextBlock Text="{Binding Priority}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding PriorityFgBrush}" />
                                                     </Border>
 
-                                                    <!-- Col 3: Status Badge -->
-                                                    <Border Grid.Column="3" Background="{Binding StatusBgBrush}" CornerRadius="6" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                    <!-- Col 4: Status Badge -->
+                                                    <Border Grid.Column="4" Background="{Binding StatusBgBrush}" CornerRadius="6" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
                                                         <TextBlock Text="{Binding Status}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding StatusFgBrush}" />
                                                     </Border>
 
-                                                    <!-- Col 4: Deliverable Proof -->
-                                                    <Border Grid.Column="4" Background="{Binding DeliverableStatusBgBrush}" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                    <!-- Col 5: Deliverable Proof -->
+                                                    <Border Grid.Column="5" Background="{Binding DeliverableStatusBgBrush}" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center">
                                                         <TextBlock Text="{Binding DeliverableStatusText}" FontSize="10.5" FontWeight="SemiBold" Foreground="{Binding DeliverableStatusFgBrush}" TextTrimming="CharacterEllipsis" MaxWidth="180" />
                                                     </Border>
 
-                                                    <!-- Col 5: Tracked Time -->
-                                                    <TextBlock Grid.Column="5" Text="{Binding TrackedTimeText}" FontFamily="Consolas, Cascadia Code, monospace" FontSize="11.5" Foreground="#64748B" VerticalAlignment="Center" />
+                                                    <!-- Col 6: Tracked Time -->
+                                                    <TextBlock Grid.Column="6" Text="{Binding TrackedTimeText}" FontFamily="Consolas, Cascadia Code, monospace" FontSize="11.5" Foreground="#64748B" VerticalAlignment="Center" />
 
-                                                    <!-- Col 6: Actions -->
-                                                    <StackPanel Grid.Column="6" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="5" VerticalAlignment="Center">
+                                                    <!-- Col 7: Actions -->
+                                                    <StackPanel Grid.Column="7" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="5" VerticalAlignment="Center">
                                                         <Button Classes="glass" Content="🔗 View" IsVisible="{Binding HasDeliverable}" Padding="6,3" FontSize="10.5" Tag="{Binding Id}" Click="BtnViewDeliverable_Click" />
                                                         <Button Classes="glass" Content="✏ Edit" Padding="6,3" FontSize="10.5" Tag="{Binding Id}" Click="BtnEditAdminTask_Click" />
                                                         <Button Classes="glass" Content="🗑 Del" Foreground="#FB7185" Padding="6,3" FontSize="10.5" Tag="{Binding Id}" Click="BtnDeleteAdminTask_Click" />
@@ -1318,6 +1339,90 @@
                         <TextBlock x:Name="TxtBulkImportProgress" Grid.Column="0" Text="" FontSize="11" Foreground="#34D399" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <Button Grid.Column="1" Classes="glass" Content="Cancel" Click="BtnCloseBulkImport_Click" Margin="0,0,8,0" />
                         <Button x:Name="BtnSubmitBulkImport" Grid.Column="2" Classes="primary" Content="🚀 Dispatch Selected Tasks" Click="BtnSubmitBulkImport_Click" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Confirm Delete All Tasks Modal -->
+        <Grid x:Name="DeleteAllTasksModal" IsVisible="False" Background="#CC000000">
+            <Border Background="#F0181119" BorderBrush="#E11D48" BorderThickness="1.5" CornerRadius="14" Width="520" Padding="24"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <TextBlock Grid.Column="0" Text="⚠️" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBlock Grid.Column="1" Text="Purge All Tasks with 30-Day Backup" FontSize="16" FontWeight="Bold" Foreground="#FDA4AF" VerticalAlignment="Center" />
+                        <Button Grid.Column="2" Classes="glass" Content="✕" Click="BtnCloseDeleteAllModal_Click" Padding="8,4" />
+                    </Grid>
+
+                    <TextBlock x:Name="TxtDeleteAllWarningMessage" Text="Are you sure you want to delete ALL tasks across all staff members?" FontSize="12.5" Foreground="#F1F5F9" TextWrapping="Wrap" />
+
+                    <Border Background="#20E11D48" BorderBrush="#40E11D48" BorderThickness="1" CornerRadius="8" Padding="12">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="🛡️ Automatic 30-Day Backup Guarantee:" FontSize="11.5" FontWeight="Bold" Foreground="#FDA4AF" />
+                            <TextBlock Text="• An encrypted snapshot of all deleted tasks will be saved for 30 days.&#10;• You will receive automated reminders at Days 5, 15, 20, 25, 28, 29, and 30.&#10;• You can restore all deleted tasks anytime from the 'Backups (30d)' center." FontSize="11" Foreground="#CBD5E1" LineHeight="18" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
+                    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,6,0,0">
+                        <TextBlock x:Name="TxtDeleteAllStatus" Grid.Column="0" Text="" FontSize="11" Foreground="#FB7185" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Classes="glass" Content="Cancel" Click="BtnCloseDeleteAllModal_Click" Margin="0,0,10,0" />
+                        <Button x:Name="BtnConfirmDeleteAll" Grid.Column="2" Classes="danger" Content="🗑️ Confirm Delete All &amp; Backup" Click="BtnConfirmDeleteAll_Click" Padding="14,8" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- 30-Day Task Backups & Restore Modal -->
+        <Grid x:Name="TaskBackupsModal" IsVisible="False" Background="#CC000000">
+            <Border Background="#F0141722" BorderBrush="#40FFFFFF" BorderThickness="1" CornerRadius="14" Width="680" MaxHeight="600" Padding="24"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Grid RowDefinitions="Auto,*,Auto">
+                    <!-- Header -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+                        <StackPanel>
+                            <TextBlock Text="📦 30-Day Task Backups &amp; Restore Center" FontSize="16" FontWeight="Bold" Foreground="#F8FAFC" />
+                            <TextBlock Text="Every 'Delete All' operation creates a 30-day snapshot. Restore tasks anytime before expiration." FontSize="11.5" Foreground="#94A3B8" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Classes="glass" Content="✕" Click="BtnCloseBackupsModal_Click" Padding="8,4" />
+                    </Grid>
+
+                    <!-- Backups List -->
+                    <Border Grid.Row="1" Background="#15000000" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="8" Padding="10" MinHeight="220" MaxHeight="380">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <TextBlock x:Name="TxtEmptyBackups" Text="No 30-day task backup snapshots found." FontSize="12" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,40,0,0" IsVisible="False" />
+                                <ItemsControl x:Name="TaskBackupsItemsControl">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="dto:TaskBackupDto">
+                                            <Border Background="#201C202E" BorderBrush="#15FFFFFF" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,8">
+                                                <Grid ColumnDefinitions="*,Auto,Auto">
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <TextBlock Text="{Binding TaskCount, StringFormat='{}{0} Tasks'}" FontSize="13" FontWeight="Bold" Foreground="#F8FAFC" />
+                                                            <Border Background="#2038BDF8" CornerRadius="4" Padding="6,1" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding RemainingDays, StringFormat='{}{0} days left'}" FontSize="10" FontWeight="Bold" Foreground="#38BDF8" />
+                                                            </Border>
+                                                            <Border Background="#2010B981" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" IsVisible="{Binding IsRestored}">
+                                                                <TextBlock Text="✓ Restored" FontSize="10" FontWeight="Bold" Foreground="#34D399" />
+                                                            </Border>
+                                                        </StackPanel>
+                                                        <TextBlock Text="{Binding CreatedAt, StringFormat='Backed up on {0:yyyy-MM-dd HH:mm:ss} UTC'}" FontSize="11" Foreground="#94A3B8" Margin="0,3,0,0" />
+                                                    </StackPanel>
+                                                    <Button Grid.Column="2" Classes="accentGreen" Content="🔄 Restore Tasks" Tag="{Binding Id}" Click="BtnRestoreBackup_Click" Padding="10,5" VerticalAlignment="Center" IsEnabled="{Binding !IsExpired}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Footer -->
+                    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,14,0,0">
+                        <TextBlock Text="Automated reminders trigger on Days 5, 15, 20, 25, 28, 29, and 30 before permanent expiration." FontSize="11" Foreground="#64748B" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Classes="glass" Content="Close" Click="BtnCloseBackupsModal_Click" Padding="12,6" />
                     </Grid>
                 </Grid>
             </Border>

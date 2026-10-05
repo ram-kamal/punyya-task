@@ -1,4 +1,6 @@
 using System;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using Avalonia.Media;
 using PHF.Core.DTOs;
 
@@ -66,13 +68,27 @@ public class AdminWorkstationItemViewModel
     public string LastSeenText => _dto.LastSeen.ToLocalTime().ToString("HH:mm:ss");
 }
 
-public class AdminTaskItemViewModel
+public class AdminTaskItemViewModel : INotifyPropertyChanged
 {
     private readonly TaskResponseDto _dto;
+    private bool _isSelected;
 
     public AdminTaskItemViewModel(TaskResponseDto dto)
     {
         _dto = dto;
+    }
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected != value)
+            {
+                _isSelected = value;
+                OnPropertyChanged();
+            }
+        }
     }
 
     public Guid Id => _dto.Id;
@@ -138,6 +154,12 @@ public class AdminTaskItemViewModel
         "UNDER_REVIEW" => new SolidColorBrush(Color.FromRgb(56, 189, 248)),
         _ => new SolidColorBrush(Color.FromRgb(148, 163, 184))
     };
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
 }
 
 public class AdminTimesheetRowViewModel

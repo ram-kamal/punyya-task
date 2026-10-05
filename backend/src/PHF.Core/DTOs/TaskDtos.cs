@@ -98,3 +98,51 @@ public record TaskResponseDto
     public int TotalTrackedSeconds { get; init; }
     public List<TaskAttachmentDto> Attachments { get; init; } = new();
 }
+
+public record BulkDeleteTasksRequest
+{
+    [Required]
+    public List<Guid> TaskIds { get; init; } = new();
+}
+
+public record BulkDeleteTasksResponse
+{
+    public int DeletedCount { get; init; }
+    public string Message { get; init; } = string.Empty;
+}
+
+public record DeleteAllTasksResponse
+{
+    public int DeletedCount { get; init; }
+    public Guid BackupId { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime ExpiresAt { get; init; }
+    public string Message { get; init; } = string.Empty;
+}
+
+public record TaskBackupDto
+{
+    public Guid Id { get; init; }
+    public int TaskCount { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime ExpiresAt { get; init; }
+    public int ElapsedDays { get; init; }
+    public int RemainingDays { get; init; }
+    public string? DeletedByName { get; init; }
+    public bool IsRestored { get; init; }
+    public DateTime? RestoredAt { get; init; }
+    public bool IsExpired { get; init; }
+    public int? ActiveReminderMilestone { get; init; }
+}
+
+public record RestoreBackupResponse
+{
+    public Guid BackupId { get; init; }
+    public int RestoredCount { get; init; }
+    public string Message { get; init; } = string.Empty;
+}
+
+public record DismissReminderRequest
+{
+    public int MilestoneDay { get; init; }
+}

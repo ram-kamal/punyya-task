@@ -241,6 +241,51 @@ public class TasksController : ControllerBase
         return NoContent();
     }
 
+    [Authorize(Roles = "ADMIN,MANAGER")]
+    [HttpPost("bulk-delete")]
+    public async Task<IActionResult> BulkDeleteTasks([FromBody] BulkDeleteTasksRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _taskService.BulkDeleteTasksAsync(request.TaskIds, cancellationToken);
+        return Ok(result);
+    }
+
+    [Authorize(Roles = "ADMIN")]
+    [HttpPost("delete-all")]
+    public async Task<IActionResult> DeleteAllTasks(CancellationToken cancellationToken)
+    {
+        var adminId = GetCurrentUserId();
+        var adminName = User.FindFirstValue(ClaimTypes.Name) ?? "Admin";
+        var result = await _taskService.DeleteAllTasksAsync(adminId, adminName, cancellationToken);
+        return Ok(result);
+    }
+
+    [Authorize(Roles = "ADMIN,MANAGER")]
+    [HttpGet("backups")]
+    public async Task<IActionResult> GetTaskBackups(CancellationToken cancellationToken)
+    {
+        var backups = await _taskService.GetTaskBackupsAsync(cancellationToken);
+        return Ok(backups);
+    }
+
+    [Authorize(Roles = "ADMIN")]
+    [HttpPost("backups/{id:guid}/restore")]
+    public async Task<IActionResult> RestoreTaskBackup(Guid id, CancellationToken cancellationToken)
+    {
+        var adminId = GetCurrentUserId();
+        var result = await _taskService.RestoreTaskBackupAsync(id, adminId, cancellationToken);
+        if (result == null) return NotFound(new { message = "Backup snapshot not found." });
+        return Ok(result);
+    }
+
+    [Authorize(Roles = "ADMIN,MANAGER")]
+    [HttpPost("backups/{id:guid}/dismiss-reminder")]
+    public async Task<IActionResult> DismissBackupReminder(Guid id, [FromBody] DismissReminderRequest request, CancellationToken cancellationToken)
+    {
+        var success = await _taskService.DismissBackupReminderAsync(id, request.MilestoneDay, cancellationToken);
+        if (!success) return NotFound();
+        return Ok(new { success = true });
+    }
+
     private Guid GetCurrentUserId()
     {
         var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);

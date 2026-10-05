@@ -51,6 +51,9 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<AdminLeaveApprovalViewModel> _adminLeaves = new();
     private readonly ObservableCollection<AdminStaffMemberViewModel> _allStaff = new();
     private readonly ObservableCollection<ParsedCsvTask> _parsedTasks = new();
+    private readonly ObservableCollection<TaskBackupDto> _taskBackups = new();
+    private Guid? _activeReminderBackupId = null;
+    private int? _activeReminderMilestone = null;
     private List<StaffMemberDto> _staffMembers = new();
     private List<TaskResponseDto> _rawAdminTasks = new();
     private string _taskStatusFilter = "ALL";
@@ -82,6 +85,7 @@ public partial class MainWindow : Window
         LeaveApprovalsItemsControl.ItemsSource = _adminLeaves;
         StaffItemsControl.ItemsSource = _allStaff;
         BulkImportItemsControl.ItemsSource = _parsedTasks;
+        TaskBackupsItemsControl.ItemsSource = _taskBackups;
 
         var defaultUrl = Environment.GetEnvironmentVariable("PHF_API_URL") ?? "https://punnya-api.onrender.com";
         _apiClient = new ApiClient(defaultUrl);
@@ -591,6 +595,8 @@ public partial class MainWindow : Window
             var tasks = await _apiClient.GetAllTasksAsync();
             _rawAdminTasks = tasks;
             ApplyAdminTaskFilter();
+            UpdateSelectedTasksCount();
+            await CheckBackupRemindersAsync();
 
             if (!silent)
             {
@@ -660,6 +666,207 @@ public partial class MainWindow : Window
 
             ApplyAdminTaskFilter();
         }
+    }
+
+    private void ChkAdminTaskItem_CheckedChanged(object? sender, RoutedEventArgs e)
+    {
+        UpdateSelectedTasksCount();
+    }
+
+    private void ChkAdminSelectAllTasks_CheckedChanged(object? sender, RoutedEventArgs e)
+    {
+        var isChecked = ChkAdminSelectAllTasks.IsChecked == true;
+        foreach (var task in _allTasks)
+        {
+            task.IsSelected = isChecked;
+        }
+        UpdateSelectedTasksCount();
+    }
+
+    private void UpdateSelectedTasksCount()
+    {
+        var count = _allTasks.Count(t => t.IsSelected);
+        if (count > 0)
+        {
+            BtnDeleteSelectedTasks.Content = $"🗑️ Delete Selected ({count})";
+            BtnDeleteSelectedTasks.IsVisible = true;
+        }
+        else
+        {
+            BtnDeleteSelectedTasks.IsVisible = false;
+        }
+    }
+
+    private async void BtnDeleteSelectedTasks_Click(object? sender, RoutedEventArgs e)
+    {
+        var selected = _allTasks.Where(t => t.IsSelected).Select(t => t.Id).ToList();
+        if (selected.Count == 0) return;
+
+        try
+        {
+            BtnDeleteSelectedTasks.IsEnabled = false;
+            var res = await _apiClient.BulkDeleteTasksAsync(selected);
+            ShowToast("🗑️ Tasks Deleted", $"Successfully deleted {res?.DeletedCount ?? selected.Count} selected tasks.");
+            await LoadAllAdminTasksAsync(silent: true);
+            await LoadAssignedTasksAsync(silent: true);
+        }
+        catch (Exception ex)
+        {
+            ShowToast("⚠️ Delete Failed", ex.Message);
+        }
+        finally
+        {
+            BtnDeleteSelectedTasks.IsEnabled = true;
+            UpdateSelectedTasksCount();
+        }
+    }
+
+    private void BtnOpenDeleteAllModal_Click(object? sender, RoutedEventArgs e)
+    {
+        TxtDeleteAllWarningMessage.Text = $"Are you sure you want to delete ALL {_allTasks.Count} tasks across all staff members? An automated 30-day backup snapshot will be preserved.";
+        TxtDeleteAllStatus.Text = string.Empty;
+        DeleteAllTasksModal.IsVisible = true;
+    }
+
+    private void BtnCloseDeleteAllModal_Click(object? sender, RoutedEventArgs e)
+    {
+        DeleteAllTasksModal.IsVisible = false;
+    }
+
+    private async void BtnConfirmDeleteAll_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            BtnConfirmDeleteAll.IsEnabled = false;
+            TxtDeleteAllStatus.Text = "Creating backup snapshot and purging tasks...";
+
+            var res = await _apiClient.DeleteAllTasksAsync();
+            DeleteAllTasksModal.IsVisible = false;
+            ShowToast("📦 All Tasks Deleted", $"Deleted {res?.DeletedCount ?? 0} tasks. A 30-day backup snapshot was created.");
+
+            await LoadAllAdminTasksAsync(silent: true);
+            await LoadAssignedTasksAsync(silent: true);
+            await CheckBackupRemindersAsync();
+        }
+        catch (Exception ex)
+        {
+            TxtDeleteAllStatus.Text = $"Error: {ex.Message}";
+            ShowToast("⚠️ Delete All Failed", ex.Message);
+        }
+        finally
+        {
+            BtnConfirmDeleteAll.IsEnabled = true;
+        }
+    }
+
+    private async void BtnOpenBackupsModal_Click(object? sender, RoutedEventArgs e)
+    {
+        TaskBackupsModal.IsVisible = true;
+        await LoadBackupsAsync();
+    }
+
+    private void BtnCloseBackupsModal_Click(object? sender, RoutedEventArgs e)
+    {
+        TaskBackupsModal.IsVisible = false;
+    }
+
+    private async Task LoadBackupsAsync()
+    {
+        try
+        {
+            var backups = await _apiClient.GetTaskBackupsAsync();
+            _taskBackups.Clear();
+            foreach (var b in backups)
+            {
+                _taskBackups.Add(b);
+            }
+            TxtEmptyBackups.IsVisible = _taskBackups.Count == 0;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Backups] Error loading: {ex.Message}");
+        }
+    }
+
+    private async void BtnRestoreBackup_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is Guid backupId)
+        {
+            try
+            {
+                btn.IsEnabled = false;
+                var res = await _apiClient.RestoreTaskBackupAsync(backupId);
+                ShowToast("🎉 Backup Restored", $"Successfully restored {res?.RestoredCount ?? 0} tasks back into the system!");
+                TaskBackupsModal.IsVisible = false;
+                await LoadAllAdminTasksAsync(silent: true);
+                await LoadAssignedTasksAsync(silent: true);
+                await CheckBackupRemindersAsync();
+            }
+            catch (Exception ex)
+            {
+                ShowToast("⚠️ Restore Failed", ex.Message);
+                btn.IsEnabled = true;
+            }
+        }
+    }
+
+    private async Task CheckBackupRemindersAsync()
+    {
+        try
+        {
+            var backups = await _apiClient.GetTaskBackupsAsync();
+            var active = backups.FirstOrDefault(b => !b.IsRestored && !b.IsExpired && b.ActiveReminderMilestone.HasValue);
+            if (active?.ActiveReminderMilestone is int milestone)
+            {
+                _activeReminderBackupId = active.Id;
+                _activeReminderMilestone = milestone;
+                TxtReminderTitle.Text = $"Task Backup Retention Reminder (Day {milestone} of 30)";
+                TxtReminderSubtitle.Text = $"Snapshot contains {active.TaskCount} deleted tasks (created on {active.CreatedAt:yyyy-MM-dd HH:mm} UTC). Expiring in {active.RemainingDays} days. Would you like to restore them?";
+                AdminBackupReminderBanner.IsVisible = true;
+            }
+            else
+            {
+                AdminBackupReminderBanner.IsVisible = false;
+                _activeReminderBackupId = null;
+                _activeReminderMilestone = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Reminder] Error: {ex.Message}");
+        }
+    }
+
+    private async void BtnReminderRestore_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_activeReminderBackupId.HasValue)
+        {
+            try
+            {
+                var res = await _apiClient.RestoreTaskBackupAsync(_activeReminderBackupId.Value);
+                ShowToast("🎉 Tasks Restored", $"Restored {res?.RestoredCount ?? 0} tasks from backup!");
+                AdminBackupReminderBanner.IsVisible = false;
+                await LoadAllAdminTasksAsync(silent: true);
+                await LoadAssignedTasksAsync(silent: true);
+            }
+            catch (Exception ex)
+            {
+                ShowToast("⚠️ Restore Failed", ex.Message);
+            }
+        }
+    }
+
+    private async void BtnReminderDismiss_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_activeReminderBackupId.HasValue && _activeReminderMilestone.HasValue)
+        {
+            try
+            {
+                await _apiClient.DismissBackupReminderAsync(_activeReminderBackupId.Value, _activeReminderMilestone.Value);
+            }
+            catch { }
+        }
+        AdminBackupReminderBanner.IsVisible = false;
     }
 
     private async void BtnDeleteAdminTask_Click(object? sender, RoutedEventArgs e)

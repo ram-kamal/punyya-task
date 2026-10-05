@@ -149,4 +149,35 @@ export interface UpdateStaffPayload {
   newPassword?: string;
 }
 
+export interface TaskBackupDto {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
+  taskCount: number;
+  deletedByName?: string;
+  isRestored: boolean;
+  restoredAt?: string;
+  isExpired: boolean;
+  remainingDays: number;
+  activeReminderMilestone?: number;
+}
+
+export interface BulkDeleteTasksResponse {
+  deletedCount: number;
+  message: string;
+}
+
+export interface DeleteAllTasksResponse {
+  deletedCount: number;
+  backupId: string;
+  expiresAt: string;
+  message: string;
+}
+
+export interface RestoreBackupResponse {
+  backupId: string;
+  restoredCount: number;
+  message: string;
+}
+
 
