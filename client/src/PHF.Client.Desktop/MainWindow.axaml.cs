@@ -20,6 +20,7 @@ using PHF.Client.Core.Sync;
 using PHF.Client.Core.Telemetry;
 using PHF.Client.Desktop.Telemetry;
 using PHF.Client.Desktop.ViewModels;
+using PHF.Client.Desktop.Utils;
 using PHF.Core.DTOs;
 using PHF.Core.Enums;
 
@@ -49,7 +50,16 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<AdminTimesheetRowViewModel> _timesheets = new();
     private readonly ObservableCollection<AdminLeaveApprovalViewModel> _adminLeaves = new();
     private readonly ObservableCollection<AdminStaffMemberViewModel> _allStaff = new();
+    private readonly ObservableCollection<ParsedCsvTask> _parsedTasks = new();
     private List<StaffMemberDto> _staffMembers = new();
+    private List<TaskResponseDto> _rawAdminTasks = new();
+    private string _taskStatusFilter = "ALL";
+    private string _taskSearchQuery = string.Empty;
+    private string _staffStatusFilter = "ALL";
+    private string _staffSearchQuery = string.Empty;
+    private string _timesheetPeriod = "today";
+    private Guid? _editStaffTargetId = null;
+    private Guid? _resetPasswordTargetId = null;
 
     private DispatcherTimer? _autoRefreshTimer;
     private DispatcherTimer? _toastDismissTimer;
@@ -71,6 +81,7 @@ public partial class MainWindow : Window
         TimesheetsItemsControl.ItemsSource = _timesheets;
         LeaveApprovalsItemsControl.ItemsSource = _adminLeaves;
         StaffItemsControl.ItemsSource = _allStaff;
+        BulkImportItemsControl.ItemsSource = _parsedTasks;
 
         var defaultUrl = Environment.GetEnvironmentVariable("PHF_API_URL") ?? "https://punnya-api.onrender.com";
         _apiClient = new ApiClient(defaultUrl);
@@ -578,14 +589,8 @@ public partial class MainWindow : Window
         try
         {
             var tasks = await _apiClient.GetAllTasksAsync();
-            _allTasks.Clear();
-
-            foreach (var t in tasks)
-            {
-                _allTasks.Add(new AdminTaskItemViewModel(t));
-            }
-
-            TxtAdminTasksCount.Text = $"All Workforce Tasks ({tasks.Count} total)";
+            _rawAdminTasks = tasks;
+            ApplyAdminTaskFilter();
 
             if (!silent)
             {
@@ -598,11 +603,95 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ApplyAdminTaskFilter()
+    {
+        var filtered = _rawAdminTasks.AsEnumerable();
+
+        if (_taskStatusFilter != "ALL")
+        {
+            filtered = filtered.Where(t => string.Equals(t.Status, _taskStatusFilter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(_taskSearchQuery))
+        {
+            var q = _taskSearchQuery.Trim();
+            filtered = filtered.Where(t =>
+                (t.Title != null && t.Title.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+                (t.TaskCode != null && t.TaskCode.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+                (t.AssignedToName != null && t.AssignedToName.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+                (t.Description != null && t.Description.Contains(q, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        var list = filtered.ToList();
+        _allTasks.Clear();
+        foreach (var t in list)
+        {
+            _allTasks.Add(new AdminTaskItemViewModel(t));
+        }
+
+        TxtAdminTasksCount.Text = _rawAdminTasks.Count == list.Count
+            ? $"All Workforce Tasks ({list.Count} total)"
+            : $"Filtered Tasks ({list.Count} of {_rawAdminTasks.Count} total)";
+    }
+
+    private void TxtAdminTaskSearch_TextChanged(object? sender, TextChangedEventArgs e)
+    {
+        _taskSearchQuery = TxtAdminTaskSearch.Text ?? string.Empty;
+        ApplyAdminTaskFilter();
+    }
+
+    private void BtnFilterTaskStatus_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string status)
+        {
+            _taskStatusFilter = status;
+
+            BtnFilterTaskAll.Classes.Clear();
+            BtnFilterTaskAll.Classes.Add(_taskStatusFilter == "ALL" ? "primary" : "glass");
+
+            BtnFilterTaskInProgress.Classes.Clear();
+            BtnFilterTaskInProgress.Classes.Add(_taskStatusFilter == "IN_PROGRESS" ? "primary" : "glass");
+
+            BtnFilterTaskAssigned.Classes.Clear();
+            BtnFilterTaskAssigned.Classes.Add(_taskStatusFilter == "ASSIGNED" ? "primary" : "glass");
+
+            BtnFilterTaskCompleted.Classes.Clear();
+            BtnFilterTaskCompleted.Classes.Add(_taskStatusFilter == "COMPLETED" ? "primary" : "glass");
+
+            ApplyAdminTaskFilter();
+        }
+    }
+
+    private async void BtnDeleteAdminTask_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is Guid taskId)
+        {
+            try
+            {
+                var ok = await _apiClient.DeleteTaskAsync(taskId);
+                if (ok)
+                {
+                    ShowToast("🗑 Task Deleted", "Task removed from workforce board.");
+                    await LoadAllAdminTasksAsync(silent: true);
+                    await LoadAssignedTasksAsync(silent: true);
+                }
+                else
+                {
+                    ShowToast("⚠️ Delete Failed", "Could not remove task.");
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowToast("⚠️ Delete Failed", ex.Message);
+            }
+        }
+    }
+
     private async Task LoadTimesheetSummaryAsync(bool silent = false)
     {
         try
         {
-            var summary = await _apiClient.GetTimesheetSummaryAsync("today");
+            var summary = await _apiClient.GetTimesheetSummaryAsync(_timesheetPeriod);
             _timesheets.Clear();
 
             if (summary != null)
@@ -620,12 +709,31 @@ public partial class MainWindow : Window
 
             if (!silent)
             {
-                TxtStatusBar.Text = $"Timesheet metrics loaded at {DateTime.Now:HH:mm:ss}";
+                TxtStatusBar.Text = $"Timesheet metrics loaded ({_timesheetPeriod}) at {DateTime.Now:HH:mm:ss}";
             }
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"[Timesheets] Error: {ex.Message}");
+        }
+    }
+
+    private async void BtnTimesheetPeriod_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string period)
+        {
+            _timesheetPeriod = period;
+
+            BtnTsFilterToday.Classes.Clear();
+            BtnTsFilterToday.Classes.Add(_timesheetPeriod == "today" ? "primary" : "glass");
+
+            BtnTsFilterWeek.Classes.Clear();
+            BtnTsFilterWeek.Classes.Add(_timesheetPeriod == "week" ? "primary" : "glass");
+
+            BtnTsFilterMonth.Classes.Clear();
+            BtnTsFilterMonth.Classes.Add(_timesheetPeriod == "month" ? "primary" : "glass");
+
+            await LoadTimesheetSummaryAsync(silent: true);
         }
     }
 
@@ -658,12 +766,7 @@ public partial class MainWindow : Window
         {
             var staff = await _apiClient.GetAllStaffAsync();
             _staffMembers = staff;
-            _allStaff.Clear();
-
-            foreach (var s in staff)
-            {
-                _allStaff.Add(new AdminStaffMemberViewModel(s));
-            }
+            ApplyStaffFilter();
 
             PopulateDispatchAssigneeDropdown();
 
@@ -675,6 +778,62 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Debug.WriteLine($"[Staff] Error: {ex.Message}");
+        }
+    }
+
+    private void ApplyStaffFilter()
+    {
+        var filtered = _staffMembers.AsEnumerable();
+
+        if (_staffStatusFilter == "ACTIVE")
+        {
+            filtered = filtered.Where(s => s.IsActive);
+        }
+        else if (_staffStatusFilter == "SUSPENDED")
+        {
+            filtered = filtered.Where(s => !s.IsActive);
+        }
+
+        if (!string.IsNullOrWhiteSpace(_staffSearchQuery))
+        {
+            var q = _staffSearchQuery.Trim();
+            filtered = filtered.Where(s =>
+                (s.FullName != null && s.FullName.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+                (s.Email != null && s.Email.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+                (s.Username != null && s.Username.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+                (s.Role != null && s.Role.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+                (s.StationId != null && s.StationId.Contains(q, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        _allStaff.Clear();
+        foreach (var s in filtered)
+        {
+            _allStaff.Add(new AdminStaffMemberViewModel(s));
+        }
+    }
+
+    private void TxtStaffSearch_TextChanged(object? sender, TextChangedEventArgs e)
+    {
+        _staffSearchQuery = TxtStaffSearch.Text ?? string.Empty;
+        ApplyStaffFilter();
+    }
+
+    private void BtnFilterStaffStatus_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string status)
+        {
+            _staffStatusFilter = status;
+
+            BtnFilterStaffAll.Classes.Clear();
+            BtnFilterStaffAll.Classes.Add(_staffStatusFilter == "ALL" ? "primary" : "glass");
+
+            BtnFilterStaffActive.Classes.Clear();
+            BtnFilterStaffActive.Classes.Add(_staffStatusFilter == "ACTIVE" ? "primary" : "glass");
+
+            BtnFilterStaffSuspended.Classes.Clear();
+            BtnFilterStaffSuspended.Classes.Add(_staffStatusFilter == "SUSPENDED" ? "primary" : "glass");
+
+            ApplyStaffFilter();
         }
     }
 
@@ -962,8 +1121,15 @@ public partial class MainWindow : Window
 
         if (files.Count > 0)
         {
-            _stagedFilePath = files[0].Path.LocalPath;
-            TxtSelectedFilePath.Text = $"Selected: {Path.GetFileName(_stagedFilePath)} ({new FileInfo(_stagedFilePath).Length / 1024} KB)";
+            _stagedFilePath = files[0].TryGetLocalPath() ?? files[0].Path.LocalPath;
+            if (File.Exists(_stagedFilePath))
+            {
+                TxtSelectedFilePath.Text = $"Selected: {Path.GetFileName(_stagedFilePath)} ({new FileInfo(_stagedFilePath).Length / 1024} KB)";
+            }
+            else
+            {
+                TxtSelectedFilePath.Text = $"Selected: {Path.GetFileName(_stagedFilePath)}";
+            }
         }
     }
 
@@ -979,7 +1145,10 @@ public partial class MainWindow : Window
         if (!_modalTargetTaskId.HasValue) return;
 
         var url = TxtDeliverableUrlInput.Text?.Trim();
-        if (string.IsNullOrWhiteSpace(_stagedFilePath) && string.IsNullOrWhiteSpace(url))
+        var hasValidFile = !string.IsNullOrWhiteSpace(_stagedFilePath) && File.Exists(_stagedFilePath);
+        var hasValidUrl = !string.IsNullOrWhiteSpace(url);
+
+        if (!hasValidFile && !hasValidUrl)
         {
             TxtSelectedFilePath.Text = "⚠️ Please select a file or enter an external URL.";
             return;
@@ -987,16 +1156,18 @@ public partial class MainWindow : Window
 
         try
         {
-            if (!string.IsNullOrWhiteSpace(_stagedFilePath) && File.Exists(_stagedFilePath))
+            if (hasValidUrl)
             {
-                await _apiClient.UploadDeliverableAsync(_modalTargetTaskId.Value, _stagedFilePath);
+                await _apiClient.AttachDeliverableLinkAsync(_modalTargetTaskId.Value, url!, "External Proof Link");
             }
-            else if (!string.IsNullOrWhiteSpace(url))
+            else if (hasValidFile)
             {
-                await _apiClient.AttachDeliverableLinkAsync(_modalTargetTaskId.Value, url, "External Proof Link");
+                await _apiClient.UploadDeliverableAsync(_modalTargetTaskId.Value, _stagedFilePath!);
             }
 
             AttachDeliverableModal.IsVisible = false;
+            _stagedFilePath = null;
+            _modalTargetTaskId = null;
             ShowToast("✓ Deliverable Attached", "Work proof recorded. You may now complete this task.");
             await LoadAssignedTasksAsync(silent: true);
             if (IsAdminOrManager)
@@ -1007,6 +1178,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             TxtSelectedFilePath.Text = $"Upload failed: {ex.Message}";
+            ShowToast("⚠️ Upload Failed", ex.Message);
         }
     }
 
@@ -1259,13 +1431,13 @@ public partial class MainWindow : Window
     {
         try
         {
-            TxtStatusBar.Text = "Downloading timesheet CSV export...";
-            var csvBytes = await _apiClient.ExportTimesheetCsvAsync(period: "today");
+            TxtStatusBar.Text = $"Downloading timesheet CSV export ({_timesheetPeriod})...";
+            var csvBytes = await _apiClient.ExportTimesheetCsvAsync(period: _timesheetPeriod);
 
             if (csvBytes != null && csvBytes.Length > 0)
             {
                 var desktopDir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-                var filePath = Path.Combine(desktopDir, $"Punnya_Timesheet_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+                var filePath = Path.Combine(desktopDir, $"Punnya_Timesheet_{_timesheetPeriod}_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
                 await File.WriteAllBytesAsync(filePath, csvBytes);
 
                 ShowToast("⬇ CSV Exported", $"Saved to Desktop: {Path.GetFileName(filePath)}");
@@ -1277,12 +1449,336 @@ public partial class MainWindow : Window
             }
             else
             {
-                ShowToast("⚠️ Export CSV", "No timesheet records available for today.");
+                ShowToast("⚠️ Export CSV", $"No timesheet records available for {_timesheetPeriod}.");
             }
         }
         catch (Exception ex)
         {
             ShowToast("⚠️ Export Failed", ex.Message);
+        }
+    }
+
+    private void BtnOpenBulkImportModal_Click(object? sender, RoutedEventArgs e)
+    {
+        TxtBulkImportCsv.Text = string.Empty;
+        _parsedTasks.Clear();
+        TxtBulkImportSummary.Text = "Paste or load CSV data above and click 'Parse & Validate'.";
+        TxtBulkImportProgress.Text = string.Empty;
+        ChkBulkSelectAll.IsChecked = true;
+        BulkImportTasksModal.IsVisible = true;
+    }
+
+    private void BtnCloseBulkImport_Click(object? sender, RoutedEventArgs e)
+    {
+        BulkImportTasksModal.IsVisible = false;
+    }
+
+    private void BtnBulkImportSampleMatrix_Click(object? sender, RoutedEventArgs e)
+    {
+        TxtBulkImportCsv.Text = TaskCsvImporter.GetSampleMatrixCsv();
+        BtnBulkImportParse_Click();
+    }
+
+    private void BtnBulkImportSampleLinear_Click(object? sender, RoutedEventArgs e)
+    {
+        TxtBulkImportCsv.Text = TaskCsvImporter.GetSampleLinearCsv();
+        BtnBulkImportParse_Click();
+    }
+
+    private async void BtnBulkImportBrowse_Click(object? sender, RoutedEventArgs e)
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Open CSV/TSV File for Task Dispatch",
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("CSV and TSV files") { Patterns = new[] { "*.csv", "*.tsv", "*.txt" } }
+            }
+        });
+
+        if (files.Count > 0)
+        {
+            var localPath = files[0].TryGetLocalPath() ?? files[0].Path.LocalPath;
+            if (File.Exists(localPath))
+            {
+                var text = await File.ReadAllTextAsync(localPath);
+                TxtBulkImportCsv.Text = text;
+                BtnBulkImportParse_Click();
+            }
+        }
+    }
+
+    private void BtnBulkImportParse_Click(object? sender = null, RoutedEventArgs? e = null)
+    {
+        var text = TxtBulkImportCsv.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            TxtBulkImportSummary.Text = "Please enter or paste CSV text first.";
+            return;
+        }
+
+        var result = TaskCsvImporter.Parse(text, _staffMembers);
+        _parsedTasks.Clear();
+        foreach (var t in result.Tasks)
+        {
+            _parsedTasks.Add(t);
+        }
+
+        TxtBulkImportSummary.Text = $"Parsed {result.TotalFound} tasks ({result.DetectedFormatLabel}) • {result.MatchedStaffCount} staff matched • {result.UnassignedCount} unassigned";
+    }
+
+    private void ChkBulkSelectAll_CheckedChanged(object? sender, RoutedEventArgs e)
+    {
+        var isChecked = ChkBulkSelectAll.IsChecked == true;
+        foreach (var t in _parsedTasks)
+        {
+            t.IsSelected = isChecked;
+        }
+
+        BulkImportItemsControl.ItemsSource = null;
+        BulkImportItemsControl.ItemsSource = _parsedTasks;
+    }
+
+    private async void BtnSubmitBulkImport_Click(object? sender, RoutedEventArgs e)
+    {
+        var selected = _parsedTasks.Where(t => t.IsSelected && !string.IsNullOrWhiteSpace(t.Title)).ToList();
+        if (selected.Count == 0)
+        {
+            TxtBulkImportProgress.Text = "⚠️ No tasks selected for import.";
+            return;
+        }
+
+        BtnSubmitBulkImport.IsEnabled = false;
+        int successCount = 0;
+        int failCount = 0;
+
+        for (int i = 0; i < selected.Count; i++)
+        {
+            var item = selected[i];
+            TxtBulkImportProgress.Text = $"Dispatching task {i + 1} of {selected.Count}: {item.Title}...";
+
+            try
+            {
+                await _apiClient.CreateTaskAsync(new CreateTaskRequest
+                {
+                    Title = item.Title,
+                    Description = item.Description,
+                    Priority = item.Priority,
+                    AssignedTo = item.AssignedTo,
+                    DeliverableRequired = item.DeliverableRequired,
+                    DueDate = item.DueDate
+                });
+                successCount++;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[BulkImport] Error creating task: {ex.Message}");
+                failCount++;
+            }
+        }
+
+        BtnSubmitBulkImport.IsEnabled = true;
+        BulkImportTasksModal.IsVisible = false;
+        ShowToast("🚀 Bulk Tasks Dispatched", $"Successfully dispatched {successCount} tasks ({failCount} failed).");
+
+        await LoadAllAdminTasksAsync(silent: true);
+        await LoadAssignedTasksAsync(silent: true);
+    }
+
+    private void BtnEditStaff_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is Guid staffId)
+        {
+            var member = _staffMembers.FirstOrDefault(s => s.Id == staffId);
+            if (member == null) return;
+
+            _editStaffTargetId = staffId;
+            TxtEditStaffFullName.Text = member.FullName;
+            TxtEditStaffEmail.Text = member.Email;
+            TxtEditStaffUsername.Text = member.Username ?? string.Empty;
+            TxtEditStaffStationId.Text = member.StationId ?? string.Empty;
+            ChkEditStaffIsActive.IsChecked = member.IsActive;
+            TxtEditStaffError.IsVisible = false;
+
+            for (int i = 0; i < CmbEditStaffRole.Items.Count; i++)
+            {
+                if (CmbEditStaffRole.Items[i] is ComboBoxItem item && string.Equals(item.Tag?.ToString(), member.Role, StringComparison.OrdinalIgnoreCase))
+                {
+                    CmbEditStaffRole.SelectedIndex = i;
+                    break;
+                }
+            }
+
+            for (int i = 0; i < CmbEditStaffWorkMode.Items.Count; i++)
+            {
+                if (CmbEditStaffWorkMode.Items[i] is ComboBoxItem item && string.Equals(item.Tag?.ToString(), member.WorkMode, StringComparison.OrdinalIgnoreCase))
+                {
+                    CmbEditStaffWorkMode.SelectedIndex = i;
+                    break;
+                }
+            }
+
+            EditStaffModal.IsVisible = true;
+        }
+    }
+
+    private void BtnCancelEditStaff_Click(object? sender, RoutedEventArgs e)
+    {
+        EditStaffModal.IsVisible = false;
+        _editStaffTargetId = null;
+    }
+
+    private async void BtnSubmitEditStaff_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!_editStaffTargetId.HasValue) return;
+
+        TxtEditStaffError.IsVisible = false;
+        var fullName = TxtEditStaffFullName.Text?.Trim();
+        var email = TxtEditStaffEmail.Text?.Trim();
+
+        if (string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(email))
+        {
+            TxtEditStaffError.Text = "Full Name and Email are required.";
+            TxtEditStaffError.IsVisible = true;
+            return;
+        }
+
+        var roleItem = CmbEditStaffRole.SelectedItem as ComboBoxItem;
+        var role = roleItem?.Tag?.ToString() ?? "EMPLOYEE";
+
+        var workModeItem = CmbEditStaffWorkMode.SelectedItem as ComboBoxItem;
+        var workMode = workModeItem?.Tag?.ToString() ?? "IN_OFFICE";
+
+        var username = TxtEditStaffUsername.Text?.Trim();
+        var stationId = TxtEditStaffStationId.Text?.Trim();
+        var isActive = ChkEditStaffIsActive.IsChecked == true;
+
+        try
+        {
+            await _apiClient.UpdateStaffAsync(_editStaffTargetId.Value, new UpdateStaffRequest
+            {
+                FullName = fullName,
+                Email = email,
+                Username = string.IsNullOrWhiteSpace(username) ? null : username,
+                Role = role,
+                WorkMode = workMode,
+                StationId = string.IsNullOrWhiteSpace(stationId) ? null : stationId,
+                IsActive = isActive
+            });
+
+            EditStaffModal.IsVisible = false;
+            _editStaffTargetId = null;
+            ShowToast("✓ Profile Updated", $"{fullName}'s profile was updated.");
+            await LoadStaffDirectoryAsync(silent: true);
+        }
+        catch (Exception ex)
+        {
+            TxtEditStaffError.Text = $"Update failed: {ex.Message}";
+            TxtEditStaffError.IsVisible = true;
+        }
+    }
+
+    private void BtnResetStaffPassword_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is Guid staffId)
+        {
+            var member = _staffMembers.FirstOrDefault(s => s.Id == staffId);
+            if (member == null) return;
+
+            _resetPasswordTargetId = staffId;
+            TxtResetPasswordTargetInfo.Text = $"Target: {member.FullName} ({member.Email})";
+            TxtResetPasswordNewPassword.Text = string.Empty;
+            TxtResetPasswordError.IsVisible = false;
+            ResetStaffPasswordModal.IsVisible = true;
+        }
+    }
+
+    private void BtnCancelResetPassword_Click(object? sender, RoutedEventArgs e)
+    {
+        ResetStaffPasswordModal.IsVisible = false;
+        _resetPasswordTargetId = null;
+    }
+
+    private async void BtnSubmitResetPassword_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!_resetPasswordTargetId.HasValue) return;
+
+        TxtResetPasswordError.IsVisible = false;
+        var newPassword = TxtResetPasswordNewPassword.Text?.Trim();
+
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 4)
+        {
+            TxtResetPasswordError.Text = "Please enter a valid password (minimum 4 characters).";
+            TxtResetPasswordError.IsVisible = true;
+            return;
+        }
+
+        try
+        {
+            await _apiClient.ResetStaffPasswordAsync(_resetPasswordTargetId.Value, newPassword);
+            ResetStaffPasswordModal.IsVisible = false;
+            _resetPasswordTargetId = null;
+            ShowToast("🔑 Password Reset", "New temporary credentials saved.");
+        }
+        catch (Exception ex)
+        {
+            TxtResetPasswordError.Text = $"Reset failed: {ex.Message}";
+            TxtResetPasswordError.IsVisible = true;
+        }
+    }
+
+    private async void BtnToggleStaffStatus_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is Guid staffId)
+        {
+            try
+            {
+                var ok = await _apiClient.ToggleStaffStatusAsync(staffId);
+                if (ok)
+                {
+                    ShowToast("Staff Status Changed", "Staff account status toggled.");
+                    await LoadStaffDirectoryAsync(silent: true);
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowToast("⚠️ Status Change Failed", ex.Message);
+            }
+        }
+    }
+
+    private async void BtnDeleteStaff_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is Guid staffId)
+        {
+            var member = _staffMembers.FirstOrDefault(s => s.Id == staffId);
+            var name = member?.FullName ?? "staff member";
+
+            if (_currentUser != null && staffId == _currentUser.Id)
+            {
+                ShowToast("⚠️ Action Blocked", "You cannot delete your own active administrator account.");
+                return;
+            }
+
+            try
+            {
+                var ok = await _apiClient.DeleteStaffAsync(staffId);
+                if (ok)
+                {
+                    ShowToast("🗑 Staff Deleted", $"{name} was removed from the workforce directory.");
+                    await LoadStaffDirectoryAsync(silent: true);
+                    await LoadAllAdminTasksAsync(silent: true);
+                }
+                else
+                {
+                    ShowToast("⚠️ Delete Failed", "Could not remove staff member.");
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowToast("⚠️ Delete Failed", ex.Message);
+            }
         }
     }
 

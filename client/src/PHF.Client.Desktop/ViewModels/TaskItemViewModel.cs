@@ -29,7 +29,7 @@ public class TaskItemViewModel : INotifyPropertyChanged
     public string? DeliverableUrl => _dto.DeliverableUrl;
     public string DeliverableFileName => !string.IsNullOrWhiteSpace(_dto.DeliverableFileName) ? _dto.DeliverableFileName : "Deliverable";
     public TaskResponseDto Dto => _dto;
-    public bool CanComplete => HasDeliverable && _dto.Status != "COMPLETED";
+    public bool CanComplete => (!_dto.DeliverableRequired || HasDeliverable) && _dto.Status != "COMPLETED";
 
     public bool IsActionButtonsVisible => !IsCompleted;
     public bool IsCompletedBadgeVisible => IsCompleted;
@@ -72,13 +72,18 @@ public class TaskItemViewModel : INotifyPropertyChanged
             if (_dto.Status == "COMPLETED")
             {
                 var name = !string.IsNullOrWhiteSpace(_dto.DeliverableFileName) ? _dto.DeliverableFileName : "Deliverable";
-                return $"{name} attached ✓";
+                return HasDeliverable ? $"{name} attached ✓" : "Completed ✓";
             }
 
             if (HasDeliverable)
             {
                 var name = !string.IsNullOrWhiteSpace(_dto.DeliverableFileName) ? _dto.DeliverableFileName : "Deliverable";
                 return $"{name} attached ✓ — Ready to complete";
+            }
+
+            if (!_dto.DeliverableRequired)
+            {
+                return "No deliverable required";
             }
 
             if (_dto.Status == "IN_PROGRESS")
@@ -97,6 +102,11 @@ public class TaskItemViewModel : INotifyPropertyChanged
             if (HasDeliverable || _dto.Status == "COMPLETED")
             {
                 return new SolidColorBrush(Color.FromRgb(52, 211, 153)); // Emerald green
+            }
+
+            if (!_dto.DeliverableRequired)
+            {
+                return new SolidColorBrush(Color.FromRgb(148, 163, 184)); // Muted slate
             }
 
             if (_dto.Status == "IN_PROGRESS")
@@ -137,6 +147,8 @@ public class TaskItemViewModel : INotifyPropertyChanged
         {
             if (HasDeliverable || _dto.Status == "COMPLETED")
                 return new SolidColorBrush(Color.FromArgb(30, 16, 185, 129));
+            if (!_dto.DeliverableRequired)
+                return new SolidColorBrush(Color.FromArgb(15, 255, 255, 255));
             if (_dto.Status == "IN_PROGRESS")
                 return new SolidColorBrush(Color.FromArgb(30, 245, 158, 11));
             return new SolidColorBrush(Color.FromArgb(15, 255, 255, 255));

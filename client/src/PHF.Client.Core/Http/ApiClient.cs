@@ -141,11 +141,9 @@ public class ApiClient
 
     public async Task<List<TaskResponseDto>> GetAllTasksAsync(string? status = null, CancellationToken ct = default)
     {
-        var url = "/api/v1/tasks?includeUnassigned=true";
-        if (!string.IsNullOrWhiteSpace(status))
-        {
-            url += $"&status={Uri.EscapeDataString(status)}";
-        }
+        var url = string.IsNullOrWhiteSpace(status)
+            ? "/api/v1/tasks"
+            : $"/api/v1/tasks?status={Uri.EscapeDataString(status)}";
 
         var response = await _httpClient.GetAsync(url, ct);
         if (!response.IsSuccessStatusCode) return new List<TaskResponseDto>();
@@ -189,6 +187,27 @@ public class ApiClient
         using var streamContent = new StreamContent(fileStream);
 
         var fileName = Path.GetFileName(filePath);
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        var mime = ext switch
+        {
+            ".pdf" => "application/pdf",
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".zip" => "application/zip",
+            ".rar" => "application/x-rar-compressed",
+            ".7z" => "application/x-7z-compressed",
+            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            ".txt" => "text/plain",
+            ".csv" => "text/csv",
+            ".json" => "application/json",
+            ".mp4" => "video/mp4",
+            _ => "application/octet-stream"
+        };
+        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mime);
         content.Add(streamContent, "file", fileName);
 
         var response = await _httpClient.PostAsync($"/api/v1/tasks/{taskId}/attachments", content, ct);
@@ -296,7 +315,7 @@ public class ApiClient
 
     public async Task<List<WorkstationStatusDto>> GetWorkstationsStatusAsync(CancellationToken ct = default)
     {
-        var response = await _httpClient.GetAsync("/api/v1/telemetry/workstations", ct);
+        var response = await _httpClient.GetAsync("/api/v1/telemetry/stations", ct);
         if (!response.IsSuccessStatusCode) return new List<WorkstationStatusDto>();
 
         var list = await response.Content.ReadFromJsonAsync<List<WorkstationStatusDto>>(_jsonOptions, ct);
@@ -395,5 +414,55 @@ public class ApiClient
         }
 
         return await response.Content.ReadFromJsonAsync<StaffMemberDto>(_jsonOptions, ct);
+    }
+
+    public async Task<StaffMemberDto?> UpdateStaffAsync(Guid id, UpdateStaffRequest request, CancellationToken ct = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync($"/api/v1/staff/{id}", request, _jsonOptions, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var err = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException($"Failed to update staff member: {response.StatusCode} - {err}");
+        }
+
+        return await response.Content.ReadFromJsonAsync<StaffMemberDto>(_jsonOptions, ct);
+    }
+
+    public async Task<bool> ToggleStaffStatusAsync(Guid id, CancellationToken ct = default)
+    {
+        var response = await _httpClient.PatchAsync($"/api/v1/staff/{id}/toggle-status", null, ct);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> ResetStaffPasswordAsync(Guid id, string newPassword, CancellationToken ct = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync($"/api/v1/staff/{id}/reset-password", new ResetPasswordRequest
+        {
+            NewPassword = newPassword
+        }, _jsonOptions, ct);
+
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> UpdateStaffWorkModeAsync(Guid id, string workMode, CancellationToken ct = default)
+    {
+        var response = await _httpClient.PatchAsJsonAsync($"/api/v1/staff/{id}/work-mode", new UpdateWorkModeRequest
+        {
+            WorkMode = workMode
+        }, _jsonOptions, ct);
+
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> DeleteStaffAsync(Guid id, CancellationToken ct = default)
+    {
+        var response = await _httpClient.DeleteAsync($"/api/v1/staff/{id}", ct);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> DeleteTaskAsync(Guid taskId, CancellationToken ct = default)
+    {
+        var response = await _httpClient.DeleteAsync($"/api/v1/tasks/{taskId}", ct);
+        return response.IsSuccessStatusCode;
     }
 }

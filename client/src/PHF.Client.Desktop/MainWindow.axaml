@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:PHF.Client.Desktop.ViewModels"
+        xmlns:utils="using:PHF.Client.Desktop.Utils"
         x:Class="PHF.Client.Desktop.MainWindow"
         Title="Punnya Heart Desk — Workstation Desk &amp; Management Console"
         Width="1180" Height="860"
@@ -343,14 +344,24 @@
                             <TextBlock Text="Assign tasks to employees, inspect deliverables and track active work streams" FontSize="12" Foreground="#94A3B8" Margin="0,2,0,0" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                            <Button Classes="accentGreen" Content="📂 Bulk Import (CSV)" Click="BtnOpenBulkImportModal_Click" />
                             <Button Classes="primary" Content="+ Dispatch Task" Click="BtnOpenDispatchModal_Click" />
                             <Button Classes="glass" Content="↻ Refresh Tasks" Click="BtnRefreshAllTasks_Click" />
                         </StackPanel>
                     </Grid>
 
-                    <!-- Filter Row -->
-                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
-                        <TextBlock x:Name="TxtAdminTasksCount" Text="All Workforce Tasks (0 total)" FontSize="13" FontWeight="SemiBold" Foreground="#CBD5E1" VerticalAlignment="Center" />
+                    <!-- Filter & Search Row -->
+                    <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
+                        <TextBlock x:Name="TxtAdminTasksCount" Grid.Column="0" Text="All Workforce Tasks (0 total)" FontSize="13" FontWeight="SemiBold" Foreground="#CBD5E1" VerticalAlignment="Center" />
+                        
+                        <TextBox x:Name="TxtAdminTaskSearch" Grid.Column="1" Margin="16,0,16,0" Watermark="🔍 Search task title, code, staff..." TextChanged="TxtAdminTaskSearch_TextChanged" VerticalAlignment="Center" MaxWidth="320" HorizontalAlignment="Left" />
+
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Button x:Name="BtnFilterTaskAll" Classes="glass" Content="ALL" Tag="ALL" Click="BtnFilterTaskStatus_Click" Padding="10,4" />
+                            <Button x:Name="BtnFilterTaskInProgress" Classes="glass" Content="IN PROGRESS" Tag="IN_PROGRESS" Click="BtnFilterTaskStatus_Click" Padding="10,4" />
+                            <Button x:Name="BtnFilterTaskAssigned" Classes="glass" Content="ASSIGNED" Tag="ASSIGNED" Click="BtnFilterTaskStatus_Click" Padding="10,4" />
+                            <Button x:Name="BtnFilterTaskCompleted" Classes="glass" Content="COMPLETED" Tag="COMPLETED" Click="BtnFilterTaskStatus_Click" Padding="10,4" />
+                        </StackPanel>
                     </Grid>
 
                     <!-- Tasks Items List -->
@@ -386,7 +397,7 @@
                                             <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding Description}" 
                                                        FontSize="12" Foreground="#94A3B8" Margin="0,8,0,10" TextWrapping="Wrap" />
 
-                                            <!-- Bottom Row: Deliverable Inspector & Time Tracked -->
+                                            <!-- Bottom Row: Deliverable Inspector, Delete & Time Tracked -->
                                             <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto">
                                                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                                     <Border IsVisible="{Binding HasDeliverable}" Background="#2510B981" BorderBrush="#4010B981" BorderThickness="1" CornerRadius="6" Padding="8,4">
@@ -396,6 +407,7 @@
                                                         </StackPanel>
                                                     </Border>
                                                     <Button Classes="glass" Content="🔗 View Deliverable" IsVisible="{Binding HasDeliverable}" Padding="8,3" Tag="{Binding Id}" Click="BtnViewDeliverable_Click" />
+                                                    <Button Classes="glass" Content="🗑 Delete" Foreground="#FB7185" Padding="8,3" Tag="{Binding Id}" Click="BtnDeleteAdminTask_Click" />
                                                 </StackPanel>
 
                                                 <TextBlock Grid.Column="1" Text="{Binding TrackedTimeText, StringFormat='Tracked: {0}'}" FontSize="11" Foreground="#64748B" VerticalAlignment="Center" />
@@ -417,6 +429,11 @@
                             <TextBlock Text="Itemized employee work shifts, active focus scoring, and automated compliance" FontSize="12" Foreground="#94A3B8" Margin="0,2,0,0" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,8,0">
+                                <Button x:Name="BtnTsFilterToday" Classes="glass" Content="Today" Tag="today" Click="BtnTimesheetPeriod_Click" Padding="10,4" />
+                                <Button x:Name="BtnTsFilterWeek" Classes="glass" Content="This Week" Tag="week" Click="BtnTimesheetPeriod_Click" Padding="10,4" />
+                                <Button x:Name="BtnTsFilterMonth" Classes="glass" Content="This Month" Tag="month" Click="BtnTimesheetPeriod_Click" Padding="10,4" />
+                            </StackPanel>
                             <Button Classes="accentGreen" Content="⬇ Export CSV" Click="BtnExportTimesheetCsv_Click" />
                             <Button Classes="glass" Content="↻ Refresh Timesheet" Click="BtnRefreshTimesheet_Click" />
                         </StackPanel>
@@ -547,7 +564,7 @@
                 </Grid>
 
                 <!-- 6. VIEW: STAFF DIRECTORY -->
-                <Grid x:Name="ViewStaffDirectory" Margin="24,18,24,12" RowDefinitions="Auto,*" IsVisible="False">
+                <Grid x:Name="ViewStaffDirectory" Margin="24,18,24,12" RowDefinitions="Auto,Auto,*" IsVisible="False">
                     <!-- Header -->
                     <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
                         <StackPanel>
@@ -560,15 +577,25 @@
                         </StackPanel>
                     </Grid>
 
+                    <!-- Search & Filter Row -->
+                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+                        <TextBox x:Name="TxtStaffSearch" Grid.Column="0" Watermark="🔍 Search staff by name, email, role, or station..." TextChanged="TxtStaffSearch_TextChanged" MaxWidth="360" HorizontalAlignment="Left" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Button x:Name="BtnFilterStaffAll" Classes="glass" Content="ALL" Tag="ALL" Click="BtnFilterStaffStatus_Click" Padding="10,4" />
+                            <Button x:Name="BtnFilterStaffActive" Classes="glass" Content="ACTIVE" Tag="ACTIVE" Click="BtnFilterStaffStatus_Click" Padding="10,4" />
+                            <Button x:Name="BtnFilterStaffSuspended" Classes="glass" Content="SUSPENDED" Tag="SUSPENDED" Click="BtnFilterStaffStatus_Click" Padding="10,4" />
+                        </StackPanel>
+                    </Grid>
+
                     <!-- Staff Cards Grid/List -->
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
                         <ItemsControl x:Name="StaffItemsControl">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:AdminStaffMemberViewModel">
                                     <Border Background="#25161A26" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="10" Padding="16,14" Margin="0,0,0,10">
-                                        <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
+                                        <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
                                             
-                                            <!-- Left: Name, Email, Station -->
+                                            <!-- Left: Name, Role, Work Mode, Email -->
                                             <StackPanel Grid.Row="0" Grid.Column="0">
                                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding FullName}" FontSize="14" FontWeight="Bold" Foreground="#F8FAFC" />
@@ -582,16 +609,29 @@
                                                 <TextBlock Text="{Binding Email}" FontSize="11" Foreground="#94A3B8" Margin="0,4,0,0" />
                                             </StackPanel>
 
-                                            <!-- Right: Shift State Badge -->
-                                            <Border Grid.Row="0" Grid.Column="1" Background="#15000000" CornerRadius="6" Padding="8,4">
-                                                <TextBlock Text="{Binding ShiftStatus}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding ShiftStatusBrush}" />
-                                            </Border>
+                                            <!-- Right: Status Badges -->
+                                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                                <Border Background="{Binding ActiveStatusBgBrush}" CornerRadius="6" Padding="8,4">
+                                                    <TextBlock Text="{Binding ActiveStatusText}" FontSize="10" FontWeight="Bold" Foreground="{Binding ActiveStatusFgBrush}" />
+                                                </Border>
+                                                <Border Background="#15000000" CornerRadius="6" Padding="8,4">
+                                                    <TextBlock Text="{Binding ShiftStatus}" FontSize="10" FontWeight="Bold" Foreground="{Binding ShiftStatusBrush}" />
+                                                </Border>
+                                            </StackPanel>
 
-                                            <!-- Bottom Info -->
+                                            <!-- Middle Info: Paired Station & Tasks -->
                                             <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
                                                 <TextBlock Grid.Column="0" Text="{Binding StationId, StringFormat='Paired Station: {0}'}" FontSize="11" Foreground="#64748B" />
                                                 <TextBlock Grid.Column="1" Text="{Binding ActiveTasksCount, StringFormat='Active Tasks: {0}'}" FontSize="11" Foreground="#38BDF8" />
                                             </Grid>
+
+                                            <!-- Bottom Actions Row -->
+                                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" Margin="0,12,0,0">
+                                                <Button Classes="glass" Content="✏ Edit" Tag="{Binding Id}" Click="BtnEditStaff_Click" Padding="10,4" />
+                                                <Button Classes="glass" Content="🔑 Reset Pass" Tag="{Binding Id}" Click="BtnResetStaffPassword_Click" Padding="10,4" />
+                                                <Button Classes="glass" Content="{Binding ToggleStatusButtonText}" Tag="{Binding Id}" Click="BtnToggleStaffStatus_Click" Padding="10,4" />
+                                                <Button Classes="glass" Content="🗑 Delete" Foreground="#FB7185" Tag="{Binding Id}" Click="BtnDeleteStaff_Click" Padding="10,4" />
+                                            </StackPanel>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -908,6 +948,162 @@
                         <Button Grid.Column="2" Classes="primary" Content="Create Member ✓" HorizontalAlignment="Stretch" Click="BtnSubmitAddStaff_Click" />
                     </Grid>
                 </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Glass Modal Dialog: Edit Staff Member (Admin) -->
+        <Grid x:Name="EditStaffModal" IsVisible="False" Background="#CC000000">
+            <Border Background="#F0141722" BorderBrush="#40FFFFFF" BorderThickness="1" CornerRadius="14" Width="480" Padding="24"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Edit Team Member Profile" FontSize="16" FontWeight="Bold" Foreground="#F8FAFC" />
+                    <TextBlock Text="Update staff authorization role, work mode, and workstation mapping" FontSize="11.5" Foreground="#94A3B8" />
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Full Name" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox x:Name="TxtEditStaffFullName" Watermark="e.g. Dr. Jane Smith" />
+                    </StackPanel>
+
+                    <Grid ColumnDefinitions="*,12,*">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="Email Address" FontSize="11" Foreground="#94A3B8" />
+                            <TextBox x:Name="TxtEditStaffEmail" Watermark="jane@punnya.org" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="4">
+                            <TextBlock Text="Username" FontSize="11" Foreground="#94A3B8" />
+                            <TextBox x:Name="TxtEditStaffUsername" Watermark="jsmith" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,12,*">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="Authorization Role" FontSize="11" Foreground="#94A3B8" />
+                            <ComboBox x:Name="CmbEditStaffRole" SelectedIndex="0" HorizontalAlignment="Stretch">
+                                <ComboBoxItem Content="EMPLOYEE" Tag="EMPLOYEE" />
+                                <ComboBoxItem Content="MANAGER" Tag="MANAGER" />
+                                <ComboBoxItem Content="ADMIN" Tag="ADMIN" />
+                            </ComboBox>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="4">
+                            <TextBlock Text="Work Mode" FontSize="11" Foreground="#94A3B8" />
+                            <ComboBox x:Name="CmbEditStaffWorkMode" SelectedIndex="0" HorizontalAlignment="Stretch">
+                                <ComboBoxItem Content="IN_OFFICE" Tag="IN_OFFICE" />
+                                <ComboBoxItem Content="REMOTE_WFH" Tag="REMOTE_WFH" />
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Station Identifier (Optional)" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox x:Name="TxtEditStaffStationId" Watermark="e.g. ST-CARDIAC-01" />
+                    </StackPanel>
+
+                    <CheckBox x:Name="ChkEditStaffIsActive" Content="Account Active (Allowed to log in and clock in)" IsChecked="True" FontSize="11.5" Margin="0,4,0,0" />
+
+                    <TextBlock x:Name="TxtEditStaffError" Text="" FontSize="11" Foreground="#EF4444" IsVisible="False" />
+
+                    <Grid ColumnDefinitions="*,10,*" Margin="0,10,0,0">
+                        <Button Grid.Column="0" Classes="glass" Content="Cancel" HorizontalAlignment="Stretch" Click="BtnCancelEditStaff_Click" />
+                        <Button Grid.Column="2" Classes="primary" Content="Save Changes ✓" HorizontalAlignment="Stretch" Click="BtnSubmitEditStaff_Click" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Glass Modal Dialog: Reset Staff Password (Admin) -->
+        <Grid x:Name="ResetStaffPasswordModal" IsVisible="False" Background="#CC000000">
+            <Border Background="#F0141722" BorderBrush="#40FFFFFF" BorderThickness="1" CornerRadius="14" Width="420" Padding="24"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Reset Employee Password" FontSize="16" FontWeight="Bold" Foreground="#F8FAFC" />
+                    <TextBlock x:Name="TxtResetPasswordTargetInfo" Text="Target: User" FontSize="11.5" Foreground="#CBD5E1" />
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="New Temporary Password" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox x:Name="TxtResetPasswordNewPassword" Watermark="Enter new secure password" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="TxtResetPasswordError" Text="" FontSize="11" Foreground="#EF4444" IsVisible="False" />
+
+                    <Grid ColumnDefinitions="*,10,*" Margin="0,10,0,0">
+                        <Button Grid.Column="0" Classes="glass" Content="Cancel" HorizontalAlignment="Stretch" Click="BtnCancelResetPassword_Click" />
+                        <Button Grid.Column="2" Classes="accentGreen" Content="Reset Key 🔑" HorizontalAlignment="Stretch" Click="BtnSubmitResetPassword_Click" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Glass Modal Dialog: Bulk Import Tasks (CSV/TSV) -->
+        <Grid x:Name="BulkImportTasksModal" IsVisible="False" Background="#CC000000">
+            <Border Background="#F0141722" BorderBrush="#40FFFFFF" BorderThickness="1" CornerRadius="14" Width="720" MaxHeight="660" Padding="24"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+                    <!-- Header -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="Bulk Task Dispatch (CSV / TSV / Google Sheets)" FontSize="16" FontWeight="Bold" Foreground="#F8FAFC" />
+                            <TextBlock Text="Supports Team Matrix (Staff columns) and Standard Linear task formats" FontSize="11.5" Foreground="#94A3B8" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Classes="glass" Content="✕" Click="BtnCloseBulkImport_Click" Padding="8,4" />
+                    </Grid>
+
+                    <!-- Template & File Loaders Row -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+                        <Button Classes="accentGreen" Content="📁 Browse CSV/TSV File" Click="BtnBulkImportBrowse_Click" Padding="10,6" />
+                        <Button Classes="glass" Content="📋 Load Matrix Sample" Click="BtnBulkImportSampleMatrix_Click" Padding="10,6" />
+                        <Button Classes="glass" Content="📋 Load Linear Sample" Click="BtnBulkImportSampleLinear_Click" Padding="10,6" />
+                        <Button Classes="primary" Content="⚡ Parse &amp; Validate" Click="BtnBulkImportParse_Click" Padding="12,6" />
+                    </StackPanel>
+
+                    <!-- Raw CSV TextBox -->
+                    <TextBox x:Name="TxtBulkImportCsv" Grid.Row="2" Height="100" AcceptsReturn="True" TextWrapping="Wrap"
+                             Watermark="Paste CSV/TSV data here or click 'Browse CSV/TSV File' / 'Load Sample'..."
+                             FontFamily="Consolas, Cascadia Code, monospace" FontSize="11" Margin="0,0,0,10" />
+
+                    <!-- Parsed Items Preview Area -->
+                    <Border Grid.Row="3" Background="#15000000" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="8" Padding="10" MinHeight="160" MaxHeight="220">
+                        <Grid RowDefinitions="Auto,*">
+                            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,6">
+                                <CheckBox x:Name="ChkBulkSelectAll" Grid.Column="0" Content="Select All" IsChecked="True" Checked="ChkBulkSelectAll_CheckedChanged" Unchecked="ChkBulkSelectAll_CheckedChanged" FontSize="11" />
+                                <TextBlock x:Name="TxtBulkImportSummary" Grid.Column="1" Text="No tasks parsed yet. Paste or load CSV data above and click 'Parse &amp; Validate'." FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" Margin="10,0,0,0" TextTrimming="CharacterEllipsis" />
+                            </Grid>
+
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="BulkImportItemsControl">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="utils:ParsedCsvTask">
+                                            <Border Background="#201C202E" BorderBrush="#15FFFFFF" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,0,0,6">
+                                                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Description}" FontSize="10.5" Foreground="#94A3B8" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                    <Border Grid.Column="2" Background="{Binding MatchBrush}" CornerRadius="4" Padding="6,2" Margin="8,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding AssignedToName, StringFormat='Assignee: {0}'}" FontSize="10" FontWeight="Bold" Foreground="#000000" />
+                                                    </Border>
+                                                    <Border Grid.Column="3" Background="#20FFFFFF" CornerRadius="4" Padding="6,2" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Priority}" FontSize="10" Foreground="#CBD5E1" />
+                                                    </Border>
+                                                    <Border Grid.Column="4" Background="#1510B981" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" IsVisible="{Binding DeliverableRequired}">
+                                                        <TextBlock Text="Proof Req" FontSize="10" Foreground="#34D399" />
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+
+                    <!-- Bottom Action / Progress Row -->
+                    <Grid Grid.Row="4" ColumnDefinitions="*,Auto,Auto" Margin="0,14,0,0">
+                        <TextBlock x:Name="TxtBulkImportProgress" Grid.Column="0" Text="" FontSize="11" Foreground="#34D399" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <Button Grid.Column="1" Classes="glass" Content="Cancel" Click="BtnCloseBulkImport_Click" Margin="0,0,8,0" />
+                        <Button x:Name="BtnSubmitBulkImport" Grid.Column="2" Classes="primary" Content="🚀 Dispatch Selected Tasks" Click="BtnSubmitBulkImport_Click" />
+                    </Grid>
+                </Grid>
             </Border>
         </Grid>
 

@@ -65,6 +65,7 @@ public class TelemetryController : ControllerBase
 
     [Authorize(Roles = "ADMIN,MANAGER,MONITOR")]
     [HttpGet("stations")]
+    [HttpGet("workstations")]
     public async Task<IActionResult> GetStations(CancellationToken cancellationToken)
     {
         var stations = await _telemetryService.GetWorkstationsStatusAsync(cancellationToken);

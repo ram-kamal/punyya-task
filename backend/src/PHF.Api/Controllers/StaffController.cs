@@ -109,5 +109,20 @@ public class StaffController : ControllerBase
             return Conflict(new { message = ex.Message });
         }
     }
+
+    [Authorize(Roles = "ADMIN,MANAGER")]
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteStaff(Guid id, CancellationToken cancellationToken)
+    {
+        var userClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (Guid.TryParse(userClaim, out var currentUserId) && currentUserId == id)
+        {
+            return BadRequest(new { message = "You cannot delete your own logged-in account." });
+        }
+
+        var success = await _staffService.DeleteStaffAsync(id, cancellationToken);
+        if (!success) return NotFound(new { message = $"Staff member {id} not found." });
+        return NoContent();
+    }
 }
 

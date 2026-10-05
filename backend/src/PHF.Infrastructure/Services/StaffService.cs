@@ -219,5 +219,22 @@ public class StaffService : IStaffService
 
         return await GetStaffByIdAsync(userId, cancellationToken);
     }
+
+    public async Task<bool> DeleteStaffAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var user = await _dbContext.Users.FindAsync(new object[] { userId }, cancellationToken);
+        if (user == null) return false;
+
+        // Unlink any open tasks assigned to this user so they don't break
+        var tasks = await _dbContext.Tasks.Where(t => t.AssignedTo == userId).ToListAsync(cancellationToken);
+        foreach (var t in tasks)
+        {
+            t.AssignedTo = null;
+        }
+
+        _dbContext.Users.Remove(user);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
 }
 

@@ -74,10 +74,6 @@ public class TaskService : ITaskService
                 query = query.Where(t => t.AssignedToUser != null && t.AssignedToUser.StationId == stationId);
             }
         }
-        else if (includeUnassigned)
-        {
-            query = query.Where(t => t.AssignedTo == null);
-        }
 
         if (!string.IsNullOrWhiteSpace(priority))
         {

@@ -11,5 +11,6 @@ public interface IStaffService
     Task<bool> ResetPasswordAsync(Guid userId, string newPassword, CancellationToken cancellationToken = default);
     Task<bool> UpdateWorkModeAsync(Guid userId, string workMode, CancellationToken cancellationToken = default);
     Task<StaffMemberDto?> UpdateStaffAsync(Guid userId, UpdateStaffRequest request, CancellationToken cancellationToken = default);
+    Task<bool> DeleteStaffAsync(Guid userId, CancellationToken cancellationToken = default);
 }
 

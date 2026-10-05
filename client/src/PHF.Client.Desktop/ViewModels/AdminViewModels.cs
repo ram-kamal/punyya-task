@@ -85,6 +85,7 @@ public class AdminTaskItemViewModel
     public bool HasDeliverable => !string.IsNullOrWhiteSpace(_dto.DeliverableFileName) || !string.IsNullOrWhiteSpace(_dto.DeliverableUrl) || (_dto.Attachments != null && _dto.Attachments.Count > 0);
     public string DeliverableName => !string.IsNullOrWhiteSpace(_dto.DeliverableFileName) ? _dto.DeliverableFileName : (!string.IsNullOrWhiteSpace(_dto.DeliverableUrl) ? "Proof Link" : "None");
     public string? DeliverableUrl => _dto.DeliverableUrl;
+    public bool DeliverableRequired => _dto.DeliverableRequired;
     public TaskResponseDto Dto => _dto;
 
     public IBrush PriorityBgBrush => _dto.Priority switch
@@ -227,4 +228,14 @@ public class AdminStaffMemberViewModel
         "CLOCKED_IN" => new SolidColorBrush(Color.FromRgb(52, 211, 153)),
         _ => new SolidColorBrush(Color.FromRgb(148, 163, 184))
     };
+
+    public StaffMemberDto Dto => _dto;
+    public string ActiveStatusText => _dto.IsActive ? "ACTIVE" : "SUSPENDED";
+    public IBrush ActiveStatusBgBrush => _dto.IsActive
+        ? new SolidColorBrush(Color.FromArgb(40, 16, 185, 129))
+        : new SolidColorBrush(Color.FromArgb(40, 239, 68, 68));
+    public IBrush ActiveStatusFgBrush => _dto.IsActive
+        ? new SolidColorBrush(Color.FromRgb(52, 211, 153))
+        : new SolidColorBrush(Color.FromRgb(248, 113, 113));
+    public string ToggleStatusButtonText => _dto.IsActive ? "⏸ Suspend" : "▶ Activate";
 }
