@@ -1524,7 +1524,7 @@ export default function AdminDashboardPage() {
               {[
                 { id: 'oversight', label: 'Live Oversight & Telemetry', icon: Monitor, badge: null },
                 { id: 'tasks', label: 'Task Distribution', icon: Briefcase, badge: tasks.length },
-                { id: 'timesheets', label: 'Payroll Timesheets', icon: FileText, badge: null },
+                { id: 'timesheets', label: currentUser?.role === 'EMPLOYEE' ? 'My Timesheet' : 'Payroll Timesheets', icon: FileText, badge: null },
                 {
                   id: 'leaves',
                   label: 'Leave Requests',
@@ -1579,7 +1579,7 @@ export default function AdminDashboardPage() {
         {[
           { id: 'oversight', label: 'Oversight', icon: Monitor },
           { id: 'tasks', label: 'Tasks', count: tasks.length, icon: Briefcase },
-          { id: 'timesheets', label: 'Timesheet', icon: FileText },
+          { id: 'timesheets', label: currentUser?.role === 'EMPLOYEE' ? 'My Timesheet' : 'Timesheet', icon: FileText },
           { id: 'leaves', label: 'Leaves', count: pendingLeavesCount > 0 ? pendingLeavesCount : leaves.length, isAlert: pendingLeavesCount > 0, icon: CalendarDays },
           { id: 'staff', label: 'Staff', count: staff.length, icon: Users },
         ].map((tab) => {
@@ -1702,7 +1702,7 @@ export default function AdminDashboardPage() {
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
-              <span>Payroll Timesheets</span>
+              <span>{currentUser?.role === 'EMPLOYEE' ? 'My Timesheet' : 'Payroll Timesheets'}</span>
             </button>
 
             <button
@@ -2528,10 +2528,12 @@ export default function AdminDashboardPage() {
               <div>
                 <h2 className="text-sm font-bold text-white flex items-center space-x-2">
                   <CalendarDays className="w-4 h-4 text-rose-500" />
-                  <span>Workstation Timesheets & Analytics</span>
+                  <span>{currentUser?.role === 'EMPLOYEE' ? 'My Timesheet & Efficiency Records' : 'Workstation Timesheets & Analytics'}</span>
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Accurate down to the second; view daily, weekly, monthly, and yearly historical records with instant payroll CSV export
+                  {currentUser?.role === 'EMPLOYEE'
+                    ? 'Accurate down to the second; view your daily shifts, active vs idle hours, tasks completed, and export your timesheet'
+                    : 'Accurate down to the second; view daily, weekly, monthly, and yearly historical records with instant payroll CSV export'}
                 </p>
               </div>
 
@@ -2595,7 +2597,7 @@ export default function AdminDashboardPage() {
                         : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    Employee Summary
+                    {currentUser?.role === 'EMPLOYEE' ? 'Period Summary' : 'Employee Summary'}
                   </button>
                   <button
                     onClick={() => setTimesheetViewMode('daily')}
@@ -2674,7 +2676,7 @@ export default function AdminDashboardPage() {
                   <Clock className="w-5 h-5 text-emerald-400" />
                 </div>
                 <div>
-                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Logged Time</div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{currentUser?.role === 'EMPLOYEE' ? 'My Logged Time' : 'Total Logged Time'}</div>
                   <div className="text-sm font-extrabold text-white font-mono">
                     {formatHoursMinutes(timesheet?.totalHoursLoggedToday ?? 0)}
                     <span className="text-xs text-slate-400 font-normal ml-1">
@@ -2689,7 +2691,7 @@ export default function AdminDashboardPage() {
                   <TrendingUp className="w-5 h-5 text-indigo-400" />
                 </div>
                 <div>
-                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Team Efficiency</div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{currentUser?.role === 'EMPLOYEE' ? 'My Efficiency' : 'Team Efficiency'}</div>
                   <div className="text-sm font-extrabold text-white font-mono">
                     {(timesheet?.averageEfficiencyPercentage ?? 0) > 0 ? (
                       <span className="text-emerald-400">

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using PHF.Core.DTOs;
+using PHF.Core.Entities;
 using PHF.Core.Enums;
 using PHF.Core.Interfaces;
 using PHF.Infrastructure.Data;
@@ -23,6 +24,7 @@ public class TimesheetService : ITimesheetService
         DateTime? startDate = null, 
         DateTime? endDate = null, 
         string? period = null, 
+        Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
@@ -33,14 +35,14 @@ public class TimesheetService : ITimesheetService
 
         if (normalizedPeriod == "YESTERDAY")
         {
-            rangeStart = now.Date.AddDays(-1);
-            rangeEnd = now.Date;
+            rangeStart = DateTime.SpecifyKind(now.Date.AddDays(-1), DateTimeKind.Utc);
+            rangeEnd = DateTime.SpecifyKind(now.Date, DateTimeKind.Utc);
         }
         else if (normalizedPeriod == "WEEK")
         {
             // Start of current week (Monday) to end of current week (Sunday)
             int diff = (7 + (now.Date.DayOfWeek - DayOfWeek.Monday)) % 7;
-            rangeStart = now.Date.AddDays(-diff);
+            rangeStart = DateTime.SpecifyKind(now.Date.AddDays(-diff), DateTimeKind.Utc);
             rangeEnd = rangeStart.AddDays(7);
         }
         else if (normalizedPeriod == "MONTH")
@@ -64,19 +66,19 @@ public class TimesheetService : ITimesheetService
         else if (startDate.HasValue && endDate.HasValue)
         {
             normalizedPeriod = "CUSTOM";
-            rangeStart = startDate.Value.Date;
-            rangeEnd = endDate.Value.Date.AddDays(1);
+            rangeStart = DateTime.SpecifyKind(startDate.Value.Date, DateTimeKind.Utc);
+            rangeEnd = DateTime.SpecifyKind(endDate.Value.Date.AddDays(1), DateTimeKind.Utc);
         }
         else if (startDate.HasValue)
         {
             normalizedPeriod = "DAY";
-            rangeStart = startDate.Value.Date;
+            rangeStart = DateTime.SpecifyKind(startDate.Value.Date, DateTimeKind.Utc);
             rangeEnd = rangeStart.AddDays(1);
         }
         else
         {
             normalizedPeriod = "TODAY";
-            rangeStart = now.Date;
+            rangeStart = DateTime.SpecifyKind(now.Date, DateTimeKind.Utc);
             rangeEnd = rangeStart.AddDays(1);
         }
 
@@ -88,19 +90,45 @@ public class TimesheetService : ITimesheetService
         }
 
         var stations = await _telemetryService.GetWorkstationsStatusAsync(cancellationToken);
-        var activeStationsCount = stations.Count(s => s.State != StationState.OFFLINE.ToString());
-        var totalStationsCount = stations.Count;
+        int activeStationsCount;
+        int totalStationsCount;
 
-        var tasksInProgressCount = await _dbContext.Tasks
-            .CountAsync(t => t.Status == TaskItemStatus.IN_PROGRESS.ToString(), cancellationToken);
+        if (userId.HasValue)
+        {
+            var userStation = stations.FirstOrDefault(s => s.UserId == userId.Value);
+            activeStationsCount = (userStation != null && userStation.State != StationState.OFFLINE.ToString()) ? 1 : 0;
+            totalStationsCount = userStation != null ? 1 : 0;
+        }
+        else
+        {
+            activeStationsCount = stations.Count(s => s.State != StationState.OFFLINE.ToString());
+            totalStationsCount = stations.Count;
+        }
 
-        var shifts = await _dbContext.Shifts
-            .Include(s => s.User)
-            .Where(s => s.ClockIn >= rangeStart && s.ClockIn < rangeEnd)
-            .ToListAsync(cancellationToken);
+        var tasksInProgressQuery = _dbContext.Tasks.Where(t => t.Status == TaskItemStatus.IN_PROGRESS.ToString());
+        if (userId.HasValue)
+        {
+            tasksInProgressQuery = tasksInProgressQuery.Where(t => t.AssignedTo == userId.Value);
+        }
+        var tasksInProgressCount = await tasksInProgressQuery.CountAsync(cancellationToken);
 
-        var logSummaries = await _dbContext.AppActivityLogs
-            .Where(l => l.LoggedAt >= rangeStart && l.LoggedAt < rangeEnd)
+        var shiftsQuery = _dbContext.Shifts.Include(s => s.User).AsQueryable();
+        if (userId.HasValue)
+        {
+            shiftsQuery = shiftsQuery.Where(s => s.UserId == userId.Value);
+        }
+        // Shift interval overlap: ClockIn < rangeEnd and (shift is ongoing OR ended at or after rangeStart)
+        shiftsQuery = shiftsQuery.Where(s => s.ClockIn < rangeEnd && (s.ClockOut == null || s.ClockOut >= rangeStart));
+        var shifts = await shiftsQuery.ToListAsync(cancellationToken);
+
+        var logsQuery = _dbContext.AppActivityLogs.AsQueryable();
+        if (userId.HasValue)
+        {
+            logsQuery = logsQuery.Where(l => l.UserId == userId.Value);
+        }
+        logsQuery = logsQuery.Where(l => l.LoggedAt >= rangeStart && l.LoggedAt < rangeEnd);
+
+        var logSummaries = await logsQuery
             .GroupBy(l => new { l.UserId, Date = l.LoggedAt.Date, l.IsIdle })
             .Select(g => new
             {
@@ -111,50 +139,87 @@ public class TimesheetService : ITimesheetService
             })
             .ToListAsync(cancellationToken);
 
-        var completedTasks = await _dbContext.Tasks
-            .Where(t => t.Status == TaskItemStatus.COMPLETED.ToString() && t.CompletedAt >= rangeStart && t.CompletedAt < rangeEnd)
-            .ToListAsync(cancellationToken);
+        var tasksQuery = _dbContext.Tasks.AsQueryable();
+        if (userId.HasValue)
+        {
+            tasksQuery = tasksQuery.Where(t => t.AssignedTo == userId.Value);
+        }
+        tasksQuery = tasksQuery.Where(t => t.Status == TaskItemStatus.COMPLETED.ToString() && t.CompletedAt >= rangeStart && t.CompletedAt < rangeEnd);
+        var completedTasks = await tasksQuery.ToListAsync(cancellationToken);
 
-        var employees = await _dbContext.Users
-            .Where(u => u.Role == UserRole.EMPLOYEE.ToString() 
-                     || _dbContext.Shifts.Any(s => s.UserId == u.Id))
-            .OrderBy(u => u.FullName)
-            .ToListAsync(cancellationToken);
+        List<User> employees;
+        if (userId.HasValue)
+        {
+            employees = await _dbContext.Users.Where(u => u.Id == userId.Value).ToListAsync(cancellationToken);
+        }
+        else
+        {
+            var shiftUserIds = shifts.Select(s => s.UserId).Distinct().ToList();
+            employees = await _dbContext.Users
+                .Where(u => u.Role == UserRole.EMPLOYEE.ToString() || shiftUserIds.Contains(u.Id))
+                .OrderBy(u => u.FullName)
+                .ToListAsync(cancellationToken);
+        }
 
         var isSingleDay = (rangeEnd - rangeStart).TotalDays <= 1.0;
 
-        // 1. Build Itemized Daily Breakdown (only on days with shifts)
-        var distinctDates = shifts.Select(s => s.ClockIn.Date)
-            .Distinct()
-            .OrderByDescending(d => d)
-            .ToList();
+        // 1. Build Itemized Daily Breakdown
+        // Discover every calendar date within [rangeStart.Date, rangeEnd.Date) that has shifts or telemetry activity
+        var distinctDatesSet = new HashSet<DateTime>();
 
-        if (!distinctDates.Any() && isSingleDay)
+        foreach (var s in shifts)
         {
-            distinctDates.Add(rangeStart.Date);
+            var sEnd = s.Status == ShiftStatus.ACTIVE.ToString() ? now : (s.ClockOut ?? s.ClockIn);
+            var dStart = s.ClockIn.Date < rangeStart.Date ? rangeStart.Date : s.ClockIn.Date;
+            var dEnd = sEnd.Date >= rangeEnd.Date ? rangeEnd.AddDays(-1).Date : sEnd.Date;
+            for (var cur = dStart; cur <= dEnd; cur = cur.AddDays(1))
+            {
+                distinctDatesSet.Add(cur);
+            }
         }
 
+        foreach (var l in logSummaries)
+        {
+            if (l.Date >= rangeStart.Date && l.Date < rangeEnd.Date)
+            {
+                distinctDatesSet.Add(l.Date);
+            }
+        }
+
+        if (!distinctDatesSet.Any() && isSingleDay)
+        {
+            distinctDatesSet.Add(rangeStart.Date);
+        }
+
+        var distinctDates = distinctDatesSet.OrderByDescending(d => d).ToList();
         var dailyRows = new List<TimesheetRowDto>();
 
         foreach (var day in distinctDates)
         {
-            var nextDay = day.AddDays(1);
-            var dayShifts = shifts.Where(s => s.ClockIn >= day && s.ClockIn < nextDay).ToList();
+            var dayStart = DateTime.SpecifyKind(day.Date, DateTimeKind.Utc);
+            var dayEnd = dayStart.AddDays(1);
+
+            // Shifts overlapping this specific calendar day
+            var dayShifts = shifts.Where(s =>
+            {
+                var sEnd = s.Status == ShiftStatus.ACTIVE.ToString() ? now : (s.ClockOut ?? s.ClockIn);
+                return s.ClockIn < dayEnd && sEnd > dayStart;
+            }).ToList();
+
             var dayLogSummaries = logSummaries.Where(l => l.Date.Date == day.Date).ToList();
-            var dayTasks = completedTasks.Where(t => t.CompletedAt >= day && t.CompletedAt < nextDay).ToList();
+            var dayTasks = completedTasks.Where(t => t.CompletedAt >= dayStart && t.CompletedAt < dayEnd).ToList();
 
             foreach (var emp in employees)
             {
                 var empShifts = dayShifts.Where(s => s.UserId == emp.Id).ToList();
+                var empLogSummaries = dayLogSummaries.Where(l => l.UserId == emp.Id).ToList();
+                var empCompleted = dayTasks.Count(t => t.AssignedTo == emp.Id);
 
-                // An employee must have clocked in for a shift on this day to appear on the timesheet
-                if (!empShifts.Any())
+                // An employee must have a shift or logged activity on this day
+                if (!empShifts.Any() && !empLogSummaries.Any())
                 {
                     continue;
                 }
-
-                var empLogSummaries = dayLogSummaries.Where(l => l.UserId == emp.Id).ToList();
-                var empCompleted = dayTasks.Count(t => t.AssignedTo == emp.Id);
 
                 var loggedActiveSec = empLogSummaries.Where(l => !l.IsIdle).Sum(l => l.TotalSeconds);
                 var loggedIdleSec = empLogSummaries.Where(l => l.IsIdle).Sum(l => l.TotalSeconds);
@@ -168,52 +233,71 @@ public class TimesheetService : ITimesheetService
                     DateTime sEnd;
                     if (s.Status == ShiftStatus.ACTIVE.ToString())
                     {
-                        sEnd = (day == now.Date) ? now : s.ClockIn.Date.AddDays(1);
+                        sEnd = (dayStart == now.Date) ? now : dayEnd;
                     }
                     else
                     {
                         sEnd = s.ClockOut ?? s.ClockIn;
                     }
 
-                    var sElapsed = Math.Max(0, (int)(sEnd - s.ClockIn).TotalSeconds);
-                    var sIdle = Math.Min(sElapsed, Math.Max(0, s.TotalIdleSeconds));
-                    var sAct = s.TotalActiveSeconds > 0 
-                        ? Math.Min(sElapsed - sIdle, s.TotalActiveSeconds) 
-                        : Math.Max(0, sElapsed - sIdle);
+                    // Strictly clamp the shift to this calendar day [dayStart, dayEnd)
+                    var sliceStart = s.ClockIn > dayStart ? s.ClockIn : dayStart;
+                    var sliceEnd = sEnd < dayEnd ? sEnd : dayEnd;
 
-                    shiftTotalSec += sElapsed;
+                    var sliceElapsed = Math.Max(0, (int)(sliceEnd - sliceStart).TotalSeconds);
+                    if (sliceElapsed <= 0) continue;
+
+                    var totalShiftSec = Math.Max(1, (int)(sEnd - s.ClockIn).TotalSeconds);
+                    double dayWeight = Math.Clamp((double)sliceElapsed / totalShiftSec, 0.0, 1.0);
+
+                    var sIdle = (int)Math.Round(s.TotalIdleSeconds * dayWeight);
+                    sIdle = Math.Clamp(sIdle, 0, sliceElapsed);
+
+                    var sAct = s.TotalActiveSeconds > 0
+                        ? (int)Math.Round(s.TotalActiveSeconds * dayWeight)
+                        : (sliceElapsed - sIdle);
+                    sAct = Math.Clamp(sAct, 0, sliceElapsed - sIdle);
+
+                    shiftTotalSec += sliceElapsed;
                     shiftActiveSec += sAct;
                     shiftIdleSec += sIdle;
+                }
+
+                if (shiftTotalSec == 0 && (loggedActiveSec + loggedIdleSec > 0))
+                {
+                    shiftTotalSec = loggedActiveSec + loggedIdleSec;
+                    shiftActiveSec = loggedActiveSec;
+                    shiftIdleSec = loggedIdleSec;
                 }
 
                 int activeSec;
                 int idleSec;
                 int totalSec = shiftTotalSec;
 
-                var rawIdle = Math.Max(loggedIdleSec, shiftIdleSec);
-                var rawActive = Math.Max(loggedActiveSec, shiftActiveSec);
-
-                if (rawActive + rawIdle > 0)
+                if (loggedActiveSec + loggedIdleSec > 0)
                 {
-                    if (rawActive + rawIdle > shiftTotalSec)
+                    if (loggedActiveSec + loggedIdleSec > totalSec)
                     {
-                        double activeRatio = (double)rawActive / (rawActive + rawIdle);
-                        activeSec = (int)Math.Round(shiftTotalSec * activeRatio);
-                        idleSec = Math.Max(0, shiftTotalSec - activeSec);
+                        double activeRatio = (double)loggedActiveSec / (loggedActiveSec + loggedIdleSec);
+                        activeSec = (int)Math.Round(totalSec * activeRatio);
+                        idleSec = Math.Max(0, totalSec - activeSec);
                     }
                     else
                     {
-                        idleSec = Math.Min(shiftTotalSec, rawIdle);
-                        activeSec = Math.Max(0, shiftTotalSec - idleSec);
+                        idleSec = Math.Min(totalSec, loggedIdleSec);
+                        activeSec = Math.Max(0, totalSec - idleSec);
                     }
                 }
                 else
                 {
-                    activeSec = shiftTotalSec;
-                    idleSec = 0;
+                    activeSec = Math.Min(totalSec, shiftActiveSec);
+                    idleSec = Math.Max(0, totalSec - activeSec);
                 }
 
-                var efficiency = totalSec >= 180 ? Math.Clamp(Math.Round((double)activeSec / totalSec * 100, 1), 0.0, 100.0) : 0.0;
+                var efficiency = totalSec >= 60 
+                    ? Math.Clamp(Math.Round((double)activeSec / totalSec * 100.0, 1), 0.0, 100.0) 
+                    : (totalSec > 0 ? 100.0 : 0.0);
+
                 var firstClockIn = empShifts.OrderBy(s => s.ClockIn).FirstOrDefault()?.ClockIn;
                 var lastClockOut = empShifts.OrderByDescending(s => s.ClockOut).FirstOrDefault()?.ClockOut;
                 var activeShift = empShifts.FirstOrDefault(s => s.Status == ShiftStatus.ACTIVE.ToString());
@@ -224,8 +308,8 @@ public class TimesheetService : ITimesheetService
                     StationId = emp.StationId ?? "—",
                     EmployeeName = emp.FullName,
                     Email = emp.Email,
-                    ClockIn = FormatTimeAmPm(firstClockIn),
-                    ClockOut = activeShift != null ? "Active" : FormatTimeAmPm(lastClockOut),
+                    ClockIn = firstClockIn.HasValue ? FormatTimeAmPm(firstClockIn) : "—",
+                    ClockOut = activeShift != null ? "Active" : (lastClockOut.HasValue ? FormatTimeAmPm(lastClockOut) : "—"),
                     TotalHours = Math.Round(totalSec / 3600.0, 2),
                     ActiveHours = Math.Round(activeSec / 3600.0, 2),
                     IdleHours = Math.Round(idleSec / 3600.0, 2),
@@ -256,7 +340,7 @@ public class TimesheetService : ITimesheetService
             var totalSec = totalActiveSec + totalIdleSec;
 
             var efficiency = totalSec > 0 
-                ? Math.Clamp(Math.Round((double)totalActiveSec / totalSec * 100, 1), 0.0, 100.0) 
+                ? Math.Clamp(Math.Round((double)totalActiveSec / totalSec * 100.0, 1), 0.0, 100.0) 
                 : 0.0;
 
             var empShifts = shifts.Where(s => s.UserId == emp.Id).ToList();
@@ -274,8 +358,8 @@ public class TimesheetService : ITimesheetService
                 StationId = emp.StationId ?? "—",
                 EmployeeName = emp.FullName,
                 Email = emp.Email,
-                ClockIn = isSingleDay ? FormatTimeAmPm(firstClockIn) : "—",
-                ClockOut = isSingleDay ? (activeShift != null ? "Active" : FormatTimeAmPm(lastClockOut)) : "—",
+                ClockIn = isSingleDay ? (firstClockIn.HasValue ? FormatTimeAmPm(firstClockIn) : "—") : "—",
+                ClockOut = isSingleDay ? (activeShift != null ? "Active" : (lastClockOut.HasValue ? FormatTimeAmPm(lastClockOut) : "—")) : "—",
                 TotalHours = Math.Round(totalSec / 3600.0, 2),
                 ActiveHours = Math.Round(totalActiveSec / 3600.0, 2),
                 IdleHours = Math.Round(totalIdleSec / 3600.0, 2),
@@ -295,7 +379,7 @@ public class TimesheetService : ITimesheetService
         var totalActiveSecAll = isSingleDay ? dailyRows.Sum(r => r.ActiveSeconds) : summaryRows.Sum(r => r.ActiveSeconds);
 
         var avgEfficiency = totalSecAll > 0 
-            ? Math.Clamp(Math.Round((double)totalActiveSecAll / totalSecAll * 100, 1), 0.0, 100.0) 
+            ? Math.Clamp(Math.Round((double)totalActiveSecAll / totalSecAll * 100.0, 1), 0.0, 100.0) 
             : 0.0;
 
         var totalHoursLogged = Math.Round(totalSecAll / 3600.0, 1);
@@ -320,9 +404,10 @@ public class TimesheetService : ITimesheetService
         DateTime? endDate = null, 
         string? period = null,
         string? viewType = "daily", 
+        Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
-        var summary = await GetSummaryAsync(startDate, endDate, period, cancellationToken);
+        var summary = await GetSummaryAsync(startDate, endDate, period, userId, cancellationToken);
         var csv = new StringBuilder();
 
         var isSummaryExport = viewType?.Equals("summary", StringComparison.OrdinalIgnoreCase) == true && summary.Period != "DAY" && summary.Period != "TODAY" && summary.Period != "YESTERDAY";

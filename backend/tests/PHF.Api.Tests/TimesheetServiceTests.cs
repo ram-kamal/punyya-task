@@ -319,4 +319,85 @@ public class TimesheetServiceTests
         Assert.Equal(2.0, row.IdleHours);
         Assert.Equal(75.0, row.EfficiencyPercentage);
     }
+
+    [Fact]
+    public async Task GetSummaryAsync_EmployeeScoping_OnlyReturnsTargetEmployeeData()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var mockTelemetry = new Mock<ITelemetryService>();
+
+        var emp1 = new User { Id = Guid.NewGuid(), Email = "emp1@punnya.org", FullName = "Emp One", Role = UserRole.EMPLOYEE.ToString() };
+        var emp2 = new User { Id = Guid.NewGuid(), Email = "emp2@punnya.org", FullName = "Emp Two", Role = UserRole.EMPLOYEE.ToString() };
+        context.Users.AddRange(emp1, emp2);
+
+        var today = DateTime.UtcNow.Date;
+        context.Shifts.AddRange(
+            new Shift { Id = Guid.NewGuid(), UserId = emp1.Id, StationId = "ST-1", ClockIn = today.AddHours(9), ClockOut = today.AddHours(17), Status = ShiftStatus.COMPLETED.ToString() },
+            new Shift { Id = Guid.NewGuid(), UserId = emp2.Id, StationId = "ST-2", ClockIn = today.AddHours(10), ClockOut = today.AddHours(18), Status = ShiftStatus.COMPLETED.ToString() }
+        );
+        await context.SaveChangesAsync();
+
+        mockTelemetry.Setup(t => t.GetWorkstationsStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<WorkstationStatusDto>());
+
+        var timesheetService = new TimesheetService(context, mockTelemetry.Object);
+
+        // Act - Request scoped specifically to emp1
+        var summary = await timesheetService.GetSummaryAsync(today, null, "TODAY", emp1.Id);
+
+        // Assert
+        Assert.NotNull(summary);
+        Assert.Single(summary.Rows);
+        Assert.Equal("emp1@punnya.org", summary.Rows[0].Email);
+        Assert.DoesNotContain(summary.Rows, r => r.Email == "emp2@punnya.org");
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_ShiftCrossingMidnight_AccuratelyBindsHoursToRespectiveDays()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var mockTelemetry = new Mock<ITelemetryService>();
+
+        var emp = new User { Id = Guid.NewGuid(), Email = "nightshift@punnya.org", FullName = "Night Owl", Role = UserRole.EMPLOYEE.ToString() };
+        context.Users.Add(emp);
+
+        // Shift starts at 22:00 on Day 1 and ends at 06:00 on Day 2 (8 hours total: 2 hours on Day 1, 6 hours on Day 2)
+        var day1 = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+        var day2 = day1.AddDays(1);
+
+        context.Shifts.Add(new Shift
+        {
+            Id = Guid.NewGuid(),
+            UserId = emp.Id,
+            StationId = "ST-NIGHT",
+            ClockIn = day1.AddHours(22),
+            ClockOut = day2.AddHours(6),
+            TotalActiveSeconds = 28800, // 8 hours active
+            TotalIdleSeconds = 0,
+            Status = ShiftStatus.COMPLETED.ToString()
+        });
+        await context.SaveChangesAsync();
+
+        mockTelemetry.Setup(t => t.GetWorkstationsStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<WorkstationStatusDto>());
+
+        var timesheetService = new TimesheetService(context, mockTelemetry.Object);
+
+        // Act: Request Day 1
+        var summaryDay1 = await timesheetService.GetSummaryAsync(day1, null, "DAY");
+        // Act: Request Day 2
+        var summaryDay2 = await timesheetService.GetSummaryAsync(day2, null, "DAY");
+
+        // Assert Day 1 has exactly 2 hours (22:00 to 00:00)
+        Assert.NotEmpty(summaryDay1.DailyBreakdown);
+        var day1Row = summaryDay1.DailyBreakdown.First(r => r.Email == emp.Email && r.Date == day1.ToString("yyyy-MM-dd"));
+        Assert.Equal(2.0, day1Row.TotalHours);
+
+        // Assert Day 2 has exactly 6 hours (00:00 to 06:00)
+        Assert.NotEmpty(summaryDay2.DailyBreakdown);
+        var day2Row = summaryDay2.DailyBreakdown.First(r => r.Email == emp.Email && r.Date == day2.ToString("yyyy-MM-dd"));
+        Assert.Equal(6.0, day2Row.TotalHours);
+    }
 }

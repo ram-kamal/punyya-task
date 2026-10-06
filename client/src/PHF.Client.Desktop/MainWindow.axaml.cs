@@ -279,17 +279,31 @@ public partial class MainWindow : Window
         }
 
         // Configure Role-Based Views
+        AdminNavBarBorder.IsVisible = true;
+        RoleBadgeBorder.IsVisible = true;
+        TxtUserRoleBadge.Text = _currentUser?.Role.ToUpper() ?? "STAFF";
+
+        BtnTabWorkforce.IsVisible = IsAdminOrManager;
+        BtnTabTasks.IsVisible = IsAdminOrManager;
+        BtnTabStaff.IsVisible = IsAdminOrManager;
+        BtnAdminDispatchQuick.IsVisible = IsAdminOrManager;
+
         if (IsAdminOrManager)
         {
-            AdminNavBarBorder.IsVisible = true;
-            RoleBadgeBorder.IsVisible = true;
-            TxtUserRoleBadge.Text = _currentUser?.Role.ToUpper() ?? "ADMIN";
+            BtnTabTimesheets.Content = "⏱️ Timesheets";
+            BtnTabLeaves.Content = "🏖️ Leave Approvals";
+            TxtTsHeaderTitle.Text = "Workforce Timesheets & Efficiency KPIs";
+            TxtTsHeaderSubtitle.Text = "Itemized employee work shifts, active focus scoring, and automated compliance";
+            TxtTsCard1Title.Text = "ACTIVE STATIONS";
             await LoadStaffDirectoryAsync(silent: true);
         }
         else
         {
-            AdminNavBarBorder.IsVisible = false;
-            RoleBadgeBorder.IsVisible = false;
+            BtnTabTimesheets.Content = "⏱️ My Timesheet";
+            BtnTabLeaves.Content = "🏖️ Leaves Center";
+            TxtTsHeaderTitle.Text = "My Personal Timesheet & Productivity Log";
+            TxtTsHeaderSubtitle.Text = "Review your daily clock in/out logs, active vs idle hours, and tasks completed";
+            TxtTsCard1Title.Text = "MY WORKSTATION";
             await SwitchToTabAsync("MY_DESK");
         }
 
@@ -319,7 +333,18 @@ public partial class MainWindow : Window
     private async void BtnTabWorkforce_Click(object? sender, RoutedEventArgs e) => await SwitchToTabAsync("WORKFORCE");
     private async void BtnTabTasks_Click(object? sender, RoutedEventArgs e) => await SwitchToTabAsync("TASKS");
     private async void BtnTabTimesheets_Click(object? sender, RoutedEventArgs e) => await SwitchToTabAsync("TIMESHEETS");
-    private async void BtnTabLeaves_Click(object? sender, RoutedEventArgs e) => await SwitchToTabAsync("LEAVES");
+    private async void BtnOpenMyTimesheet_Click(object? sender, RoutedEventArgs e) => await SwitchToTabAsync("TIMESHEETS");
+    private async void BtnTabLeaves_Click(object? sender, RoutedEventArgs e)
+    {
+        if (IsAdminOrManager)
+        {
+            await SwitchToTabAsync("LEAVES");
+        }
+        else
+        {
+            BtnOpenLeaveCenter_Click(sender, e);
+        }
+    }
     private async void BtnTabStaff_Click(object? sender, RoutedEventArgs e) => await SwitchToTabAsync("STAFF");
 
     private async Task SwitchToTabAsync(string tabName)
@@ -1067,7 +1092,14 @@ public partial class MainWindow : Window
 
             if (summary != null)
             {
-                TxtTsActiveStations.Text = summary.ActiveStationsCount.ToString();
+                if (IsAdminOrManager)
+                {
+                    TxtTsActiveStations.Text = summary.ActiveStationsCount.ToString();
+                }
+                else
+                {
+                    TxtTsActiveStations.Text = !string.IsNullOrWhiteSpace(_currentUser?.StationId) ? _currentUser.StationId : "ONLINE";
+                }
                 TxtTsTotalHours.Text = $"{summary.TotalHoursLoggedToday:F1}h";
                 TxtTsAvgFocus.Text = $"{summary.AverageEfficiencyPercentage:F0}%";
                 TxtTsActiveTasks.Text = summary.TasksInProgressCount.ToString();
