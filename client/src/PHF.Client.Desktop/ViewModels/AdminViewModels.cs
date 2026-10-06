@@ -310,3 +310,161 @@ public class AdminStaffMemberViewModel
         : new SolidColorBrush(Color.FromRgb(248, 113, 113));
     public string ToggleStatusButtonText => _dto.IsActive ? "⏸ Suspend" : "▶ Activate";
 }
+
+public class AdminAttendanceSummaryViewModel
+{
+    private readonly AttendanceStaffSummaryDto _dto;
+
+    public AdminAttendanceSummaryViewModel(AttendanceStaffSummaryDto dto)
+    {
+        _dto = dto;
+    }
+
+    public Guid UserId => _dto.UserId;
+    public string EmployeeName => _dto.EmployeeName;
+    public string Email => _dto.Email;
+    public string StationId => !string.IsNullOrWhiteSpace(_dto.StationId) ? _dto.StationId : "—";
+    public string WorkMode => _dto.WorkMode;
+    public string WorkModeDisplay => _dto.WorkMode == "IN_OFFICE" ? "Office" : "WFH";
+    public int TotalWorkingDays => _dto.TotalWorkingDays;
+    public int DaysPresent => _dto.DaysPresent;
+    public int DaysAbsent => _dto.DaysAbsent;
+    public int ApprovedLeaveDays => _dto.ApprovedLeaveDays;
+    public double AttendanceRatePercentage => _dto.AttendanceRatePercentage;
+    public string AttendanceRateText => $"{_dto.AttendanceRatePercentage:F1}%";
+    public double TotalHours => _dto.TotalHours;
+    public string TotalTimeFormatted => _dto.TotalTimeFormatted;
+    public double ActiveHours => _dto.ActiveHours;
+    public double IdleHours => _dto.IdleHours;
+    public string ActiveIdleText => $"{_dto.ActiveHours:F1}h / {_dto.IdleHours:F1}h";
+    public double AverageDailyHours => _dto.AverageDailyHours;
+    public string AvgDailyText => $"{_dto.AverageDailyHours:F1}h/day";
+    public double EfficiencyPercentage => _dto.EfficiencyPercentage;
+    public string EfficiencyText => $"{_dto.EfficiencyPercentage:F1}%";
+
+    public IBrush RateColorBrush => AttendanceRatePercentage switch
+    {
+        >= 90 => new SolidColorBrush(Color.FromRgb(52, 211, 153)),
+        >= 75 => new SolidColorBrush(Color.FromRgb(56, 189, 248)),
+        >= 60 => new SolidColorBrush(Color.FromRgb(251, 191, 36)),
+        _ => new SolidColorBrush(Color.FromRgb(251, 113, 133))
+    };
+
+    public IBrush EfficiencyBrush => EfficiencyPercentage switch
+    {
+        >= 80 => new SolidColorBrush(Color.FromRgb(52, 211, 153)),
+        >= 60 => new SolidColorBrush(Color.FromRgb(251, 191, 36)),
+        _ => new SolidColorBrush(Color.FromRgb(251, 113, 133))
+    };
+}
+
+public class AdminAttendanceDailyLogViewModel
+{
+    private readonly AttendanceDailyLogDto _dto;
+
+    public AdminAttendanceDailyLogViewModel(AttendanceDailyLogDto dto)
+    {
+        _dto = dto;
+    }
+
+    public string Date => _dto.Date;
+    public string DayOfWeek => _dto.DayOfWeek;
+    public string EmployeeName => _dto.EmployeeName;
+    public string Email => _dto.Email;
+    public string StationId => !string.IsNullOrWhiteSpace(_dto.StationId) ? _dto.StationId : "—";
+    public string Status => _dto.Status;
+    public string ClockIn => _dto.ClockIn;
+    public string ClockOut => _dto.ClockOut;
+    public double HoursWorked => _dto.HoursWorked;
+    public string TimeFormatted => _dto.TimeFormatted;
+
+    public IBrush StatusBrush => _dto.Status switch
+    {
+        "PRESENT" => new SolidColorBrush(Color.FromRgb(52, 211, 153)),
+        "LEAVE" => new SolidColorBrush(Color.FromRgb(251, 191, 36)),
+        "WEEKEND" => new SolidColorBrush(Color.FromRgb(96, 165, 250)),
+        _ => new SolidColorBrush(Color.FromRgb(251, 113, 133))
+    };
+
+    public IBrush StatusBgBrush => _dto.Status switch
+    {
+        "PRESENT" => new SolidColorBrush(Color.FromArgb(40, 16, 185, 129)),
+        "LEAVE" => new SolidColorBrush(Color.FromArgb(40, 245, 158, 11)),
+        "WEEKEND" => new SolidColorBrush(Color.FromArgb(40, 59, 130, 246)),
+        _ => new SolidColorBrush(Color.FromArgb(40, 239, 68, 68))
+    };
+}
+
+public class AdminStaffPerformanceRowViewModel
+{
+    private readonly StaffPerformanceRowDto _dto;
+
+    public AdminStaffPerformanceRowViewModel(StaffPerformanceRowDto dto)
+    {
+        _dto = dto;
+    }
+
+    public Guid UserId => _dto.UserId;
+    public string EmployeeName => _dto.EmployeeName;
+    public string Email => _dto.Email;
+    public string Role => _dto.Role;
+    public string StationId => !string.IsNullOrWhiteSpace(_dto.StationId) ? _dto.StationId : "—";
+    public int TasksAssigned => _dto.TasksAssigned;
+    public int TasksCompleted => _dto.TasksCompleted;
+    public int TasksInProgress => _dto.TasksInProgress;
+    public int TasksPending => _dto.TasksPending;
+    public double TaskCompletionRate => _dto.TaskCompletionRate;
+    public string CompletionRateText => $"{_dto.TaskCompletionRate:F1}%";
+    public int DeliverablesSubmitted => _dto.DeliverablesSubmitted;
+    public int DeliverablesRequired => _dto.DeliverablesRequired;
+    public double DeliverableComplianceRate => _dto.DeliverableComplianceRate;
+    public string ComplianceText => $"{_dto.DeliverablesSubmitted}/{_dto.DeliverablesRequired} ({_dto.DeliverableComplianceRate:F0}%)";
+    public double TotalHoursWorked => _dto.TotalHoursWorked;
+    public string TotalTimeFormatted => _dto.TotalTimeFormatted;
+    public double ActiveHours => _dto.ActiveHours;
+    public double IdleHours => _dto.IdleHours;
+    public double FocusEfficiencyPercentage => _dto.FocusEfficiencyPercentage;
+    public string FocusText => $"{_dto.FocusEfficiencyPercentage:F1}%";
+    public string PerformanceRating => _dto.PerformanceRating;
+
+    public IBrush RatingBgBrush => _dto.PerformanceRating switch
+    {
+        "Outstanding" => new SolidColorBrush(Color.FromArgb(40, 16, 185, 129)),
+        "High Performer" => new SolidColorBrush(Color.FromArgb(40, 56, 189, 248)),
+        "Good Standing" => new SolidColorBrush(Color.FromArgb(40, 245, 158, 11)),
+        _ => new SolidColorBrush(Color.FromArgb(40, 239, 68, 68))
+    };
+
+    public IBrush RatingFgBrush => _dto.PerformanceRating switch
+    {
+        "Outstanding" => new SolidColorBrush(Color.FromRgb(52, 211, 153)),
+        "High Performer" => new SolidColorBrush(Color.FromRgb(56, 189, 248)),
+        "Good Standing" => new SolidColorBrush(Color.FromRgb(251, 191, 36)),
+        _ => new SolidColorBrush(Color.FromRgb(251, 113, 133))
+    };
+}
+
+public class AdminLeaveStaffSummaryViewModel
+{
+    private readonly LeaveStaffSummaryDto _dto;
+
+    public AdminLeaveStaffSummaryViewModel(LeaveStaffSummaryDto dto)
+    {
+        _dto = dto;
+    }
+
+    public Guid UserId => _dto.UserId;
+    public string EmployeeName => _dto.EmployeeName;
+    public string Email => _dto.Email;
+    public string StationId => !string.IsNullOrWhiteSpace(_dto.StationId) ? _dto.StationId : "—";
+    public int TotalRequests => _dto.TotalRequests;
+    public int TotalApprovedDays => _dto.TotalApprovedDays;
+    public int CasualLeaveDays => _dto.CasualLeaveDays;
+    public int SickLeaveDays => _dto.SickLeaveDays;
+    public int MedicalLeaveDays => _dto.MedicalLeaveDays;
+    public int AnnualLeaveDays => _dto.AnnualLeaveDays;
+    public int EmergencyLeaveDays => _dto.EmergencyLeaveDays;
+    public int PendingRequests => _dto.PendingRequests;
+    public int RejectedRequests => _dto.RejectedRequests;
+}
+

@@ -125,6 +125,7 @@
                         <Button x:Name="BtnTabTimesheets" Classes="tabBtn" Content="⏱️ Timesheets" Click="BtnTabTimesheets_Click" />
                         <Button x:Name="BtnTabLeaves" Classes="tabBtn" Content="🏖️ Leave Approvals" Click="BtnTabLeaves_Click" />
                         <Button x:Name="BtnTabStaff" Classes="tabBtn" Content="👥 Staff Directory" Click="BtnTabStaff_Click" />
+                        <Button x:Name="BtnTabReports" Classes="tabBtn" Content="📊 Reports &amp; Audits" Click="BtnTabReports_Click" />
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
                         <Button x:Name="BtnAdminDispatchQuick" Classes="primary" Content="+ Dispatch Task" Click="BtnOpenDispatchModal_Click" />
@@ -808,6 +809,298 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </ScrollViewer>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- 7. VIEW: EXECUTIVE REPORTS & AUDITS -->
+                <Grid x:Name="ViewReports" Margin="24,18,24,12" RowDefinitions="Auto,Auto,*" IsVisible="False">
+                    <!-- Header -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock x:Name="TxtRepHeaderTitle" Text="Executive Reports &amp; Enterprise Audits" FontSize="18" FontWeight="Bold" Foreground="#F8FAFC" />
+                            <TextBlock x:Name="TxtRepHeaderSubtitle" Text="Authoritative month-end attendance audits, staff task velocity, and leave analytics" FontSize="12" Foreground="#94A3B8" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,8,0">
+                                <Button x:Name="BtnRepSubAttendance" Classes="primary" Content="📅 Attendance" Tag="attendance" Click="BtnReportSubTab_Click" Padding="10,4" />
+                                <Button x:Name="BtnRepSubPerformance" Classes="glass" Content="📈 Performance" Tag="performance" Click="BtnReportSubTab_Click" Padding="10,4" />
+                                <Button x:Name="BtnRepSubLeaves" Classes="glass" Content="🏖️ Leaves" Tag="leaves" Click="BtnReportSubTab_Click" Padding="10,4" />
+                            </StackPanel>
+                            <Button x:Name="BtnExportReportCsv" Classes="accentGreen" Content="⬇ Export CSV" Click="BtnExportActiveReportCsv_Click" />
+                            <Button x:Name="BtnRefreshReports" Classes="glass" Content="↻ Refresh" Click="BtnRefreshActiveReport_Click" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- KPI Cards & Filter Bar -->
+                    <Grid Grid.Row="1" RowDefinitions="Auto,Auto" Margin="0,0,0,16">
+                        <!-- KPI Row -->
+                        <Grid Grid.Row="0" ColumnDefinitions="*,12,*,12,*,12,*" Margin="0,0,0,12">
+                            <Border Grid.Column="0" Background="#20161A26" BorderBrush="#25FFFFFF" BorderThickness="1" CornerRadius="10" Padding="14,10">
+                                <StackPanel>
+                                    <TextBlock x:Name="TxtRepCard1Title" Text="WORKING DAYS" FontSize="9.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock x:Name="TxtRepCard1Value" Text="0" FontSize="18" FontWeight="Bold" Foreground="#34D399" Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="2" Background="#20161A26" BorderBrush="#25FFFFFF" BorderThickness="1" CornerRadius="10" Padding="14,10">
+                                <StackPanel>
+                                    <TextBlock x:Name="TxtRepCard2Title" Text="ELAPSED DAYS" FontSize="9.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock x:Name="TxtRepCard2Value" Text="0" FontSize="18" FontWeight="Bold" Foreground="#38BDF8" Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="4" Background="#20161A26" BorderBrush="#25FFFFFF" BorderThickness="1" CornerRadius="10" Padding="14,10">
+                                <StackPanel>
+                                    <TextBlock x:Name="TxtRepCard3Title" Text="ATTENDANCE RATE" FontSize="9.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock x:Name="TxtRepCard3Value" Text="0%" FontSize="18" FontWeight="Bold" Foreground="#FBBF24" Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="6" Background="#20161A26" BorderBrush="#25FFFFFF" BorderThickness="1" CornerRadius="10" Padding="14,10">
+                                <StackPanel>
+                                    <TextBlock x:Name="TxtRepCard4Title" Text="HOURS LOGGED" FontSize="9.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                    <TextBlock x:Name="TxtRepCard4Value" Text="0.0h" FontSize="18" FontWeight="Bold" Foreground="#FB7185" Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- Filter Controls Bar -->
+                        <Border Grid.Row="1" Background="#151720" BorderBrush="#262938" BorderThickness="1" CornerRadius="10" Padding="12,8">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <!-- Filter Sub-Panels -->
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <!-- Attendance Filters -->
+                                    <StackPanel x:Name="PanelRepAttendanceFilters" Orientation="Horizontal" Spacing="8" IsVisible="True">
+                                        <TextBlock Text="Month:" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" FontWeight="Bold" />
+                                        <ComboBox x:Name="CmbRepAttendanceMonth" Width="110" SelectedIndex="9" SelectionChanged="CmbRepAttendanceMonth_SelectionChanged">
+                                            <ComboBoxItem Tag="1" Content="January" />
+                                            <ComboBoxItem Tag="2" Content="February" />
+                                            <ComboBoxItem Tag="3" Content="March" />
+                                            <ComboBoxItem Tag="4" Content="April" />
+                                            <ComboBoxItem Tag="5" Content="May" />
+                                            <ComboBoxItem Tag="6" Content="June" />
+                                            <ComboBoxItem Tag="7" Content="July" />
+                                            <ComboBoxItem Tag="8" Content="August" />
+                                            <ComboBoxItem Tag="9" Content="September" />
+                                            <ComboBoxItem Tag="10" Content="October" />
+                                            <ComboBoxItem Tag="11" Content="November" />
+                                            <ComboBoxItem Tag="12" Content="December" />
+                                        </ComboBox>
+                                        <TextBlock Text="Year:" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" FontWeight="Bold" />
+                                        <ComboBox x:Name="CmbRepAttendanceYear" Width="85" SelectedIndex="2" SelectionChanged="CmbRepAttendanceYear_SelectionChanged">
+                                            <ComboBoxItem Tag="2024" Content="2024" />
+                                            <ComboBoxItem Tag="2025" Content="2025" />
+                                            <ComboBoxItem Tag="2026" Content="2026" />
+                                            <ComboBoxItem Tag="2027" Content="2027" />
+                                        </ComboBox>
+                                        <Button x:Name="BtnRepToggleAttendanceMode" Classes="glass" Content="Toggle Daily Log / Summary" Click="BtnRepToggleAttendanceMode_Click" Padding="8,4" FontSize="11" />
+                                    </StackPanel>
+
+                                    <!-- Performance Filters -->
+                                    <StackPanel x:Name="PanelRepPerformanceFilters" Orientation="Horizontal" Spacing="6" IsVisible="False">
+                                        <TextBlock Text="Period:" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" FontWeight="Bold" />
+                                        <Button x:Name="BtnRepPerfToday" Classes="glass" Content="Today" Tag="today" Click="BtnRepPerfPeriod_Click" Padding="8,4" FontSize="11" />
+                                        <Button x:Name="BtnRepPerfWeek" Classes="glass" Content="Week" Tag="week" Click="BtnRepPerfPeriod_Click" Padding="8,4" FontSize="11" />
+                                        <Button x:Name="BtnRepPerfMonth" Classes="primary" Content="Month" Tag="month" Click="BtnRepPerfPeriod_Click" Padding="8,4" FontSize="11" />
+                                        <Button x:Name="BtnRepPerfLastMonth" Classes="glass" Content="Last Month" Tag="last_month" Click="BtnRepPerfPeriod_Click" Padding="8,4" FontSize="11" />
+                                        <Button x:Name="BtnRepPerfYear" Classes="glass" Content="Year" Tag="year" Click="BtnRepPerfPeriod_Click" Padding="8,4" FontSize="11" />
+                                    </StackPanel>
+
+                                    <!-- Leaves Filters -->
+                                    <StackPanel x:Name="PanelRepLeavesFilters" Orientation="Horizontal" Spacing="6" IsVisible="False">
+                                        <TextBlock Text="Period:" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" FontWeight="Bold" />
+                                        <Button x:Name="BtnRepLeaveMonth" Classes="primary" Content="This Month" Tag="month" Click="BtnRepLeavePeriod_Click" Padding="8,4" FontSize="11" />
+                                        <Button x:Name="BtnRepLeaveLastMonth" Classes="glass" Content="Last Month" Tag="last_month" Click="BtnRepLeavePeriod_Click" Padding="8,4" FontSize="11" />
+                                        <Button x:Name="BtnRepLeaveYear" Classes="glass" Content="This Year" Tag="year" Click="BtnRepLeavePeriod_Click" Padding="8,4" FontSize="11" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Search Filter -->
+                                <TextBox Grid.Column="1" x:Name="TxtRepSearch" Watermark="Search records..." Width="180" Height="28" FontSize="11" TextChanged="TxtRepSearch_TextChanged" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- Content Data Tables -->
+                    <Border Grid.Row="2" Background="#151720" BorderBrush="#262938" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+                        <Grid>
+                            <!-- 1. Attendance Summary Table -->
+                            <Grid x:Name="GridRepAttendanceSummary" RowDefinitions="Auto,*" IsVisible="True">
+                                <Border Grid.Row="0" Background="#0F1117" BorderBrush="#262938" BorderThickness="0,0,0,1" Padding="16,10">
+                                    <Grid ColumnDefinitions="2.2*,0.9*,0.9*,0.8*,0.8*,0.8*,1.1*,1.1*,1.1*,1*">
+                                        <TextBlock Grid.Column="0" Text="EMPLOYEE / STATION" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                        <TextBlock Grid.Column="1" Text="MODE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="2" Text="WORKING" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="3" Text="PRESENT" FontSize="10.5" FontWeight="Bold" Foreground="#34D399" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="4" Text="ABSENT" FontSize="10.5" FontWeight="Bold" Foreground="#FB7185" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="5" Text="LEAVES" FontSize="10.5" FontWeight="Bold" Foreground="#FBBF24" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="6" Text="ATTENDANCE %" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="7" Text="HOURS LOGGED" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Right" />
+                                        <TextBlock Grid.Column="8" Text="ACTIVE / IDLE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Right" />
+                                        <TextBlock Grid.Column="9" Text="EFFICIENCY" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Center" />
+                                    </Grid>
+                                </Border>
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl x:Name="AttendanceSummariesItemsControl">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:AdminAttendanceSummaryViewModel">
+                                                <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Padding="16,9">
+                                                    <Grid ColumnDefinitions="2.2*,0.9*,0.9*,0.8*,0.8*,0.8*,1.1*,1.1*,1.1*,1*">
+                                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding EmployeeName}" FontSize="12.5" FontWeight="Bold" Foreground="#F8FAFC" />
+                                                            <TextBlock Text="{Binding Email}" FontSize="10.5" Foreground="#64748B" />
+                                                        </StackPanel>
+                                                        <Border Grid.Column="1" Background="#2038BDF8" CornerRadius="6" Padding="6,2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding WorkModeDisplay}" FontSize="10" FontWeight="Bold" Foreground="#38BDF8" />
+                                                        </Border>
+                                                        <TextBlock Grid.Column="2" Text="{Binding TotalWorkingDays}" FontSize="12" FontWeight="SemiBold" Foreground="#CBD5E1" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="3" Text="{Binding DaysPresent}" FontSize="12" FontWeight="Bold" Foreground="#34D399" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="4" Text="{Binding DaysAbsent}" FontSize="12" FontWeight="Bold" Foreground="#FB7185" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="5" Text="{Binding ApprovedLeaveDays}" FontSize="12" FontWeight="Bold" Foreground="#FBBF24" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="6" Text="{Binding AttendanceRateText}" FontSize="12" FontWeight="Black" Foreground="{Binding RateColorBrush}" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <StackPanel Grid.Column="7" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding TotalTimeFormatted}" FontSize="12" FontWeight="Bold" Foreground="#F8FAFC" HorizontalAlignment="Right" />
+                                                            <TextBlock Text="{Binding AvgDailyText}" FontSize="10" Foreground="#64748B" HorizontalAlignment="Right" />
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="8" Text="{Binding ActiveIdleText}" FontSize="11" Foreground="#94A3B8" TextAlignment="Right" VerticalAlignment="Center" />
+                                                        <Border Grid.Column="9" Background="#2034D399" CornerRadius="6" Padding="6,2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding EfficiencyText}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding EfficiencyBrush}" />
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Grid>
+
+                            <!-- 2. Attendance Daily Log Table -->
+                            <Grid x:Name="GridRepAttendanceDailyLog" RowDefinitions="Auto,*" IsVisible="False">
+                                <Border Grid.Row="0" Background="#0F1117" BorderBrush="#262938" BorderThickness="0,0,0,1" Padding="16,10">
+                                    <Grid ColumnDefinitions="1.3*,2.2*,1.1*,1.1*,1.1*,1.1*,1.1*">
+                                        <TextBlock Grid.Column="0" Text="DATE &amp; DAY" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                        <TextBlock Grid.Column="1" Text="EMPLOYEE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                        <TextBlock Grid.Column="2" Text="STATION" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                        <TextBlock Grid.Column="3" Text="STATUS" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="4" Text="CLOCK IN" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                        <TextBlock Grid.Column="5" Text="CLOCK OUT" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                        <TextBlock Grid.Column="6" Text="HOURS WORKED" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Right" />
+                                    </Grid>
+                                </Border>
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl x:Name="AttendanceDailyLogsItemsControl">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:AdminAttendanceDailyLogViewModel">
+                                                <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Padding="16,9">
+                                                    <Grid ColumnDefinitions="1.3*,2.2*,1.1*,1.1*,1.1*,1.1*,1.1*">
+                                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Date}" FontSize="12" FontWeight="Bold" Foreground="#F8FAFC" />
+                                                            <TextBlock Text="{Binding DayOfWeek}" FontSize="10.5" Foreground="#64748B" />
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding EmployeeName}" FontSize="12" FontWeight="SemiBold" Foreground="#E2E8F0" />
+                                                            <TextBlock Text="{Binding Email}" FontSize="10" Foreground="#64748B" />
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="2" Text="{Binding StationId}" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" />
+                                                        <Border Grid.Column="3" Background="{Binding StatusBgBrush}" CornerRadius="6" Padding="8,2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Status}" FontSize="10" FontWeight="Bold" Foreground="{Binding StatusBrush}" />
+                                                        </Border>
+                                                        <TextBlock Grid.Column="4" Text="{Binding ClockIn}" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="5" Text="{Binding ClockOut}" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="6" Text="{Binding TimeFormatted}" FontSize="12" FontWeight="Bold" Foreground="#F8FAFC" TextAlignment="Right" VerticalAlignment="Center" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Grid>
+
+                            <!-- 3. Staff Performance Table -->
+                            <Grid x:Name="GridRepPerformance" RowDefinitions="Auto,*" IsVisible="False">
+                                <Border Grid.Row="0" Background="#0F1117" BorderBrush="#262938" BorderThickness="0,0,0,1" Padding="16,10">
+                                    <Grid ColumnDefinitions="2.2*,1*,1*,1*,1.1*,1.4*,1.2*,1.2*,1.2*">
+                                        <TextBlock Grid.Column="0" Text="EMPLOYEE / ROLE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                        <TextBlock Grid.Column="1" Text="STATION" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                        <TextBlock Grid.Column="2" Text="ASSIGNED" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="3" Text="DONE" FontSize="10.5" FontWeight="Bold" Foreground="#34D399" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="4" Text="VELOCITY %" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="5" Text="COMPLIANCE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="6" Text="HOURS" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Right" />
+                                        <TextBlock Grid.Column="7" Text="FOCUS %" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="8" Text="RATING" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Center" />
+                                    </Grid>
+                                </Border>
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl x:Name="PerformanceItemsControl">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:AdminStaffPerformanceRowViewModel">
+                                                <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Padding="16,9">
+                                                    <Grid ColumnDefinitions="2.2*,1*,1*,1*,1.1*,1.4*,1.2*,1.2*,1.2*">
+                                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding EmployeeName}" FontSize="12.5" FontWeight="Bold" Foreground="#F8FAFC" />
+                                                            <TextBlock Text="{Binding Email}" FontSize="10.5" Foreground="#64748B" />
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="1" Text="{Binding StationId}" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="2" Text="{Binding TasksAssigned}" FontSize="12" FontWeight="SemiBold" Foreground="#CBD5E1" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="3" Text="{Binding TasksCompleted}" FontSize="12" FontWeight="Bold" Foreground="#34D399" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="4" Text="{Binding CompletionRateText}" FontSize="12" FontWeight="Black" Foreground="#38BDF8" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="5" Text="{Binding ComplianceText}" FontSize="11" Foreground="#E2E8F0" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="6" Text="{Binding TotalTimeFormatted}" FontSize="12" FontWeight="Bold" Foreground="#F8FAFC" TextAlignment="Right" VerticalAlignment="Center" />
+                                                        <Border Grid.Column="7" Background="#2034D399" CornerRadius="6" Padding="6,2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding FocusText}" FontSize="10.5" FontWeight="Bold" Foreground="#34D399" />
+                                                        </Border>
+                                                        <Border Grid.Column="8" Background="{Binding RatingBgBrush}" CornerRadius="6" Padding="8,2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding PerformanceRating}" FontSize="10" FontWeight="Bold" Foreground="{Binding RatingFgBrush}" />
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Grid>
+
+                            <!-- 4. Leave Report Table -->
+                            <Grid x:Name="GridRepLeaves" RowDefinitions="Auto,*" IsVisible="False">
+                                <Border Grid.Row="0" Background="#0F1117" BorderBrush="#262938" BorderThickness="0,0,0,1" Padding="16,10">
+                                    <Grid ColumnDefinitions="2.2*,1*,1.1*,0.9*,0.9*,0.9*,0.9*,1*,0.9*,0.9*">
+                                        <TextBlock Grid.Column="0" Text="EMPLOYEE / STATION" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
+                                        <TextBlock Grid.Column="1" Text="REQUESTS" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="2" Text="APPROVED" FontSize="10.5" FontWeight="Bold" Foreground="#34D399" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="3" Text="CASUAL" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="4" Text="SICK" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="5" Text="MEDICAL" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="6" Text="ANNUAL" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="7" Text="EMERGENCY" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="8" Text="PENDING" FontSize="10.5" FontWeight="Bold" Foreground="#FBBF24" TextAlignment="Center" />
+                                        <TextBlock Grid.Column="9" Text="REJECTED" FontSize="10.5" FontWeight="Bold" Foreground="#FB7185" TextAlignment="Center" />
+                                    </Grid>
+                                </Border>
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl x:Name="LeaveReportItemsControl">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:AdminLeaveStaffSummaryViewModel">
+                                                <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Padding="16,9">
+                                                    <Grid ColumnDefinitions="2.2*,1*,1.1*,0.9*,0.9*,0.9*,0.9*,1*,0.9*,0.9*">
+                                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding EmployeeName}" FontSize="12.5" FontWeight="Bold" Foreground="#F8FAFC" />
+                                                            <TextBlock Text="{Binding Email}" FontSize="10.5" Foreground="#64748B" />
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="1" Text="{Binding TotalRequests}" FontSize="12" FontWeight="SemiBold" Foreground="#CBD5E1" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="2" Text="{Binding TotalApprovedDays}" FontSize="13" FontWeight="Black" Foreground="#34D399" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="3" Text="{Binding CasualLeaveDays}" FontSize="11" Foreground="#94A3B8" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="4" Text="{Binding SickLeaveDays}" FontSize="11" Foreground="#94A3B8" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="5" Text="{Binding MedicalLeaveDays}" FontSize="11" Foreground="#94A3B8" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="6" Text="{Binding AnnualLeaveDays}" FontSize="11" Foreground="#94A3B8" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="7" Text="{Binding EmergencyLeaveDays}" FontSize="11" Foreground="#94A3B8" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="8" Text="{Binding PendingRequests}" FontSize="12" FontWeight="Bold" Foreground="#FBBF24" TextAlignment="Center" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="9" Text="{Binding RejectedRequests}" FontSize="12" FontWeight="Bold" Foreground="#FB7185" TextAlignment="Center" VerticalAlignment="Center" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Grid>
                         </Grid>
                     </Border>
                 </Grid>

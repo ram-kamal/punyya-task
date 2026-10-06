@@ -52,6 +52,21 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<AdminStaffMemberViewModel> _allStaff = new();
     private readonly ObservableCollection<ParsedCsvTask> _parsedTasks = new();
     private readonly ObservableCollection<TaskBackupDto> _taskBackups = new();
+    private readonly ObservableCollection<AdminAttendanceSummaryViewModel> _attendanceSummaries = new();
+    private readonly ObservableCollection<AdminAttendanceDailyLogViewModel> _attendanceDailyLogs = new();
+    private readonly ObservableCollection<AdminStaffPerformanceRowViewModel> _staffPerformances = new();
+    private readonly ObservableCollection<AdminLeaveStaffSummaryViewModel> _leaveSummaries = new();
+
+    private string _reportSubTab = "attendance";
+    private int _reportAttendanceMonth = DateTime.UtcNow.Month;
+    private int _reportAttendanceYear = DateTime.UtcNow.Year;
+    private bool _isDailyLogView = false;
+    private string _reportPerfPeriod = "month";
+    private string _reportLeavePeriod = "month";
+    private MonthEndAttendanceReportDto? _lastAttendanceReport;
+    private StaffPerformanceReportDto? _lastPerformanceReport;
+    private LeaveReportDto? _lastLeaveReport;
+
     private Guid? _activeReminderBackupId = null;
     private int? _activeReminderMilestone = null;
     private List<StaffMemberDto> _staffMembers = new();
@@ -86,6 +101,19 @@ public partial class MainWindow : Window
         StaffItemsControl.ItemsSource = _allStaff;
         BulkImportItemsControl.ItemsSource = _parsedTasks;
         TaskBackupsItemsControl.ItemsSource = _taskBackups;
+        AttendanceSummariesItemsControl.ItemsSource = _attendanceSummaries;
+        AttendanceDailyLogsItemsControl.ItemsSource = _attendanceDailyLogs;
+        PerformanceItemsControl.ItemsSource = _staffPerformances;
+        LeaveReportItemsControl.ItemsSource = _leaveSummaries;
+
+        try
+        {
+            if (CmbRepAttendanceMonth != null && CmbRepAttendanceMonth.Items.Count >= DateTime.UtcNow.Month)
+            {
+                CmbRepAttendanceMonth.SelectedIndex = DateTime.UtcNow.Month - 1;
+            }
+        }
+        catch { }
 
         var defaultUrl = Environment.GetEnvironmentVariable("PHF_API_URL") ?? "https://punnya-api.onrender.com";
         _apiClient = new ApiClient(defaultUrl);
@@ -292,6 +320,9 @@ public partial class MainWindow : Window
         {
             BtnTabTimesheets.Content = "⏱️ Timesheets";
             BtnTabLeaves.Content = "🏖️ Leave Approvals";
+            BtnTabReports.Content = "📊 Reports & Audits";
+            TxtRepHeaderTitle.Text = "Executive Reports & Enterprise Audits";
+            TxtRepHeaderSubtitle.Text = "Authoritative month-end attendance audits, staff task velocity, and leave analytics";
             TxtTsHeaderTitle.Text = "Workforce Timesheets & Efficiency KPIs";
             TxtTsHeaderSubtitle.Text = "Itemized employee work shifts, active focus scoring, and automated compliance";
             TxtTsCard1Title.Text = "ACTIVE STATIONS";
@@ -301,6 +332,9 @@ public partial class MainWindow : Window
         {
             BtnTabTimesheets.Content = "⏱️ My Timesheet";
             BtnTabLeaves.Content = "🏖️ Leaves Center";
+            BtnTabReports.Content = "📊 My Reports";
+            TxtRepHeaderTitle.Text = "My Attendance, Performance & Leave Reports";
+            TxtRepHeaderSubtitle.Text = "Review your personal month-end attendance logs, performance metrics, and leave balance audits";
             TxtTsHeaderTitle.Text = "My Personal Timesheet & Productivity Log";
             TxtTsHeaderSubtitle.Text = "Review your daily clock in/out logs, active vs idle hours, and tasks completed";
             TxtTsCard1Title.Text = "MY WORKSTATION";
@@ -346,6 +380,7 @@ public partial class MainWindow : Window
         }
     }
     private async void BtnTabStaff_Click(object? sender, RoutedEventArgs e) => await SwitchToTabAsync("STAFF");
+    private async void BtnTabReports_Click(object? sender, RoutedEventArgs e) => await SwitchToTabAsync("REPORTS");
 
     private async Task SwitchToTabAsync(string tabName)
     {
@@ -358,6 +393,7 @@ public partial class MainWindow : Window
         SetTabButtonStyle(BtnTabTimesheets, tabName == "TIMESHEETS");
         SetTabButtonStyle(BtnTabLeaves, tabName == "LEAVES");
         SetTabButtonStyle(BtnTabStaff, tabName == "STAFF");
+        SetTabButtonStyle(BtnTabReports, tabName == "REPORTS");
 
         // Toggle Content Visibility
         ViewMyDesk.IsVisible = tabName == "MY_DESK";
@@ -366,6 +402,7 @@ public partial class MainWindow : Window
         ViewTimesheets.IsVisible = tabName == "TIMESHEETS";
         ViewLeaveApprovals.IsVisible = tabName == "LEAVES";
         ViewStaffDirectory.IsVisible = tabName == "STAFF";
+        ViewReports.IsVisible = tabName == "REPORTS";
 
         // Load data on demand
         switch (tabName)
@@ -387,6 +424,9 @@ public partial class MainWindow : Window
                 break;
             case "STAFF":
                 await LoadStaffDirectoryAsync();
+                break;
+            case "REPORTS":
+                await LoadActiveReportAsync();
                 break;
         }
     }
@@ -2471,6 +2511,342 @@ public partial class MainWindow : Window
 
     #endregion
 
+    #region Executive Reports & Audits
+
+    private async void BtnReportSubTab_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string subTab)
+        {
+            _reportSubTab = subTab;
+            UpdateReportSubTabStyles();
+            await LoadActiveReportAsync();
+        }
+    }
+
+    private void UpdateReportSubTabStyles()
+    {
+        SetFilterButtonStyle(BtnRepSubAttendance, _reportSubTab == "attendance");
+        SetFilterButtonStyle(BtnRepSubPerformance, _reportSubTab == "performance");
+        SetFilterButtonStyle(BtnRepSubLeaves, _reportSubTab == "leaves");
+
+        PanelRepAttendanceFilters.IsVisible = _reportSubTab == "attendance";
+        PanelRepPerformanceFilters.IsVisible = _reportSubTab == "performance";
+        PanelRepLeavesFilters.IsVisible = _reportSubTab == "leaves";
+
+        GridRepAttendanceSummary.IsVisible = _reportSubTab == "attendance" && !_isDailyLogView;
+        GridRepAttendanceDailyLog.IsVisible = _reportSubTab == "attendance" && _isDailyLogView;
+        GridRepPerformance.IsVisible = _reportSubTab == "performance";
+        GridRepLeaves.IsVisible = _reportSubTab == "leaves";
+    }
+
+    private async void CmbRepAttendanceMonth_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (CmbRepAttendanceMonth == null) return;
+        var selectedItem = CmbRepAttendanceMonth.SelectedItem as ComboBoxItem;
+        if (selectedItem?.Tag != null && int.TryParse(selectedItem.Tag.ToString(), out int m))
+        {
+            _reportAttendanceMonth = m;
+        }
+        else
+        {
+            _reportAttendanceMonth = CmbRepAttendanceMonth.SelectedIndex + 1;
+        }
+
+        if (_currentUser != null && _reportSubTab == "attendance")
+        {
+            await LoadActiveReportAsync();
+        }
+    }
+
+    private async void CmbRepAttendanceYear_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (CmbRepAttendanceYear == null) return;
+        var selectedItem = CmbRepAttendanceYear.SelectedItem as ComboBoxItem;
+        var tagOrContent = selectedItem?.Tag?.ToString() ?? selectedItem?.Content?.ToString();
+        if (int.TryParse(tagOrContent, out int y))
+        {
+            _reportAttendanceYear = y;
+        }
+
+        if (_currentUser != null && _reportSubTab == "attendance")
+        {
+            await LoadActiveReportAsync();
+        }
+    }
+
+    private void BtnRepToggleAttendanceMode_Click(object? sender, RoutedEventArgs e)
+    {
+        _isDailyLogView = !_isDailyLogView;
+        GridRepAttendanceSummary.IsVisible = !_isDailyLogView;
+        GridRepAttendanceDailyLog.IsVisible = _isDailyLogView;
+        BtnRepToggleAttendanceMode.Content = _isDailyLogView ? "Switch to Monthly Summary" : "Switch to Daily Logs";
+    }
+
+    private async void BtnRepPerfPeriod_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string period)
+        {
+            _reportPerfPeriod = period;
+            SetFilterButtonStyle(BtnRepPerfToday, period == "today");
+            SetFilterButtonStyle(BtnRepPerfWeek, period == "week");
+            SetFilterButtonStyle(BtnRepPerfMonth, period == "month");
+            SetFilterButtonStyle(BtnRepPerfLastMonth, period == "last_month");
+            SetFilterButtonStyle(BtnRepPerfYear, period == "year");
+
+            await LoadActiveReportAsync();
+        }
+    }
+
+    private async void BtnRepLeavePeriod_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string period)
+        {
+            _reportLeavePeriod = period;
+            SetFilterButtonStyle(BtnRepLeaveMonth, period == "month");
+            SetFilterButtonStyle(BtnRepLeaveLastMonth, period == "last_month");
+            SetFilterButtonStyle(BtnRepLeaveYear, period == "year");
+
+            await LoadActiveReportAsync();
+        }
+    }
+
+    private void TxtRepSearch_TextChanged(object? sender, TextChangedEventArgs e)
+    {
+        FilterReportsView();
+    }
+
+    private async void BtnRefreshActiveReport_Click(object? sender, RoutedEventArgs e)
+    {
+        await LoadActiveReportAsync();
+    }
+
+    private async void BtnExportActiveReportCsv_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Guid? targetEmpId = IsAdminOrManager ? null : _currentUser?.Id;
+            byte[]? csvBytes = null;
+            string fileName = "";
+
+            if (_reportSubTab == "attendance")
+            {
+                TxtStatusBar.Text = $"Exporting attendance CSV ({_reportAttendanceYear}-{_reportAttendanceMonth:D2})...";
+                csvBytes = await _apiClient.ExportAttendanceReportCsvAsync(_reportAttendanceYear, _reportAttendanceMonth, targetEmpId);
+                fileName = $"Punnya_Attendance_{_reportAttendanceYear}_{_reportAttendanceMonth:D2}_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+            }
+            else if (_reportSubTab == "performance")
+            {
+                TxtStatusBar.Text = $"Exporting staff performance CSV ({_reportPerfPeriod})...";
+                csvBytes = await _apiClient.ExportPerformanceReportCsvAsync(period: _reportPerfPeriod, employeeId: targetEmpId);
+                fileName = $"Punnya_Performance_{_reportPerfPeriod}_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+            }
+            else if (_reportSubTab == "leaves")
+            {
+                TxtStatusBar.Text = $"Exporting leave audits CSV ({_reportLeavePeriod})...";
+                csvBytes = await _apiClient.ExportLeaveReportCsvAsync(period: _reportLeavePeriod, viewType: "summary", employeeId: targetEmpId);
+                fileName = $"Punnya_Leaves_{_reportLeavePeriod}_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+            }
+
+            if (csvBytes != null && csvBytes.Length > 0)
+            {
+                var desktopDir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                var filePath = Path.Combine(desktopDir, fileName);
+                await File.WriteAllBytesAsync(filePath, csvBytes);
+
+                ShowToast("📊 Report CSV Exported", $"Saved to Desktop: {fileName}");
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = filePath,
+                    UseShellExecute = true
+                });
+            }
+            else
+            {
+                ShowToast("⚠️ Export CSV", "No report records available to export.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast("⚠️ Export Failed", ex.Message);
+        }
+    }
+
+    private async Task LoadActiveReportAsync(bool silent = false)
+    {
+        if (_currentUser == null) return;
+
+        try
+        {
+            if (!silent)
+            {
+                TxtStatusBar.Text = "Loading enterprise report data...";
+            }
+
+            Guid? targetEmpId = IsAdminOrManager ? null : _currentUser.Id;
+
+            if (_reportSubTab == "attendance")
+            {
+                var report = await _apiClient.GetAttendanceReportAsync(
+                    year: _reportAttendanceYear,
+                    month: _reportAttendanceMonth,
+                    employeeId: targetEmpId);
+
+                _lastAttendanceReport = report;
+
+                if (report != null)
+                {
+                    TxtRepCard1Title.Text = "WORKING DAYS";
+                    TxtRepCard1Value.Text = report.TotalWorkingDays.ToString();
+                    TxtRepCard2Title.Text = "ELAPSED DAYS";
+                    TxtRepCard2Value.Text = report.WorkingDaysElapsed.ToString();
+                    TxtRepCard3Title.Text = "ATTENDANCE RATE";
+                    TxtRepCard3Value.Text = $"{report.AverageAttendanceRate:F1}%";
+                    TxtRepCard4Title.Text = "HOURS LOGGED";
+                    TxtRepCard4Value.Text = $"{report.TotalHoursLogged:F1}h";
+                }
+
+                FilterReportsView();
+            }
+            else if (_reportSubTab == "performance")
+            {
+                var report = await _apiClient.GetPerformanceReportAsync(
+                    period: _reportPerfPeriod,
+                    employeeId: targetEmpId);
+
+                _lastPerformanceReport = report;
+
+                if (report != null)
+                {
+                    TxtRepCard1Title.Text = "TASKS ASSIGNED";
+                    TxtRepCard1Value.Text = report.TotalTasksAssigned.ToString();
+                    TxtRepCard2Title.Text = "TASKS COMPLETED";
+                    TxtRepCard2Value.Text = report.TotalTasksCompleted.ToString();
+                    TxtRepCard3Title.Text = "COMPLETION RATE";
+                    TxtRepCard3Value.Text = $"{report.TeamCompletionRate:F1}%";
+                    TxtRepCard4Title.Text = "AVG FOCUS SCORE";
+                    TxtRepCard4Value.Text = $"{report.AverageFocusScore:F1}%";
+                }
+
+                FilterReportsView();
+            }
+            else if (_reportSubTab == "leaves")
+            {
+                var report = await _apiClient.GetLeaveReportAsync(
+                    period: _reportLeavePeriod,
+                    employeeId: targetEmpId);
+
+                _lastLeaveReport = report;
+
+                if (report != null)
+                {
+                    TxtRepCard1Title.Text = "TOTAL REQUESTS";
+                    TxtRepCard1Value.Text = report.TotalApplications.ToString();
+                    TxtRepCard2Title.Text = "APPROVED DAYS";
+                    TxtRepCard2Value.Text = report.TotalApprovedDays.ToString();
+                    TxtRepCard3Title.Text = "PENDING REQUESTS";
+                    TxtRepCard3Value.Text = report.TotalPendingRequests.ToString();
+                    TxtRepCard4Title.Text = "REJECTED REQUESTS";
+                    TxtRepCard4Value.Text = report.TotalRejectedRequests.ToString();
+                }
+
+                FilterReportsView();
+            }
+
+            if (!silent)
+            {
+                TxtStatusBar.Text = "Reports up to date.";
+            }
+        }
+        catch (Exception ex)
+        {
+            TxtStatusBar.Text = $"Failed to load report: {ex.Message}";
+        }
+    }
+
+    private void FilterReportsView()
+    {
+        var q = TxtRepSearch?.Text?.Trim().ToLowerInvariant() ?? "";
+
+        if (_reportSubTab == "attendance")
+        {
+            _attendanceSummaries.Clear();
+            if (_lastAttendanceReport?.StaffSummaries != null)
+            {
+                foreach (var s in _lastAttendanceReport.StaffSummaries)
+                {
+                    if (string.IsNullOrEmpty(q) ||
+                        s.EmployeeName.ToLowerInvariant().Contains(q) ||
+                        s.Email.ToLowerInvariant().Contains(q) ||
+                        (s.StationId != null && s.StationId.ToLowerInvariant().Contains(q)))
+                    {
+                        _attendanceSummaries.Add(new AdminAttendanceSummaryViewModel(s));
+                    }
+                }
+            }
+
+            _attendanceDailyLogs.Clear();
+            if (_lastAttendanceReport?.DailyAttendanceLogs != null)
+            {
+                foreach (var l in _lastAttendanceReport.DailyAttendanceLogs)
+                {
+                    if (string.IsNullOrEmpty(q) ||
+                        l.EmployeeName.ToLowerInvariant().Contains(q) ||
+                        l.Email.ToLowerInvariant().Contains(q) ||
+                        l.Date.ToLowerInvariant().Contains(q) ||
+                        l.Status.ToLowerInvariant().Contains(q) ||
+                        (l.StationId != null && l.StationId.ToLowerInvariant().Contains(q)))
+                    {
+                        _attendanceDailyLogs.Add(new AdminAttendanceDailyLogViewModel(l));
+                    }
+                }
+            }
+        }
+        else if (_reportSubTab == "performance")
+        {
+            _staffPerformances.Clear();
+            if (_lastPerformanceReport?.StaffPerformance != null)
+            {
+                foreach (var p in _lastPerformanceReport.StaffPerformance)
+                {
+                    if (string.IsNullOrEmpty(q) ||
+                        p.EmployeeName.ToLowerInvariant().Contains(q) ||
+                        p.Email.ToLowerInvariant().Contains(q) ||
+                        p.Role.ToLowerInvariant().Contains(q) ||
+                        p.PerformanceRating.ToLowerInvariant().Contains(q) ||
+                        (p.StationId != null && p.StationId.ToLowerInvariant().Contains(q)))
+                    {
+                        _staffPerformances.Add(new AdminStaffPerformanceRowViewModel(p));
+                    }
+                }
+            }
+        }
+        else if (_reportSubTab == "leaves")
+        {
+            _leaveSummaries.Clear();
+            if (_lastLeaveReport?.StaffSummaries != null)
+            {
+                foreach (var lv in _lastLeaveReport.StaffSummaries)
+                {
+                    if (string.IsNullOrEmpty(q) ||
+                        lv.EmployeeName.ToLowerInvariant().Contains(q) ||
+                        lv.Email.ToLowerInvariant().Contains(q) ||
+                        (lv.StationId != null && lv.StationId.ToLowerInvariant().Contains(q)))
+                    {
+                        _leaveSummaries.Add(new AdminLeaveStaffSummaryViewModel(lv));
+                    }
+                }
+            }
+        }
+    }
+
+    private static void SetFilterButtonStyle(Button btn, bool isActive)
+    {
+        btn.Classes.Clear();
+        btn.Classes.Add(isActive ? "primary" : "glass");
+    }
+
+    #endregion
+
     #region Standard Desktop Actions & Lifecycle
 
     private async void BtnRefresh_Click(object? sender, RoutedEventArgs e)
@@ -2519,6 +2895,13 @@ public partial class MainWindow : Window
         _timesheets.Clear();
         _adminLeaves.Clear();
         _allStaff.Clear();
+        _attendanceSummaries.Clear();
+        _attendanceDailyLogs.Clear();
+        _staffPerformances.Clear();
+        _leaveSummaries.Clear();
+        _lastAttendanceReport = null;
+        _lastPerformanceReport = null;
+        _lastLeaveReport = null;
 
         AdminNavBarBorder.IsVisible = false;
         RoleBadgeBorder.IsVisible = false;
@@ -2528,6 +2911,7 @@ public partial class MainWindow : Window
         ViewTimesheets.IsVisible = false;
         ViewLeaveApprovals.IsVisible = false;
         ViewStaffDirectory.IsVisible = false;
+        ViewReports.IsVisible = false;
 
         // Reload remembered credentials into textboxes
         var (savedUser, savedPass, remember) = CredentialStorage.LoadCredentials();
