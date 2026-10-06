@@ -64,19 +64,74 @@ export function logout() {
   clearStoredAuth();
 }
 
+type AuthExpiredHandler = () => void;
+let authExpiredHandler: AuthExpiredHandler | null = null;
+
+export function onAuthExpired(handler: AuthExpiredHandler) {
+  authExpiredHandler = handler;
+}
+
+export function notifyAuthExpired() {
+  clearStoredAuth();
+  if (authExpiredHandler) {
+    authExpiredHandler();
+  }
+}
+
+export function handleAuthStatus(status: number) {
+  if (status === 401) {
+    notifyAuthExpired();
+  }
+}
+
+export async function verifyCurrentSession(): Promise<{ valid: boolean; user?: User }> {
+  try {
+    const authHeaders = await getAuthHeader();
+    if (!authHeaders.Authorization) return { valid: false };
+
+    const res = await fetch(`${API_BASE}/api/v1/auth/me`, {
+      cache: 'no-store',
+      headers: { ...authHeaders }
+    });
+
+    if (res.ok) {
+      const user = await res.json();
+      return { valid: true, user };
+    } else {
+      if (res.status === 401) {
+        notifyAuthExpired();
+      }
+      return { valid: false };
+    }
+  } catch (err) {
+    console.error('verifyCurrentSession error:', err);
+    return { valid: false };
+  }
+}
+
 export async function getAuthHeader(): Promise<Record<string, string>> {
   const token = getStoredAuthToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const authHeaders = await getAuthHeader();
+  const headers = {
+    ...authHeaders,
+    ...(options.headers || {}),
+  };
+  const res = await fetch(url, {
+    ...options,
+    headers,
+  });
+  handleAuthStatus(res.status);
+  return res;
+}
+
 
 export async function fetchStations(): Promise<WorkstationStatus[]> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/telemetry/stations`, { 
-      cache: 'no-store',
-      headers: { ...authHeaders }
-    });
+    const res = await authFetch(`${API_BASE}/api/v1/telemetry/stations`, { cache: 'no-store' });
     if (!res.ok) return [];
     return await res.json();
   } catch (err) {
@@ -87,11 +142,7 @@ export async function fetchStations(): Promise<WorkstationStatus[]> {
 
 export async function fetchRecentEvents(limit = 40): Promise<LiveWorkstationEvent[]> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/telemetry/events?limit=${limit}`, { 
-      cache: 'no-store',
-      headers: { ...authHeaders }
-    });
+    const res = await authFetch(`${API_BASE}/api/v1/telemetry/events?limit=${limit}`, { cache: 'no-store' });
     if (!res.ok) return [];
     return await res.json();
   } catch (err) {
@@ -102,17 +153,13 @@ export async function fetchRecentEvents(limit = 40): Promise<LiveWorkstationEven
 
 export async function fetchTasks(status?: string, assignedTo?: string, priority?: string): Promise<TaskItem[]> {
   try {
-    const authHeaders = await getAuthHeader();
     const params = new URLSearchParams();
     if (status) params.append('status', status);
     if (assignedTo) params.append('assignedTo', assignedTo);
     if (priority) params.append('priority', priority);
 
     const url = `${API_BASE}/api/v1/tasks${params.toString() ? `?${params.toString()}` : ''}`;
-    const res = await fetch(url, { 
-      cache: 'no-store',
-      headers: { ...authHeaders }
-    });
+    const res = await authFetch(url, { cache: 'no-store' });
     if (!res.ok) return [];
     return await res.json();
   } catch (err) {
@@ -123,11 +170,7 @@ export async function fetchTasks(status?: string, assignedTo?: string, priority?
 
 export async function fetchUsers(): Promise<User[]> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/users`, { 
-      cache: 'no-store',
-      headers: { ...authHeaders }
-    });
+    const res = await authFetch(`${API_BASE}/api/v1/users`, { cache: 'no-store' });
     if (!res.ok) return [];
     return await res.json();
   } catch (err) {
@@ -145,13 +188,9 @@ export async function createTask(payload: {
   deliverableRequired: boolean;
 }): Promise<{ success: boolean; data?: TaskItem; error?: string }> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/tasks`, {
+    const res = await authFetch(`${API_BASE}/api/v1/tasks`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
 
@@ -175,13 +214,9 @@ export async function updateTaskStatus(
   deliverableFileName?: string
 ): Promise<{ success: boolean; data?: TaskItem; error?: string }> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/tasks/${taskId}/status`, {
+    const res = await authFetch(`${API_BASE}/api/v1/tasks/${taskId}/status`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status, deliverableUrl, deliverableFileName }),
     });
 
@@ -201,13 +236,9 @@ export async function attachDeliverableLink(
   fileName?: string
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/tasks/${taskId}/attachments/link`, {
+    const res = await authFetch(`${API_BASE}/api/v1/tasks/${taskId}/attachments/link`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url, fileName }),
     });
 
@@ -234,13 +265,9 @@ export async function updateTask(
   }
 ): Promise<{ success: boolean; data?: TaskItem; error?: string }> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/tasks/${taskId}`, {
+    const res = await authFetch(`${API_BASE}/api/v1/tasks/${taskId}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
 
@@ -257,10 +284,8 @@ export async function updateTask(
 
 export async function deleteTask(taskId: string): Promise<boolean> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/tasks/${taskId}`, {
+    const res = await authFetch(`${API_BASE}/api/v1/tasks/${taskId}`, {
       method: 'DELETE',
-      headers: { ...authHeaders },
     });
     return res.ok;
   } catch (err) {
@@ -275,17 +300,13 @@ export async function fetchTimesheetSummary(
   endDate?: string
 ): Promise<TimesheetSummary | null> {
   try {
-    const authHeaders = await getAuthHeader();
     const params = new URLSearchParams();
     if (period) params.append('period', period);
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
 
     const url = `${API_BASE}/api/v1/timesheet/summary${params.toString() ? `?${params.toString()}` : ''}`;
-    const res = await fetch(url, { 
-      cache: 'no-store',
-      headers: { ...authHeaders }
-    });
+    const res = await authFetch(url, { cache: 'no-store' });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -318,9 +339,7 @@ export async function downloadTimesheetCsv(
     if (viewType) params.append('viewType', viewType);
     const url = `${API_BASE}/api/v1/timesheet/export/csv${params.toString() ? `?${params.toString()}` : ''}`;
     
-    const res = await fetch(url, {
-      headers: { ...authHeaders }
-    });
+    const res = await authFetch(url);
 
     if (!res.ok) {
       return { success: false, error: `Failed to download CSV: HTTP ${res.status}` };
@@ -344,14 +363,10 @@ export async function downloadTimesheetCsv(
 
 export async function fetchLeaves(status?: string): Promise<LeaveRequestItem[]> {
   try {
-    const authHeaders = await getAuthHeader();
     const url = status && status !== 'ALL'
       ? `${API_BASE}/api/v1/leaves?status=${status}`
       : `${API_BASE}/api/v1/leaves`;
-    const res = await fetch(url, { 
-      cache: 'no-store',
-      headers: { ...authHeaders }
-    });
+    const res = await authFetch(url, { cache: 'no-store' });
     if (!res.ok) return [];
     return await res.json();
   } catch (err) {
@@ -366,12 +381,10 @@ export async function reviewLeave(
   comments?: string
 ): Promise<{ success: boolean; data?: LeaveRequestItem; error?: string }> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/leaves/${leaveId}/${action}`, {
+    const res = await authFetch(`${API_BASE}/api/v1/leaves/${leaveId}/${action}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeaders,
       },
       body: JSON.stringify({ comments: comments || undefined }),
     });
@@ -390,11 +403,7 @@ export async function reviewLeave(
 
 export async function fetchStaff(): Promise<StaffMember[]> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/staff`, { 
-      cache: 'no-store',
-      headers: { ...authHeaders }
-    });
+    const res = await authFetch(`${API_BASE}/api/v1/staff`, { cache: 'no-store' });
     if (!res.ok) return [];
     return await res.json();
   } catch (err) {
@@ -407,12 +416,10 @@ export async function createStaff(
   payload: CreateStaffPayload
 ): Promise<{ success: boolean; data?: StaffMember; error?: string }> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/staff`, {
+    const res = await authFetch(`${API_BASE}/api/v1/staff`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeaders,
       },
       body: JSON.stringify(payload),
     });
@@ -433,10 +440,8 @@ export async function toggleStaffStatus(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/staff/${id}/toggle-status`, {
+    const res = await authFetch(`${API_BASE}/api/v1/staff/${id}/toggle-status`, {
       method: 'PATCH',
-      headers: { ...authHeaders },
     });
     if (!res.ok) {
       return { success: false, error: `Error ${res.status}: ${res.statusText}` };
@@ -452,12 +457,10 @@ export async function resetStaffPassword(
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/staff/${id}/reset-password`, {
+    const res = await authFetch(`${API_BASE}/api/v1/staff/${id}/reset-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeaders,
       },
       body: JSON.stringify({ newPassword }),
     });
@@ -477,12 +480,10 @@ export async function updateStaffWorkMode(
   workMode: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/staff/${id}/work-mode`, {
+    const res = await authFetch(`${API_BASE}/api/v1/staff/${id}/work-mode`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeaders,
       },
       body: JSON.stringify({ workMode }),
     });
@@ -500,12 +501,10 @@ export async function updateStaff(
   payload: UpdateStaffPayload
 ): Promise<{ success: boolean; data?: StaffMember; error?: string }> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/staff/${id}`, {
+    const res = await authFetch(`${API_BASE}/api/v1/staff/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeaders,
       },
       body: JSON.stringify(payload),
     });
@@ -524,12 +523,10 @@ export async function updateStaff(
 
 export async function bulkDeleteTasks(taskIds: string[]): Promise<{ success: boolean; deletedCount?: number; message?: string; error?: string }> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/tasks/bulk-delete`, {
+    const res = await authFetch(`${API_BASE}/api/v1/tasks/bulk-delete`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeaders,
       },
       body: JSON.stringify({ taskIds }),
     });
@@ -548,12 +545,10 @@ export async function bulkDeleteTasks(taskIds: string[]): Promise<{ success: boo
 
 export async function deleteAllTasks(): Promise<{ success: boolean; deletedCount?: number; backupId?: string; expiresAt?: string; message?: string; error?: string }> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/tasks/delete-all`, {
+    const res = await authFetch(`${API_BASE}/api/v1/tasks/delete-all`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeaders,
       },
     });
 
@@ -571,10 +566,8 @@ export async function deleteAllTasks(): Promise<{ success: boolean; deletedCount
 
 export async function fetchTaskBackups(): Promise<TaskBackupDto[]> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/tasks/backups`, {
+    const res = await authFetch(`${API_BASE}/api/v1/tasks/backups`, {
       cache: 'no-store',
-      headers: { ...authHeaders },
     });
 
     if (!res.ok) return [];
@@ -587,12 +580,10 @@ export async function fetchTaskBackups(): Promise<TaskBackupDto[]> {
 
 export async function restoreTaskBackup(backupId: string): Promise<{ success: boolean; restoredCount?: number; message?: string; error?: string }> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/tasks/backups/${backupId}/restore`, {
+    const res = await authFetch(`${API_BASE}/api/v1/tasks/backups/${backupId}/restore`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeaders,
       },
     });
 
@@ -610,12 +601,10 @@ export async function restoreTaskBackup(backupId: string): Promise<{ success: bo
 
 export async function dismissBackupReminder(backupId: string, milestoneDay: number): Promise<{ success: boolean; error?: string }> {
   try {
-    const authHeaders = await getAuthHeader();
-    const res = await fetch(`${API_BASE}/api/v1/tasks/backups/${backupId}/dismiss-reminder`, {
+    const res = await authFetch(`${API_BASE}/api/v1/tasks/backups/${backupId}/dismiss-reminder`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeaders,
       },
       body: JSON.stringify({ milestoneDay }),
     });

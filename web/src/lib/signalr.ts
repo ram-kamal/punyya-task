@@ -1,6 +1,6 @@
 import * as signalR from '@microsoft/signalr';
 import { LiveWorkstationEvent, WorkstationStatus } from './types';
-import { getStoredAuthToken, API_BASE } from './api';
+import { getStoredAuthToken, API_BASE, notifyAuthExpired } from './api';
 
 
 class SignalRManager {
@@ -71,9 +71,13 @@ class SignalRManager {
       await this.joinManagerFeed();
 
       if (this.onConnectionStateChange) this.onConnectionStateChange(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('SignalR connection error:', err);
       if (this.onConnectionStateChange) this.onConnectionStateChange(false);
+      const errMsg = String(err?.message || '');
+      if (errMsg.includes('401') || err?.statusCode === 401) {
+        notifyAuthExpired();
+      }
     } finally {
       this.isConnecting = false;
     }

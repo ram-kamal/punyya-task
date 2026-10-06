@@ -84,6 +84,8 @@ import {
   logout,
   getStoredUser,
   getStoredAuthToken,
+  verifyCurrentSession,
+  onAuthExpired,
   API_BASE,
 } from '@/lib/api';
 
@@ -290,12 +292,31 @@ export default function AdminDashboardPage() {
 
   // Check existing session on mount
   useEffect(() => {
-    const user = getStoredUser();
-    const token = getStoredAuthToken();
-    if (user && token) {
-      setCurrentUser(user);
-    }
-    setAuthChecking(false);
+    onAuthExpired(() => {
+      setCurrentUser(null);
+      setIsConnected(false);
+      setLoginError('Your administrative session has expired. Please sign in again to reconnect.');
+    });
+
+    const checkSession = async () => {
+      const storedToken = getStoredAuthToken();
+      if (!storedToken) {
+        setAuthChecking(false);
+        return;
+      }
+
+      const session = await verifyCurrentSession();
+      if (session.valid && session.user) {
+        setCurrentUser(session.user);
+      } else {
+        setCurrentUser(null);
+        setIsConnected(false);
+        setLoginError('Your session has expired. Please sign in to reconnect.');
+      }
+      setAuthChecking(false);
+    };
+
+    checkSession();
   }, []);
 
   // Connect & load data only when authenticated
