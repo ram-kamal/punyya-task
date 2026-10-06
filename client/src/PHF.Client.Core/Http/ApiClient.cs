@@ -367,6 +367,93 @@ public class ApiClient
         return await response.Content.ReadAsByteArrayAsync(ct);
     }
 
+    #region Report Endpoints
+
+    public async Task<MonthEndAttendanceReportDto?> GetAttendanceReportAsync(int? year = null, int? month = null, Guid? employeeId = null, CancellationToken ct = default)
+    {
+        var query = new List<string>();
+        if (year.HasValue) query.Add($"year={year.Value}");
+        if (month.HasValue) query.Add($"month={month.Value}");
+        if (employeeId.HasValue) query.Add($"employeeId={employeeId.Value}");
+        var qs = query.Count > 0 ? "?" + string.Join("&", query) : "";
+
+        var response = await _httpClient.GetAsync($"/api/v1/reports/attendance{qs}", ct);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<MonthEndAttendanceReportDto>(_jsonOptions, ct);
+    }
+
+    public async Task<byte[]?> ExportAttendanceReportCsvAsync(int? year = null, int? month = null, Guid? employeeId = null, CancellationToken ct = default)
+    {
+        var query = new List<string>();
+        if (year.HasValue) query.Add($"year={year.Value}");
+        if (month.HasValue) query.Add($"month={month.Value}");
+        if (employeeId.HasValue) query.Add($"employeeId={employeeId.Value}");
+        var qs = query.Count > 0 ? "?" + string.Join("&", query) : "";
+
+        var response = await _httpClient.GetAsync($"/api/v1/reports/attendance/csv{qs}", ct);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadAsByteArrayAsync(ct);
+    }
+
+    public async Task<StaffPerformanceReportDto?> GetPerformanceReportAsync(DateTime? startDate = null, DateTime? endDate = null, string? period = "month", Guid? employeeId = null, CancellationToken ct = default)
+    {
+        var query = new List<string>();
+        if (!string.IsNullOrEmpty(period)) query.Add($"period={Uri.EscapeDataString(period)}");
+        if (startDate.HasValue) query.Add($"startDate={startDate.Value:yyyy-MM-dd}");
+        if (endDate.HasValue) query.Add($"endDate={endDate.Value:yyyy-MM-dd}");
+        if (employeeId.HasValue) query.Add($"employeeId={employeeId.Value}");
+        var qs = query.Count > 0 ? "?" + string.Join("&", query) : "";
+
+        var response = await _httpClient.GetAsync($"/api/v1/reports/performance{qs}", ct);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<StaffPerformanceReportDto>(_jsonOptions, ct);
+    }
+
+    public async Task<byte[]?> ExportPerformanceReportCsvAsync(DateTime? startDate = null, DateTime? endDate = null, string? period = "month", Guid? employeeId = null, CancellationToken ct = default)
+    {
+        var query = new List<string>();
+        if (!string.IsNullOrEmpty(period)) query.Add($"period={Uri.EscapeDataString(period)}");
+        if (startDate.HasValue) query.Add($"startDate={startDate.Value:yyyy-MM-dd}");
+        if (endDate.HasValue) query.Add($"endDate={endDate.Value:yyyy-MM-dd}");
+        if (employeeId.HasValue) query.Add($"employeeId={employeeId.Value}");
+        var qs = query.Count > 0 ? "?" + string.Join("&", query) : "";
+
+        var response = await _httpClient.GetAsync($"/api/v1/reports/performance/csv{qs}", ct);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadAsByteArrayAsync(ct);
+    }
+
+    public async Task<LeaveReportDto?> GetLeaveReportAsync(DateTime? startDate = null, DateTime? endDate = null, string? period = "month", Guid? employeeId = null, CancellationToken ct = default)
+    {
+        var query = new List<string>();
+        if (!string.IsNullOrEmpty(period)) query.Add($"period={Uri.EscapeDataString(period)}");
+        if (startDate.HasValue) query.Add($"startDate={startDate.Value:yyyy-MM-dd}");
+        if (endDate.HasValue) query.Add($"endDate={endDate.Value:yyyy-MM-dd}");
+        if (employeeId.HasValue) query.Add($"employeeId={employeeId.Value}");
+        var qs = query.Count > 0 ? "?" + string.Join("&", query) : "";
+
+        var response = await _httpClient.GetAsync($"/api/v1/reports/leaves{qs}", ct);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<LeaveReportDto>(_jsonOptions, ct);
+    }
+
+    public async Task<byte[]?> ExportLeaveReportCsvAsync(DateTime? startDate = null, DateTime? endDate = null, string? period = "month", string? viewType = "summary", Guid? employeeId = null, CancellationToken ct = default)
+    {
+        var query = new List<string>();
+        if (!string.IsNullOrEmpty(period)) query.Add($"period={Uri.EscapeDataString(period)}");
+        if (!string.IsNullOrEmpty(viewType)) query.Add($"viewType={Uri.EscapeDataString(viewType)}");
+        if (startDate.HasValue) query.Add($"startDate={startDate.Value:yyyy-MM-dd}");
+        if (endDate.HasValue) query.Add($"endDate={endDate.Value:yyyy-MM-dd}");
+        if (employeeId.HasValue) query.Add($"employeeId={employeeId.Value}");
+        var qs = query.Count > 0 ? "?" + string.Join("&", query) : "";
+
+        var response = await _httpClient.GetAsync($"/api/v1/reports/leaves/csv{qs}", ct);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadAsByteArrayAsync(ct);
+    }
+
+    #endregion
+
     public async Task<List<LeaveResponseDto>> GetAllLeavesAsync(CancellationToken ct = default)
     {
         var response = await _httpClient.GetAsync("/api/v1/leaves", ct);

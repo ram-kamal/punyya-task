@@ -180,4 +180,131 @@ export interface RestoreBackupResponse {
   message: string;
 }
 
+// Enterprise Executive Reports DTOs
+export interface AttendanceStaffSummary {
+  userId: string;
+  employeeName: string;
+  email: string;
+  stationId: string;
+  workMode: string;
+  totalWorkingDays: number;
+  daysPresent: number;
+  daysAbsent: number;
+  approvedLeaveDays: number;
+  attendanceRatePercentage: number;
+  totalHours: number;
+  totalTimeFormatted: string;
+  activeHours: number;
+  idleHours: number;
+  averageDailyHours: number;
+  efficiencyPercentage: number;
+}
+
+export interface AttendanceDailyLog {
+  date: string;
+  dayOfWeek: string;
+  userId: string;
+  employeeName: string;
+  email: string;
+  stationId: string;
+  status: 'PRESENT' | 'LEAVE' | 'ABSENT' | 'WEEKEND' | string;
+  clockIn: string;
+  clockOut: string;
+  hoursWorked: number;
+  timeFormatted: string;
+}
+
+export interface MonthEndAttendanceReport {
+  period: string;
+  year: number;
+  month: number;
+  startDate: string;
+  endDate: string;
+  totalCalendarDays: number;
+  totalWorkingDays: number;
+  workingDaysElapsed: number;
+  averageAttendanceRate: number;
+  totalHoursLogged: number;
+  staffSummaries: AttendanceStaffSummary[];
+  dailyAttendanceLogs: AttendanceDailyLog[];
+}
+
+export interface StaffPerformanceRow {
+  userId: string;
+  employeeName: string;
+  email: string;
+  role: string;
+  stationId: string;
+  tasksAssigned: number;
+  tasksCompleted: number;
+  tasksInProgress: number;
+  tasksPending: number;
+  taskCompletionRate: number;
+  totalHoursWorked: number;
+  totalTimeFormatted: string;
+  activeHours: number;
+  idleHours: number;
+  focusEfficiencyPercentage: number;
+  deliverablesSubmitted: number;
+  deliverablesRequired: number;
+  deliverableComplianceRate: number;
+  performanceRating: 'Outstanding' | 'High Performer' | 'Good Standing' | 'Needs Attention' | string;
+}
+
+export interface StaffPerformanceReport {
+  period: string;
+  startDate: string;
+  endDate: string;
+  totalTasksAssigned: number;
+  totalTasksCompleted: number;
+  teamCompletionRate: number;
+  averageFocusScore: number;
+  staffPerformance: StaffPerformanceRow[];
+}
+
+export interface LeaveStaffSummary {
+  userId: string;
+  employeeName: string;
+  email: string;
+  stationId: string;
+  totalRequests: number;
+  totalApprovedDays: number;
+  casualLeaveDays: number;
+  sickLeaveDays: number;
+  medicalLeaveDays: number;
+  annualLeaveDays: number;
+  emergencyLeaveDays: number;
+  pendingRequests: number;
+  rejectedRequests: number;
+}
+
+export interface LeaveDetailedRow {
+  id: string;
+  userId: string;
+  employeeName: string;
+  email: string;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  reason: string;
+  status: string;
+  reviewerName?: string;
+  reviewComments?: string;
+  appliedAt: string;
+  reviewedAt?: string;
+}
+
+export interface LeaveReport {
+  period: string;
+  startDate: string;
+  endDate: string;
+  totalApplications: number;
+  totalApprovedDays: number;
+  totalPendingRequests: number;
+  totalRejectedRequests: number;
+  staffSummaries: LeaveStaffSummary[];
+  detailedRecords: LeaveDetailedRow[];
+}
+
 

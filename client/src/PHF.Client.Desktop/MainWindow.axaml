@@ -510,7 +510,9 @@
                                 <Button x:Name="BtnTsFilterWeek" Classes="glass" Content="This Week" Tag="week" Click="BtnTimesheetPeriod_Click" Padding="10,4" />
                                 <Button x:Name="BtnTsFilterMonth" Classes="glass" Content="This Month" Tag="month" Click="BtnTimesheetPeriod_Click" Padding="10,4" />
                             </StackPanel>
-                            <Button Classes="accentGreen" Content="⬇ Export CSV" Click="BtnExportTimesheetCsv_Click" />
+                            <Button Classes="accentGreen" Content="⬇ Export Timesheet CSV" Click="BtnExportTimesheetCsv_Click" />
+                            <Button x:Name="BtnExportAttendanceCsv" Classes="glass" Content="📊 Attendance CSV" Click="BtnExportAttendanceCsv_Click" ToolTip.Tip="Download Month-End Attendance Report CSV" />
+                            <Button x:Name="BtnExportPerformanceCsv" Classes="glass" Content="📈 Performance CSV" Click="BtnExportPerformanceCsv_Click" ToolTip.Tip="Download Staff Performance &amp; Deliverables Report CSV" />
                             <Button Classes="glass" Content="↻ Refresh Timesheet" Click="BtnRefreshTimesheet_Click" />
                         </StackPanel>
                     </Grid>
@@ -626,7 +628,10 @@
                             <TextBlock Text="Employee Leave Approvals" FontSize="18" FontWeight="Bold" Foreground="#F8FAFC" />
                             <TextBlock Text="Review employee time-off requests, provide manager comments, and update status" FontSize="12" Foreground="#94A3B8" Margin="0,2,0,0" />
                         </StackPanel>
-                        <Button Grid.Column="1" Classes="glass" Content="↻ Refresh Leaves" Click="BtnRefreshAdminLeaves_Click" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="BtnExportLeaveCsv" Classes="accentGreen" Content="⬇ Export Leave Report CSV" Click="BtnExportLeaveReportCsv_Click" ToolTip.Tip="Download Leave Audit and Analytics CSV Report" />
+                            <Button Classes="glass" Content="↻ Refresh Leaves" Click="BtnRefreshAdminLeaves_Click" />
+                        </StackPanel>
                     </Grid>
 
                     <!-- Leave Applications Data Table -->

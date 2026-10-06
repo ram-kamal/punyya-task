@@ -1,4 +1,4 @@
-import { WorkstationStatus, LiveWorkstationEvent, TaskItem, TimesheetSummary, User, LeaveRequestItem, StaffMember, CreateStaffPayload, UpdateStaffPayload, TaskBackupDto, BulkDeleteTasksResponse, DeleteAllTasksResponse, RestoreBackupResponse } from './types';
+import { WorkstationStatus, LiveWorkstationEvent, TaskItem, TimesheetSummary, User, LeaveRequestItem, StaffMember, CreateStaffPayload, UpdateStaffPayload, TaskBackupDto, BulkDeleteTasksResponse, DeleteAllTasksResponse, RestoreBackupResponse, MonthEndAttendanceReport, StaffPerformanceReport, LeaveReport } from './types';
 
 export const API_BASE = (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.trim() !== '')
   ? process.env.NEXT_PUBLIC_API_URL.trim()
@@ -612,6 +612,182 @@ export async function dismissBackupReminder(backupId: string, milestoneDay: numb
     return { success: res.ok };
   } catch (err: any) {
     return { success: false, error: err.message };
+  }
+}
+
+// ==========================================
+// Enterprise Executive Reports Endpoints
+// ==========================================
+
+export async function fetchAttendanceReport(
+  year?: number,
+  month?: number,
+  employeeId?: string
+): Promise<MonthEndAttendanceReport | null> {
+  try {
+    const params = new URLSearchParams();
+    if (year) params.append('year', year.toString());
+    if (month) params.append('month', month.toString());
+    if (employeeId) params.append('employeeId', employeeId);
+
+    const url = `${API_BASE}/api/v1/reports/attendance${params.toString() ? `?${params.toString()}` : ''}`;
+    const res = await authFetch(url, { cache: 'no-store' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('fetchAttendanceReport error:', err);
+    return null;
+  }
+}
+
+export async function downloadAttendanceReportCsv(
+  year?: number,
+  month?: number,
+  employeeId?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const params = new URLSearchParams();
+    if (year) params.append('year', year.toString());
+    if (month) params.append('month', month.toString());
+    if (employeeId) params.append('employeeId', employeeId);
+
+    const url = `${API_BASE}/api/v1/reports/attendance/csv${params.toString() ? `?${params.toString()}` : ''}`;
+    const res = await authFetch(url);
+
+    if (!res.ok) {
+      return { success: false, error: `Failed to download Attendance CSV: HTTP ${res.status}` };
+    }
+
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = `attendance_report_${year || new Date().getFullYear()}_${month || (new Date().getMonth() + 1)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(blobUrl);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Download failed' };
+  }
+}
+
+export async function fetchPerformanceReport(
+  startDate?: string,
+  endDate?: string,
+  period?: string,
+  employeeId?: string
+): Promise<StaffPerformanceReport | null> {
+  try {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (period) params.append('period', period);
+    if (employeeId) params.append('employeeId', employeeId);
+
+    const url = `${API_BASE}/api/v1/reports/performance${params.toString() ? `?${params.toString()}` : ''}`;
+    const res = await authFetch(url, { cache: 'no-store' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('fetchPerformanceReport error:', err);
+    return null;
+  }
+}
+
+export async function downloadPerformanceReportCsv(
+  startDate?: string,
+  endDate?: string,
+  period?: string,
+  employeeId?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (period) params.append('period', period);
+    if (employeeId) params.append('employeeId', employeeId);
+
+    const url = `${API_BASE}/api/v1/reports/performance/csv${params.toString() ? `?${params.toString()}` : ''}`;
+    const res = await authFetch(url);
+
+    if (!res.ok) {
+      return { success: false, error: `Failed to download Performance CSV: HTTP ${res.status}` };
+    }
+
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = `staff_performance_report_${period || 'period'}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(blobUrl);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Download failed' };
+  }
+}
+
+export async function fetchLeaveReport(
+  startDate?: string,
+  endDate?: string,
+  period?: string,
+  employeeId?: string
+): Promise<LeaveReport | null> {
+  try {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (period) params.append('period', period);
+    if (employeeId) params.append('employeeId', employeeId);
+
+    const url = `${API_BASE}/api/v1/reports/leaves${params.toString() ? `?${params.toString()}` : ''}`;
+    const res = await authFetch(url, { cache: 'no-store' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('fetchLeaveReport error:', err);
+    return null;
+  }
+}
+
+export async function downloadLeaveReportCsv(
+  startDate?: string,
+  endDate?: string,
+  period?: string,
+  viewType?: string,
+  employeeId?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (period) params.append('period', period);
+    if (viewType) params.append('viewType', viewType);
+    if (employeeId) params.append('employeeId', employeeId);
+
+    const url = `${API_BASE}/api/v1/reports/leaves/csv${params.toString() ? `?${params.toString()}` : ''}`;
+    const res = await authFetch(url);
+
+    if (!res.ok) {
+      return { success: false, error: `Failed to download Leaves CSV: HTTP ${res.status}` };
+    }
+
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = `leave_report_${period || 'period'}_${viewType || 'summary'}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(blobUrl);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Download failed' };
   }
 }
 

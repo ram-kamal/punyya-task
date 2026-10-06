@@ -1870,6 +1870,100 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void BtnExportAttendanceCsv_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            TxtStatusBar.Text = "Downloading Month-End Attendance CSV report...";
+            var now = DateTime.UtcNow;
+            var csvBytes = await _apiClient.ExportAttendanceReportCsvAsync(now.Year, now.Month);
+
+            if (csvBytes != null && csvBytes.Length > 0)
+            {
+                var desktopDir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                var filePath = Path.Combine(desktopDir, $"Punnya_Attendance_Report_{now:yyyyMM}_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+                await File.WriteAllBytesAsync(filePath, csvBytes);
+
+                ShowToast("📊 Attendance Report Exported", $"Saved to Desktop: {Path.GetFileName(filePath)}");
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = filePath,
+                    UseShellExecute = true
+                });
+            }
+            else
+            {
+                ShowToast("⚠️ Export CSV", "No attendance records available for this month.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast("⚠️ Export Failed", ex.Message);
+        }
+    }
+
+    private async void BtnExportPerformanceCsv_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            TxtStatusBar.Text = $"Downloading Staff Performance CSV report ({_timesheetPeriod})...";
+            var csvBytes = await _apiClient.ExportPerformanceReportCsvAsync(period: _timesheetPeriod);
+
+            if (csvBytes != null && csvBytes.Length > 0)
+            {
+                var desktopDir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                var filePath = Path.Combine(desktopDir, $"Punnya_Staff_Performance_{_timesheetPeriod}_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+                await File.WriteAllBytesAsync(filePath, csvBytes);
+
+                ShowToast("📈 Performance Report Exported", $"Saved to Desktop: {Path.GetFileName(filePath)}");
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = filePath,
+                    UseShellExecute = true
+                });
+            }
+            else
+            {
+                ShowToast("⚠️ Export CSV", $"No staff performance records available for {_timesheetPeriod}.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast("⚠️ Export Failed", ex.Message);
+        }
+    }
+
+    private async void BtnExportLeaveReportCsv_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            TxtStatusBar.Text = "Downloading Leave Analytics & Audit CSV report...";
+            var csvBytes = await _apiClient.ExportLeaveReportCsvAsync(period: "month", viewType: "summary");
+
+            if (csvBytes != null && csvBytes.Length > 0)
+            {
+                var desktopDir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                var filePath = Path.Combine(desktopDir, $"Punnya_Leave_Report_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+                await File.WriteAllBytesAsync(filePath, csvBytes);
+
+                ShowToast("🏖️ Leave Report Exported", $"Saved to Desktop: {Path.GetFileName(filePath)}");
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = filePath,
+                    UseShellExecute = true
+                });
+            }
+            else
+            {
+                ShowToast("⚠️ Export CSV", "No leave report records available.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast("⚠️ Export Failed", ex.Message);
+        }
+    }
+
     private async void BtnOpenBulkImportModal_Click(object? sender, RoutedEventArgs e)
     {
         try

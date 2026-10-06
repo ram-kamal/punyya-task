@@ -53,8 +53,28 @@ import {
   FileUp,
   Archive,
   LayoutGrid,
+  BarChart3,
+  Award,
+  FileSpreadsheet,
 } from 'lucide-react';
-import { WorkstationStatus, LiveWorkstationEvent, TaskItem, TimesheetSummary, User, LeaveRequestItem, StaffMember, TaskBackupDto } from '@/lib/types';
+import {
+  WorkstationStatus,
+  LiveWorkstationEvent,
+  TaskItem,
+  TimesheetSummary,
+  User,
+  LeaveRequestItem,
+  StaffMember,
+  TaskBackupDto,
+  MonthEndAttendanceReport,
+  StaffPerformanceReport,
+  LeaveReport,
+  AttendanceStaffSummary,
+  AttendanceDailyLog,
+  StaffPerformanceRow,
+  LeaveStaffSummary,
+  LeaveDetailedRow,
+} from '@/lib/types';
 import { parseSheetToTasks, getSampleMatrixCsv, getSampleLinearCsv, ParsedImportTask } from '@/lib/taskImporter';
 import {
   fetchStations,
@@ -80,6 +100,12 @@ import {
   resetStaffPassword,
   updateStaffWorkMode,
   updateStaff,
+  fetchAttendanceReport,
+  downloadAttendanceReportCsv,
+  fetchPerformanceReport,
+  downloadPerformanceReportCsv,
+  fetchLeaveReport,
+  downloadLeaveReportCsv,
   login,
   logout,
   getStoredUser,
@@ -129,9 +155,50 @@ export default function AdminDashboardPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
-  const [activeTab, setActiveTab] = useState<'oversight' | 'tasks' | 'timesheets' | 'leaves' | 'staff'>('oversight');
+  const [activeTab, setActiveTab] = useState<'oversight' | 'tasks' | 'timesheets' | 'leaves' | 'staff' | 'reports'>('oversight');
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // Executive Reports & Enterprise Audits State
+  const [reportsSubTab, setReportsSubTab] = useState<'attendance' | 'performance' | 'leaves'>('attendance');
+
+  // 1. Month-End Attendance State
+  const [reportAttendanceYear, setReportAttendanceYear] = useState<number>(() => new Date().getFullYear());
+  const [reportAttendanceMonth, setReportAttendanceMonth] = useState<number>(() => new Date().getMonth() + 1);
+  const [reportAttendanceEmployeeId, setReportAttendanceEmployeeId] = useState<string>('ALL');
+  const [attendanceReport, setAttendanceReport] = useState<MonthEndAttendanceReport | null>(null);
+  const [isAttendanceReportLoading, setIsAttendanceReportLoading] = useState<boolean>(false);
+  const [attendanceViewMode, setAttendanceViewMode] = useState<'summary' | 'daily_log'>('summary');
+  const [attendanceSearchQuery, setAttendanceSearchQuery] = useState<string>('');
+
+  // 2. Staff Performance State
+  const [reportPerfPeriod, setReportPerfPeriod] = useState<'today' | 'week' | 'month' | 'last_month' | 'year' | 'custom'>('month');
+  const [reportPerfStartDate, setReportPerfStartDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [reportPerfEndDate, setReportPerfEndDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [reportPerfEmployeeId, setReportPerfEmployeeId] = useState<string>('ALL');
+  const [performanceReport, setPerformanceReport] = useState<StaffPerformanceReport | null>(null);
+  const [isPerfReportLoading, setIsPerfReportLoading] = useState<boolean>(false);
+  const [perfSearchQuery, setPerfSearchQuery] = useState<string>('');
+
+  // 3. Leave Analytics State
+  const [reportLeavePeriod, setReportLeavePeriod] = useState<'month' | 'last_month' | 'year' | 'custom'>('month');
+  const [reportLeaveStartDate, setReportLeaveStartDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [reportLeaveEndDate, setReportLeaveEndDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [reportLeaveEmployeeId, setReportLeaveEmployeeId] = useState<string>('ALL');
+  const [leaveReportViewMode, setLeaveReportViewMode] = useState<'summary' | 'audit_log'>('summary');
+  const [leaveReport, setLeaveReport] = useState<LeaveReport | null>(null);
+  const [isLeaveReportLoading, setIsLeaveReportLoading] = useState<boolean>(false);
+  const [leaveReportSearchQuery, setLeaveReportSearchQuery] = useState<string>('');
+
+  const [isExportingReportCsv, setIsExportingReportCsv] = useState<boolean>(false);
 
 
   // Core Data State
@@ -501,6 +568,161 @@ export default function AdminDashboardPage() {
       (r.date && r.date.toLowerCase().includes(q))
     );
   }, [timesheet, timesheetViewMode, timesheetSearchQuery]);
+
+  // ==========================================
+  // Executive Reports Loaders & Filter Logic
+  // ==========================================
+  const loadAttendanceReport = useCallback(async (year?: number, month?: number, empId?: string) => {
+    setIsAttendanceReportLoading(true);
+    try {
+      const y = year ?? reportAttendanceYear;
+      const m = month ?? reportAttendanceMonth;
+      const effectiveEmp = currentUser?.role === 'EMPLOYEE' 
+        ? currentUser.id 
+        : ((empId ?? reportAttendanceEmployeeId) === 'ALL' ? undefined : (empId ?? reportAttendanceEmployeeId));
+      const res = await fetchAttendanceReport(y, m, effectiveEmp);
+      if (res) setAttendanceReport(res);
+    } finally {
+      setIsAttendanceReportLoading(false);
+    }
+  }, [reportAttendanceYear, reportAttendanceMonth, reportAttendanceEmployeeId, currentUser]);
+
+  const loadPerformanceReport = useCallback(async (period?: string, start?: string, end?: string, empId?: string) => {
+    setIsPerfReportLoading(true);
+    try {
+      const p = period ?? reportPerfPeriod;
+      const s = p === 'custom' ? (start ?? reportPerfStartDate) : undefined;
+      const e = p === 'custom' ? (end ?? reportPerfEndDate) : undefined;
+      const effectiveEmp = currentUser?.role === 'EMPLOYEE'
+        ? currentUser.id
+        : ((empId ?? reportPerfEmployeeId) === 'ALL' ? undefined : (empId ?? reportPerfEmployeeId));
+      const res = await fetchPerformanceReport(s, e, p, effectiveEmp);
+      if (res) setPerformanceReport(res);
+    } finally {
+      setIsPerfReportLoading(false);
+    }
+  }, [reportPerfPeriod, reportPerfStartDate, reportPerfEndDate, reportPerfEmployeeId, currentUser]);
+
+  const loadLeaveReport = useCallback(async (period?: string, start?: string, end?: string, empId?: string) => {
+    setIsLeaveReportLoading(true);
+    try {
+      const p = period ?? reportLeavePeriod;
+      const s = p === 'custom' ? (start ?? reportLeaveStartDate) : undefined;
+      const e = p === 'custom' ? (end ?? reportLeaveEndDate) : undefined;
+      const effectiveEmp = currentUser?.role === 'EMPLOYEE'
+        ? currentUser.id
+        : ((empId ?? reportLeaveEmployeeId) === 'ALL' ? undefined : (empId ?? reportLeaveEmployeeId));
+      const res = await fetchLeaveReport(s, e, p, effectiveEmp);
+      if (res) setLeaveReport(res);
+    } finally {
+      setIsLeaveReportLoading(false);
+    }
+  }, [reportLeavePeriod, reportLeaveStartDate, reportLeaveEndDate, reportLeaveEmployeeId, currentUser]);
+
+  useEffect(() => {
+    if (activeTab === 'reports') {
+      if (reportsSubTab === 'attendance' && !attendanceReport) {
+        loadAttendanceReport();
+      } else if (reportsSubTab === 'performance' && !performanceReport) {
+        loadPerformanceReport();
+      } else if (reportsSubTab === 'leaves' && !leaveReport) {
+        loadLeaveReport();
+      }
+    }
+  }, [activeTab, reportsSubTab, attendanceReport, performanceReport, leaveReport, loadAttendanceReport, loadPerformanceReport, loadLeaveReport]);
+
+  const handleExportReportCsv = async () => {
+    setIsExportingReportCsv(true);
+    try {
+      const effectiveEmp = currentUser?.role === 'EMPLOYEE'
+        ? currentUser.id
+        : (reportsSubTab === 'attendance' 
+            ? (reportAttendanceEmployeeId === 'ALL' ? undefined : reportAttendanceEmployeeId)
+            : reportsSubTab === 'performance'
+            ? (reportPerfEmployeeId === 'ALL' ? undefined : reportPerfEmployeeId)
+            : (reportLeaveEmployeeId === 'ALL' ? undefined : reportLeaveEmployeeId));
+
+      if (reportsSubTab === 'attendance') {
+        await downloadAttendanceReportCsv(reportAttendanceYear, reportAttendanceMonth, effectiveEmp);
+      } else if (reportsSubTab === 'performance') {
+        const s = reportPerfPeriod === 'custom' ? reportPerfStartDate : undefined;
+        const e = reportPerfPeriod === 'custom' ? reportPerfEndDate : undefined;
+        await downloadPerformanceReportCsv(s, e, reportPerfPeriod, effectiveEmp);
+      } else if (reportsSubTab === 'leaves') {
+        const s = reportLeavePeriod === 'custom' ? reportLeaveStartDate : undefined;
+        const e = reportLeavePeriod === 'custom' ? reportLeaveEndDate : undefined;
+        await downloadLeaveReportCsv(s, e, reportLeavePeriod, leaveReportViewMode, effectiveEmp);
+      }
+    } finally {
+      setIsExportingReportCsv(false);
+    }
+  };
+
+  const filteredAttendanceStaffRows = useMemo(() => {
+    if (!attendanceReport?.staffSummaries) return [];
+    if (!attendanceSearchQuery.trim()) return attendanceReport.staffSummaries;
+    const q = attendanceSearchQuery.toLowerCase().trim();
+    return attendanceReport.staffSummaries.filter(
+      (s) =>
+        s.employeeName.toLowerCase().includes(q) ||
+        s.email.toLowerCase().includes(q) ||
+        s.stationId.toLowerCase().includes(q)
+    );
+  }, [attendanceReport, attendanceSearchQuery]);
+
+  const filteredAttendanceDailyLogs = useMemo(() => {
+    if (!attendanceReport?.dailyAttendanceLogs) return [];
+    if (!attendanceSearchQuery.trim()) return attendanceReport.dailyAttendanceLogs;
+    const q = attendanceSearchQuery.toLowerCase().trim();
+    return attendanceReport.dailyAttendanceLogs.filter(
+      (l) =>
+        l.employeeName.toLowerCase().includes(q) ||
+        l.email.toLowerCase().includes(q) ||
+        l.status.toLowerCase().includes(q) ||
+        l.date.includes(q) ||
+        l.dayOfWeek.toLowerCase().includes(q)
+    );
+  }, [attendanceReport, attendanceSearchQuery]);
+
+  const filteredPerformanceRows = useMemo(() => {
+    if (!performanceReport?.staffPerformance) return [];
+    if (!perfSearchQuery.trim()) return performanceReport.staffPerformance;
+    const q = perfSearchQuery.toLowerCase().trim();
+    return performanceReport.staffPerformance.filter(
+      (r) =>
+        r.employeeName.toLowerCase().includes(q) ||
+        r.email.toLowerCase().includes(q) ||
+        r.role.toLowerCase().includes(q) ||
+        r.performanceRating.toLowerCase().includes(q) ||
+        r.stationId.toLowerCase().includes(q)
+    );
+  }, [performanceReport, perfSearchQuery]);
+
+  const filteredLeaveStaffRows = useMemo(() => {
+    if (!leaveReport?.staffSummaries) return [];
+    if (!leaveReportSearchQuery.trim()) return leaveReport.staffSummaries;
+    const q = leaveReportSearchQuery.toLowerCase().trim();
+    return leaveReport.staffSummaries.filter(
+      (r) =>
+        r.employeeName.toLowerCase().includes(q) ||
+        r.email.toLowerCase().includes(q) ||
+        r.stationId.toLowerCase().includes(q)
+    );
+  }, [leaveReport, leaveReportSearchQuery]);
+
+  const filteredLeaveDetailedRecords = useMemo(() => {
+    if (!leaveReport?.detailedRecords) return [];
+    if (!leaveReportSearchQuery.trim()) return leaveReport.detailedRecords;
+    const q = leaveReportSearchQuery.toLowerCase().trim();
+    return leaveReport.detailedRecords.filter(
+      (r) =>
+        r.employeeName.toLowerCase().includes(q) ||
+        r.email.toLowerCase().includes(q) ||
+        r.leaveType.toLowerCase().includes(q) ||
+        r.reason.toLowerCase().includes(q) ||
+        r.status.toLowerCase().includes(q)
+    );
+  }, [leaveReport, leaveReportSearchQuery]);
 
   // Handle Quick Task Dispatch
   const handleDispatchTask = async (e: React.FormEvent) => {
@@ -1525,6 +1747,7 @@ export default function AdminDashboardPage() {
                 { id: 'oversight', label: 'Live Oversight & Telemetry', icon: Monitor, badge: null },
                 { id: 'tasks', label: 'Task Distribution', icon: Briefcase, badge: tasks.length },
                 { id: 'timesheets', label: currentUser?.role === 'EMPLOYEE' ? 'My Timesheet' : 'Payroll Timesheets', icon: FileText, badge: null },
+                { id: 'reports', label: 'Executive Reports & Audits', icon: BarChart3, badge: 'NEW' },
                 {
                   id: 'leaves',
                   label: 'Leave Requests',
@@ -1580,6 +1803,7 @@ export default function AdminDashboardPage() {
           { id: 'oversight', label: 'Oversight', icon: Monitor },
           { id: 'tasks', label: 'Tasks', count: tasks.length, icon: Briefcase },
           { id: 'timesheets', label: currentUser?.role === 'EMPLOYEE' ? 'My Timesheet' : 'Timesheet', icon: FileText },
+          { id: 'reports', label: 'Reports', icon: BarChart3 },
           { id: 'leaves', label: 'Leaves', count: pendingLeavesCount > 0 ? pendingLeavesCount : leaves.length, isAlert: pendingLeavesCount > 0, icon: CalendarDays },
           { id: 'staff', label: 'Staff', count: staff.length, icon: Users },
         ].map((tab) => {
@@ -1703,6 +1927,21 @@ export default function AdminDashboardPage() {
             >
               <FileText className="w-3.5 h-3.5" />
               <span>{currentUser?.role === 'EMPLOYEE' ? 'My Timesheet' : 'Payroll Timesheets'}</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('reports')}
+              className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition ${
+                activeTab === 'reports'
+                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
+                  : 'text-slate-400 hover:text-white hover:bg-[#1A1D27]'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Executive Reports &amp; Audits</span>
+              <span className="bg-rose-500/20 text-rose-300 text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-1">
+                NEW
+              </span>
             </button>
 
             <button
@@ -3400,6 +3639,1067 @@ export default function AdminDashboardPage() {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* TAB 6: EXECUTIVE REPORTS & ENTERPRISE AUDITS */}
+        {activeTab === 'reports' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Header & Main Control Bar */}
+            <div className="bg-[#151720] rounded-xl border border-[#262938] p-5 shadow-sm space-y-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 shrink-0">
+                    <BarChart3 className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <h2 className="text-base font-bold text-white tracking-tight">Executive Reports &amp; Enterprise Audits</h2>
+                      <span className="bg-rose-500/20 text-rose-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-rose-500/30">
+                        AUDIT COMPLIANT
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {currentUser?.role === 'EMPLOYEE'
+                        ? 'Personal audit records for your workstation shifts, attendance percentages, task velocity, and leave approvals.'
+                        : 'Formal month-end attendance audits, staff task execution velocity, deliverable compliance, and leave analytics.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => {
+                      if (reportsSubTab === 'attendance') loadAttendanceReport();
+                      else if (reportsSubTab === 'performance') loadPerformanceReport();
+                      else loadLeaveReport();
+                    }}
+                    disabled={isAttendanceReportLoading || isPerfReportLoading || isLeaveReportLoading}
+                    className="p-2 rounded-lg bg-[#1C1F2B] hover:bg-[#252A3A] border border-[#262938] text-slate-300 hover:text-white transition disabled:opacity-50"
+                    title="Refresh Report Data"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${(isAttendanceReportLoading || isPerfReportLoading || isLeaveReportLoading) ? 'animate-spin text-rose-400' : ''}`} />
+                  </button>
+
+                  <button
+                    onClick={handleExportReportCsv}
+                    disabled={isExportingReportCsv}
+                    className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>
+                      {isExportingReportCsv
+                        ? 'EXPORTING CSV...'
+                        : `EXPORT ${reportsSubTab === 'attendance' ? 'ATTENDANCE' : reportsSubTab === 'performance' ? 'PERFORMANCE' : 'LEAVE'} CSV`}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Sub-Navigation Tabs */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#262938]">
+                <button
+                  onClick={() => setReportsSubTab('attendance')}
+                  className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition ${
+                    reportsSubTab === 'attendance'
+                      ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
+                      : 'bg-[#1C1F2B] text-slate-300 hover:bg-[#252A3A] border border-[#262938]'
+                  }`}
+                >
+                  <CalendarDays className="w-3.5 h-3.5" />
+                  <span>Month-End Attendance</span>
+                </button>
+
+                <button
+                  onClick={() => setReportsSubTab('performance')}
+                  className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition ${
+                    reportsSubTab === 'performance'
+                      ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
+                      : 'bg-[#1C1F2B] text-slate-300 hover:bg-[#252A3A] border border-[#262938]'
+                  }`}
+                >
+                  <Award className="w-3.5 h-3.5" />
+                  <span>Staff Performance &amp; Velocity</span>
+                </button>
+
+                <button
+                  onClick={() => setReportsSubTab('leaves')}
+                  className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition ${
+                    reportsSubTab === 'leaves'
+                      ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
+                      : 'bg-[#1C1F2B] text-slate-300 hover:bg-[#252A3A] border border-[#262938]'
+                  }`}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Leave Analytics &amp; Audits</span>
+                </button>
+              </div>
+            </div>
+
+            {/* SUB-TAB 1: MONTH-END ATTENDANCE REPORT */}
+            {reportsSubTab === 'attendance' && (
+              <div className="space-y-5">
+                {/* Filters & Options Card */}
+                <div className="bg-[#151720] rounded-xl border border-[#262938] p-4 flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Month Selector */}
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Month:</span>
+                      <select
+                        value={reportAttendanceMonth}
+                        onChange={(e) => {
+                          const m = parseInt(e.target.value);
+                          setReportAttendanceMonth(m);
+                          loadAttendanceReport(reportAttendanceYear, m);
+                        }}
+                        className="bg-[#1C1F2B] border border-[#32364A] text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-rose-500 font-medium"
+                      >
+                        {[
+                          { m: 1, name: 'January' },
+                          { m: 2, name: 'February' },
+                          { m: 3, name: 'March' },
+                          { m: 4, name: 'April' },
+                          { m: 5, name: 'May' },
+                          { m: 6, name: 'June' },
+                          { m: 7, name: 'July' },
+                          { m: 8, name: 'August' },
+                          { m: 9, name: 'September' },
+                          { m: 10, name: 'October' },
+                          { m: 11, name: 'November' },
+                          { m: 12, name: 'December' },
+                        ].map((mo) => (
+                          <option key={mo.m} value={mo.m}>
+                            {mo.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Year Selector */}
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Year:</span>
+                      <select
+                        value={reportAttendanceYear}
+                        onChange={(e) => {
+                          const y = parseInt(e.target.value);
+                          setReportAttendanceYear(y);
+                          loadAttendanceReport(y, reportAttendanceMonth);
+                        }}
+                        className="bg-[#1C1F2B] border border-[#32364A] text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-rose-500 font-medium"
+                      >
+                        {[2024, 2025, 2026, 2027].map((y) => (
+                          <option key={y} value={y}>
+                            {y}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Staff Filter (For Admin/Manager) */}
+                    {currentUser?.role !== 'EMPLOYEE' && (
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Staff:</span>
+                        <select
+                          value={reportAttendanceEmployeeId}
+                          onChange={(e) => {
+                            setReportAttendanceEmployeeId(e.target.value);
+                            loadAttendanceReport(reportAttendanceYear, reportAttendanceMonth, e.target.value);
+                          }}
+                          className="bg-[#1C1F2B] border border-[#32364A] text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-rose-500 font-medium max-w-[180px] truncate"
+                        >
+                          <option value="ALL">All Staff Members</option>
+                          {staff.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.fullName} ({s.stationId || 'No Station'})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* View Mode Switcher */}
+                    <div className="flex items-center bg-[#101218] p-1 rounded-lg border border-[#262938]">
+                      <button
+                        onClick={() => setAttendanceViewMode('summary')}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition ${
+                          attendanceViewMode === 'summary'
+                            ? 'bg-rose-600 text-white'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Staff Summaries
+                      </button>
+                      <button
+                        onClick={() => setAttendanceViewMode('daily_log')}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition ${
+                          attendanceViewMode === 'daily_log'
+                            ? 'bg-rose-600 text-white'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Daily Attendance Log
+                      </button>
+                    </div>
+
+                    {/* Search */}
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Filter staff or date..."
+                        value={attendanceSearchQuery}
+                        onChange={(e) => setAttendanceSearchQuery(e.target.value)}
+                        className="bg-[#1C1F2B] border border-[#32364A] text-white text-xs rounded-lg pl-8 pr-3 py-1.5 focus:outline-none focus:border-rose-500 w-44"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* KPI Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-[#151720] border border-[#262938] p-4 rounded-xl">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <span className="text-[11px] font-bold tracking-wider uppercase">Working Days in Month</span>
+                      <Calendar className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div className="text-2xl font-black text-white">
+                      {attendanceReport?.totalWorkingDays ?? 0} <span className="text-xs font-normal text-slate-400">Days</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-1">Excludes Sundays (Mon–Sat standard)</div>
+                  </div>
+
+                  <div className="bg-[#151720] border border-[#262938] p-4 rounded-xl">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <span className="text-[11px] font-bold tracking-wider uppercase">Days Elapsed to Date</span>
+                      <Clock className="w-4 h-4 text-sky-400" />
+                    </div>
+                    <div className="text-2xl font-black text-white">
+                      {attendanceReport?.workingDaysElapsed ?? 0} <span className="text-xs font-normal text-slate-400">Days</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-1">
+                      {attendanceReport?.period || 'Current Evaluation Month'}
+                    </div>
+                  </div>
+
+                  <div className="bg-[#151720] border border-[#262938] p-4 rounded-xl">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <span className="text-[11px] font-bold tracking-wider uppercase">Fleet Attendance Rate</span>
+                      <TrendingUp className="w-4 h-4 text-indigo-400" />
+                    </div>
+                    <div className="text-2xl font-black text-white">
+                      {attendanceReport?.averageAttendanceRate.toFixed(1) ?? 0}%
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-1">Present days + approved leaves ratio</div>
+                  </div>
+
+                  <div className="bg-[#151720] border border-[#262938] p-4 rounded-xl">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <span className="text-[11px] font-bold tracking-wider uppercase">Total Hours Logged</span>
+                      <Clock className="w-4 h-4 text-amber-400" />
+                    </div>
+                    <div className="text-2xl font-black text-white">
+                      {formatHoursMinutes(attendanceReport?.totalHoursLogged ?? 0)}
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-1">
+                      {(attendanceReport?.totalHoursLogged ?? 0).toFixed(1)}h shift time recorded
+                    </div>
+                  </div>
+                </div>
+
+                {/* Table Data View */}
+                {attendanceViewMode === 'summary' ? (
+                  <div className="bg-[#151720] rounded-xl border border-[#262938] overflow-hidden">
+                    <div className="px-4 py-3 bg-[#12141C] border-b border-[#262938] flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Users className="w-4 h-4 text-rose-500" />
+                        <span className="text-xs font-bold text-white uppercase tracking-wider">
+                          Staff Attendance &amp; Working Days Summary ({filteredAttendanceStaffRows.length})
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400">
+                        Evaluated across {attendanceReport?.workingDaysElapsed ?? 0} elapsed working days
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="bg-[#101218] border-b border-[#262938] text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">
+                            <th className="py-3 px-4">Employee / Station</th>
+                            <th className="py-3 px-3 text-center">Work Mode</th>
+                            <th className="py-3 px-3 text-center">Working Days</th>
+                            <th className="py-3 px-3 text-center text-emerald-400">Present</th>
+                            <th className="py-3 px-3 text-center text-rose-400">Absent</th>
+                            <th className="py-3 px-3 text-center text-amber-400">Leaves</th>
+                            <th className="py-3 px-3 text-center">Attendance Rate</th>
+                            <th className="py-3 px-3 text-right">Hours Logged</th>
+                            <th className="py-3 px-3 text-right">Active / Idle</th>
+                            <th className="py-3 px-3 text-right">Avg Daily</th>
+                            <th className="py-3 px-4 text-center">Efficiency</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#1F2230]">
+                          {filteredAttendanceStaffRows.length === 0 ? (
+                            <tr>
+                              <td colSpan={11} className="py-12 text-center text-slate-500">
+                                {isAttendanceReportLoading ? 'Loading attendance report data...' : 'No staff attendance records found for this period.'}
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredAttendanceStaffRows.map((row) => {
+                              const rate = row.attendanceRatePercentage;
+                              const rateColor =
+                                rate >= 90
+                                  ? 'text-emerald-400'
+                                  : rate >= 75
+                                  ? 'text-sky-400'
+                                  : rate >= 60
+                                  ? 'text-amber-400'
+                                  : 'text-rose-400';
+
+                              return (
+                                <tr key={row.userId} className="hover:bg-[#1A1D27] transition">
+                                  <td className="py-3.5 px-4">
+                                    <div className="font-bold text-white">{row.employeeName}</div>
+                                    <div className="text-[11px] text-slate-400">{row.email} • {row.stationId || 'Unassigned'}</div>
+                                  </td>
+                                  <td className="py-3.5 px-3 text-center">
+                                    <span
+                                      className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                                        row.workMode === 'IN_OFFICE'
+                                          ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
+                                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                      }`}
+                                    >
+                                      {row.workMode === 'IN_OFFICE' ? 'Office' : 'WFH'}
+                                    </span>
+                                  </td>
+                                  <td className="py-3.5 px-3 text-center font-semibold text-slate-300">
+                                    {row.totalWorkingDays}
+                                  </td>
+                                  <td className="py-3.5 px-3 text-center font-bold text-emerald-400">
+                                    {row.daysPresent}
+                                  </td>
+                                  <td className="py-3.5 px-3 text-center font-bold text-rose-400">
+                                    {row.daysAbsent}
+                                  </td>
+                                  <td className="py-3.5 px-3 text-center font-bold text-amber-400">
+                                    {row.approvedLeaveDays}
+                                  </td>
+                                  <td className="py-3.5 px-3 text-center">
+                                    <div className={`font-black text-xs ${rateColor}`}>{rate.toFixed(1)}%</div>
+                                    <div className="w-16 bg-[#101218] rounded-full h-1.5 mx-auto mt-1 overflow-hidden border border-[#262938]">
+                                      <div
+                                        className={`h-full ${
+                                          rate >= 90
+                                            ? 'bg-emerald-500'
+                                            : rate >= 75
+                                            ? 'bg-sky-500'
+                                            : rate >= 60
+                                            ? 'bg-amber-500'
+                                            : 'bg-rose-500'
+                                        }`}
+                                        style={{ width: `${Math.min(100, Math.max(0, rate))}%` }}
+                                      />
+                                    </div>
+                                  </td>
+                                  <td className="py-3.5 px-3 text-right">
+                                    <div className="font-bold text-white">{row.totalTimeFormatted}</div>
+                                    <div className="text-[10.5px] text-slate-400">{row.totalHours.toFixed(1)}h dec</div>
+                                  </td>
+                                  <td className="py-3.5 px-3 text-right">
+                                    <div className="text-emerald-400 font-semibold">{formatHoursMinutes(row.activeHours)}</div>
+                                    <div className="text-[10.5px] text-slate-400">{formatHoursMinutes(row.idleHours)} idle</div>
+                                  </td>
+                                  <td className="py-3.5 px-3 text-right font-medium text-slate-300">
+                                    {row.averageDailyHours.toFixed(1)}h/day
+                                  </td>
+                                  <td className="py-3.5 px-4 text-center">
+                                    <span
+                                      className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                        row.efficiencyPercentage >= 80
+                                          ? 'bg-emerald-500/20 text-emerald-300'
+                                          : row.efficiencyPercentage >= 60
+                                          ? 'bg-amber-500/20 text-amber-300'
+                                          : 'bg-rose-500/20 text-rose-300'
+                                      }`}
+                                    >
+                                      {row.efficiencyPercentage.toFixed(1)}%
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  /* Daily Attendance Log View */
+                  <div className="bg-[#151720] rounded-xl border border-[#262938] overflow-hidden">
+                    <div className="px-4 py-3 bg-[#12141C] border-b border-[#262938] flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <CalendarDays className="w-4 h-4 text-rose-500" />
+                        <span className="text-xs font-bold text-white uppercase tracking-wider">
+                          Daily Attendance Audit Log ({filteredAttendanceDailyLogs.length} Entries)
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400">
+                        Itemized status for every working calendar day
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="bg-[#101218] border-b border-[#262938] text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">
+                            <th className="py-3 px-4">Date &amp; Day</th>
+                            <th className="py-3 px-4">Employee</th>
+                            <th className="py-3 px-3">Station</th>
+                            <th className="py-3 px-3 text-center">Status</th>
+                            <th className="py-3 px-3">Clock In</th>
+                            <th className="py-3 px-3">Clock Out</th>
+                            <th className="py-3 px-4 text-right">Hours Logged</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#1F2230]">
+                          {filteredAttendanceDailyLogs.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="py-12 text-center text-slate-500">
+                                {isAttendanceReportLoading ? 'Loading daily logs...' : 'No daily attendance records found.'}
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredAttendanceDailyLogs.map((log, idx) => {
+                              const statusStyle =
+                                log.status === 'PRESENT'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                  : log.status === 'LEAVE'
+                                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                  : log.status === 'WEEKEND'
+                                  ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                                  : 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+
+                              return (
+                                <tr key={`${log.userId}-${log.date}-${idx}`} className="hover:bg-[#1A1D27] transition">
+                                  <td className="py-3 px-4">
+                                    <div className="font-bold text-white">{log.date}</div>
+                                    <div className="text-[10.5px] text-slate-400">{log.dayOfWeek}</div>
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <div className="font-medium text-slate-200">{log.employeeName}</div>
+                                    <div className="text-[10px] text-slate-400">{log.email}</div>
+                                  </td>
+                                  <td className="py-3 px-3 font-mono text-[11px] text-slate-300">
+                                    {log.stationId || '—'}
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusStyle}`}>
+                                      {log.status}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-3 text-slate-300 font-mono text-[11px]">{log.clockIn}</td>
+                                  <td className="py-3 px-3 text-slate-300 font-mono text-[11px]">{log.clockOut}</td>
+                                  <td className="py-3 px-4 text-right">
+                                    <div className="font-bold text-white">{log.timeFormatted}</div>
+                                    <div className="text-[10px] text-slate-400">{log.hoursWorked.toFixed(2)}h</div>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SUB-TAB 2: STAFF PERFORMANCE REPORT */}
+            {reportsSubTab === 'performance' && (
+              <div className="space-y-5">
+                {/* Filters & Options Card */}
+                <div className="bg-[#151720] rounded-xl border border-[#262938] p-4 flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Period:</span>
+                    {[
+                      { id: 'today', label: 'Today' },
+                      { id: 'week', label: 'This Week' },
+                      { id: 'month', label: 'This Month' },
+                      { id: 'last_month', label: 'Last Month' },
+                      { id: 'year', label: 'This Year' },
+                      { id: 'custom', label: 'Custom' },
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          setReportPerfPeriod(p.id as any);
+                          loadPerformanceReport(p.id);
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                          reportPerfPeriod === p.id
+                            ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/30'
+                            : 'bg-[#1C1F2B] text-slate-300 hover:bg-[#252A3A] border border-[#262938]'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+
+                    {/* Custom Range Inputs */}
+                    {reportPerfPeriod === 'custom' && (
+                      <div className="flex items-center space-x-2 ml-2 bg-[#12141C] p-1 rounded-lg border border-[#262938]">
+                        <input
+                          type="date"
+                          value={reportPerfStartDate}
+                          onChange={(e) => setReportPerfStartDate(e.target.value)}
+                          className="bg-[#1C1F2B] border border-[#32364A] text-white text-xs rounded px-2 py-1"
+                        />
+                        <span className="text-slate-400 text-xs">to</span>
+                        <input
+                          type="date"
+                          value={reportPerfEndDate}
+                          onChange={(e) => setReportPerfEndDate(e.target.value)}
+                          className="bg-[#1C1F2B] border border-[#32364A] text-white text-xs rounded px-2 py-1"
+                        />
+                        <button
+                          onClick={() => loadPerformanceReport('custom', reportPerfStartDate, reportPerfEndDate)}
+                          className="px-2.5 py-1 bg-rose-600 text-white text-xs font-bold rounded"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Staff Filter (Admin/Manager only) */}
+                    {currentUser?.role !== 'EMPLOYEE' && (
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Staff:</span>
+                        <select
+                          value={reportPerfEmployeeId}
+                          onChange={(e) => {
+                            setReportPerfEmployeeId(e.target.value);
+                            loadPerformanceReport(reportPerfPeriod, reportPerfStartDate, reportPerfEndDate, e.target.value);
+                          }}
+                          className="bg-[#1C1F2B] border border-[#32364A] text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-rose-500 font-medium max-w-[180px] truncate"
+                        >
+                          <option value="ALL">All Staff</option>
+                          {staff.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.fullName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Search */}
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Search performance..."
+                        value={perfSearchQuery}
+                        onChange={(e) => setPerfSearchQuery(e.target.value)}
+                        className="bg-[#1C1F2B] border border-[#32364A] text-white text-xs rounded-lg pl-8 pr-3 py-1.5 focus:outline-none focus:border-rose-500 w-44"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* KPI Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-[#151720] border border-[#262938] p-4 rounded-xl">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <span className="text-[11px] font-bold tracking-wider uppercase">Tasks Dispatched</span>
+                      <Briefcase className="w-4 h-4 text-sky-400" />
+                    </div>
+                    <div className="text-2xl font-black text-white">
+                      {performanceReport?.totalTasksAssigned ?? 0}
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-1">Total tasks in scope for period</div>
+                  </div>
+
+                  <div className="bg-[#151720] border border-[#262938] p-4 rounded-xl">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <span className="text-[11px] font-bold tracking-wider uppercase">Tasks Completed</span>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div className="text-2xl font-black text-white">
+                      {performanceReport?.totalTasksCompleted ?? 0}
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-1">Successfully finished deliverables</div>
+                  </div>
+
+                  <div className="bg-[#151720] border border-[#262938] p-4 rounded-xl">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <span className="text-[11px] font-bold tracking-wider uppercase">Team Velocity</span>
+                      <TrendingUp className="w-4 h-4 text-indigo-400" />
+                    </div>
+                    <div className="text-2xl font-black text-white">
+                      {performanceReport?.teamCompletionRate.toFixed(1) ?? 0}%
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-1">Completed vs assigned tasks</div>
+                  </div>
+
+                  <div className="bg-[#151720] border border-[#262938] p-4 rounded-xl">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <span className="text-[11px] font-bold tracking-wider uppercase">Avg Focus Index</span>
+                      <Award className="w-4 h-4 text-amber-400" />
+                    </div>
+                    <div className="text-2xl font-black text-white">
+                      {performanceReport?.averageFocusScore.toFixed(1) ?? 0}%
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-1">Active workstation engagement ratio</div>
+                  </div>
+                </div>
+
+                {/* Performance Table */}
+                <div className="bg-[#151720] rounded-xl border border-[#262938] overflow-hidden">
+                  <div className="px-4 py-3 bg-[#12141C] border-b border-[#262938] flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Award className="w-4 h-4 text-rose-500" />
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">
+                        Staff Performance &amp; Deliverable Audit ({filteredPerformanceRows.length})
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-400">
+                      Period: {performanceReport?.period || 'Selected Period'}
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-[#101218] border-b border-[#262938] text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">
+                          <th className="py-3 px-4">Employee / Station</th>
+                          <th className="py-3 px-3 text-center">Tasks Assigned</th>
+                          <th className="py-3 px-3 text-center text-emerald-400">Completed</th>
+                          <th className="py-3 px-3 text-center text-amber-400">In Progress</th>
+                          <th className="py-3 px-3 text-center">Velocity %</th>
+                          <th className="py-3 px-3 text-center">Deliverable Compliance</th>
+                          <th className="py-3 px-3 text-right">Hours Worked</th>
+                          <th className="py-3 px-3 text-center">Focus Efficiency</th>
+                          <th className="py-3 px-4 text-center">Rating</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#1F2230]">
+                        {filteredPerformanceRows.length === 0 ? (
+                          <tr>
+                            <td colSpan={9} className="py-12 text-center text-slate-500">
+                              {isPerfReportLoading ? 'Loading performance metrics...' : 'No performance records for this period.'}
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredPerformanceRows.map((row) => {
+                            const ratingBadge =
+                              row.performanceRating === 'Outstanding'
+                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                : row.performanceRating === 'High Performer'
+                                ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                                : row.performanceRating === 'Good Standing'
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                : 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+
+                            return (
+                              <tr key={row.userId} className="hover:bg-[#1A1D27] transition">
+                                <td className="py-3.5 px-4">
+                                  <div className="font-bold text-white">{row.employeeName}</div>
+                                  <div className="text-[11px] text-slate-400">{row.email} • {row.stationId || 'Unassigned'}</div>
+                                </td>
+                                <td className="py-3.5 px-3 text-center font-bold text-slate-300">
+                                  {row.tasksAssigned}
+                                </td>
+                                <td className="py-3.5 px-3 text-center font-bold text-emerald-400">
+                                  {row.tasksCompleted}
+                                </td>
+                                <td className="py-3.5 px-3 text-center font-bold text-amber-400">
+                                  {row.tasksInProgress}
+                                </td>
+                                <td className="py-3.5 px-3 text-center">
+                                  <div className="font-black text-white">{row.taskCompletionRate.toFixed(1)}%</div>
+                                  <div className="w-16 bg-[#101218] rounded-full h-1.5 mx-auto mt-1 overflow-hidden border border-[#262938]">
+                                    <div
+                                      className="h-full bg-emerald-500"
+                                      style={{ width: `${Math.min(100, Math.max(0, row.taskCompletionRate))}%` }}
+                                    />
+                                  </div>
+                                </td>
+                                <td className="py-3.5 px-3 text-center">
+                                  <div className="font-bold text-slate-200">
+                                    {row.deliverableComplianceRate.toFixed(1)}%
+                                  </div>
+                                  <div className="text-[10px] text-slate-400">
+                                    {row.deliverablesSubmitted} of {row.deliverablesRequired} submitted
+                                  </div>
+                                </td>
+                                <td className="py-3.5 px-3 text-right">
+                                  <div className="font-bold text-white">{row.totalTimeFormatted}</div>
+                                  <div className="text-[10px] text-slate-400">{row.totalHoursWorked.toFixed(1)}h</div>
+                                </td>
+                                <td className="py-3.5 px-3 text-center">
+                                  <span
+                                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                      row.focusEfficiencyPercentage >= 80
+                                        ? 'bg-emerald-500/20 text-emerald-300'
+                                        : row.focusEfficiencyPercentage >= 60
+                                        ? 'bg-amber-500/20 text-amber-300'
+                                        : 'bg-rose-500/20 text-rose-300'
+                                    }`}
+                                  >
+                                    {row.focusEfficiencyPercentage.toFixed(1)}%
+                                  </span>
+                                </td>
+                                <td className="py-3.5 px-4 text-center">
+                                  <span className={`text-[10.5px] font-bold px-2.5 py-1 rounded-full border ${ratingBadge}`}>
+                                    {row.performanceRating}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SUB-TAB 3: LEAVE ANALYTICS & AUDITS REPORT */}
+            {reportsSubTab === 'leaves' && (
+              <div className="space-y-5">
+                {/* Filters & Options Card */}
+                <div className="bg-[#151720] rounded-xl border border-[#262938] p-4 flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Period:</span>
+                    {[
+                      { id: 'month', label: 'This Month' },
+                      { id: 'last_month', label: 'Last Month' },
+                      { id: 'year', label: 'This Year' },
+                      { id: 'custom', label: 'Custom' },
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          setReportLeavePeriod(p.id as any);
+                          loadLeaveReport(p.id);
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                          reportLeavePeriod === p.id
+                            ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/30'
+                            : 'bg-[#1C1F2B] text-slate-300 hover:bg-[#252A3A] border border-[#262938]'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+
+                    {/* Custom Range */}
+                    {reportLeavePeriod === 'custom' && (
+                      <div className="flex items-center space-x-2 ml-2 bg-[#12141C] p-1 rounded-lg border border-[#262938]">
+                        <input
+                          type="date"
+                          value={reportLeaveStartDate}
+                          onChange={(e) => setReportLeaveStartDate(e.target.value)}
+                          className="bg-[#1C1F2B] border border-[#32364A] text-white text-xs rounded px-2 py-1"
+                        />
+                        <span className="text-slate-400 text-xs">to</span>
+                        <input
+                          type="date"
+                          value={reportLeaveEndDate}
+                          onChange={(e) => setReportLeaveEndDate(e.target.value)}
+                          className="bg-[#1C1F2B] border border-[#32364A] text-white text-xs rounded px-2 py-1"
+                        />
+                        <button
+                          onClick={() => loadLeaveReport('custom', reportLeaveStartDate, reportLeaveEndDate)}
+                          className="px-2.5 py-1 bg-rose-600 text-white text-xs font-bold rounded"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* View Mode Switcher */}
+                    <div className="flex items-center bg-[#101218] p-1 rounded-lg border border-[#262938]">
+                      <button
+                        onClick={() => setLeaveReportViewMode('summary')}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition ${
+                          leaveReportViewMode === 'summary'
+                            ? 'bg-rose-600 text-white'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Staff Totals
+                      </button>
+                      <button
+                        onClick={() => setLeaveReportViewMode('audit_log')}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition ${
+                          leaveReportViewMode === 'audit_log'
+                            ? 'bg-rose-600 text-white'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Itemized Audit Log
+                      </button>
+                    </div>
+
+                    {/* Staff Filter */}
+                    {currentUser?.role !== 'EMPLOYEE' && (
+                      <div className="flex items-center space-x-2">
+                        <select
+                          value={reportLeaveEmployeeId}
+                          onChange={(e) => {
+                            setReportLeaveEmployeeId(e.target.value);
+                            loadLeaveReport(reportLeavePeriod, reportLeaveStartDate, reportLeaveEndDate, e.target.value);
+                          }}
+                          className="bg-[#1C1F2B] border border-[#32364A] text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-rose-500 font-medium max-w-[170px] truncate"
+                        >
+                          <option value="ALL">All Staff</option>
+                          {staff.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.fullName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Search */}
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Search leave report..."
+                        value={leaveReportSearchQuery}
+                        onChange={(e) => setLeaveReportSearchQuery(e.target.value)}
+                        className="bg-[#1C1F2B] border border-[#32364A] text-white text-xs rounded-lg pl-8 pr-3 py-1.5 focus:outline-none focus:border-rose-500 w-40"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* KPI Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-[#151720] border border-[#262938] p-4 rounded-xl">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <span className="text-[11px] font-bold tracking-wider uppercase">Applications</span>
+                      <FileSpreadsheet className="w-4 h-4 text-sky-400" />
+                    </div>
+                    <div className="text-2xl font-black text-white">
+                      {leaveReport?.totalApplications ?? 0}
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-1">Total requests in period</div>
+                  </div>
+
+                  <div className="bg-[#151720] border border-[#262938] p-4 rounded-xl">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <span className="text-[11px] font-bold tracking-wider uppercase">Approved Days</span>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div className="text-2xl font-black text-white">
+                      {leaveReport?.totalApprovedDays ?? 0} <span className="text-xs font-normal text-slate-400">Days</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-1">Authorized time-off days</div>
+                  </div>
+
+                  <div className="bg-[#151720] border border-[#262938] p-4 rounded-xl">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <span className="text-[11px] font-bold tracking-wider uppercase">Pending Approval</span>
+                      <Clock className="w-4 h-4 text-amber-400" />
+                    </div>
+                    <div className="text-2xl font-black text-white">
+                      {leaveReport?.totalPendingRequests ?? 0}
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-1">Awaiting manager review</div>
+                  </div>
+
+                  <div className="bg-[#151720] border border-[#262938] p-4 rounded-xl">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <span className="text-[11px] font-bold tracking-wider uppercase">Rejected / Cancelled</span>
+                      <XCircle className="w-4 h-4 text-rose-400" />
+                    </div>
+                    <div className="text-2xl font-black text-white">
+                      {leaveReport?.totalRejectedRequests ?? 0}
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-1">Declined applications</div>
+                  </div>
+                </div>
+
+                {/* Table Data View */}
+                {leaveReportViewMode === 'summary' ? (
+                  <div className="bg-[#151720] rounded-xl border border-[#262938] overflow-hidden">
+                    <div className="px-4 py-3 bg-[#12141C] border-b border-[#262938] flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Users className="w-4 h-4 text-rose-500" />
+                        <span className="text-xs font-bold text-white uppercase tracking-wider">
+                          Staff Leave Breakdown by Type ({filteredLeaveStaffRows.length})
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400">
+                        {leaveReport?.period || 'Selected Period'}
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="bg-[#101218] border-b border-[#262938] text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">
+                            <th className="py-3 px-4">Employee / Station</th>
+                            <th className="py-3 px-3 text-center">Total Requests</th>
+                            <th className="py-3 px-3 text-center text-emerald-400">Approved Days</th>
+                            <th className="py-3 px-3 text-center text-sky-400">Casual</th>
+                            <th className="py-3 px-3 text-center text-amber-400">Sick</th>
+                            <th className="py-3 px-3 text-center text-rose-400">Medical</th>
+                            <th className="py-3 px-3 text-center text-indigo-400">Annual</th>
+                            <th className="py-3 px-3 text-center text-fuchsia-400">Emergency</th>
+                            <th className="py-3 px-3 text-center text-amber-300">Pending</th>
+                            <th className="py-3 px-4 text-center text-rose-400">Rejected</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#1F2230]">
+                          {filteredLeaveStaffRows.length === 0 ? (
+                            <tr>
+                              <td colSpan={10} className="py-12 text-center text-slate-500">
+                                {isLeaveReportLoading ? 'Loading leave summary...' : 'No leave records for this period.'}
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredLeaveStaffRows.map((row) => (
+                              <tr key={row.userId} className="hover:bg-[#1A1D27] transition">
+                                <td className="py-3.5 px-4">
+                                  <div className="font-bold text-white">{row.employeeName}</div>
+                                  <div className="text-[11px] text-slate-400">{row.email} • {row.stationId || 'Unassigned'}</div>
+                                </td>
+                                <td className="py-3.5 px-3 text-center font-bold text-slate-300">
+                                  {row.totalRequests}
+                                </td>
+                                <td className="py-3.5 px-3 text-center font-black text-emerald-400 text-sm">
+                                  {row.totalApprovedDays}
+                                </td>
+                                <td className="py-3.5 px-3 text-center text-slate-300 font-semibold">
+                                  {row.casualLeaveDays}
+                                </td>
+                                <td className="py-3.5 px-3 text-center text-slate-300 font-semibold">
+                                  {row.sickLeaveDays}
+                                </td>
+                                <td className="py-3.5 px-3 text-center text-slate-300 font-semibold">
+                                  {row.medicalLeaveDays}
+                                </td>
+                                <td className="py-3.5 px-3 text-center text-slate-300 font-semibold">
+                                  {row.annualLeaveDays}
+                                </td>
+                                <td className="py-3.5 px-3 text-center text-slate-300 font-semibold">
+                                  {row.emergencyLeaveDays}
+                                </td>
+                                <td className="py-3.5 px-3 text-center font-bold text-amber-400">
+                                  {row.pendingRequests}
+                                </td>
+                                <td className="py-3.5 px-4 text-center font-bold text-rose-400">
+                                  {row.rejectedRequests}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  /* Itemized Leave Audit Log View */
+                  <div className="bg-[#151720] rounded-xl border border-[#262938] overflow-hidden">
+                    <div className="px-4 py-3 bg-[#12141C] border-b border-[#262938] flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <FileSpreadsheet className="w-4 h-4 text-rose-500" />
+                        <span className="text-xs font-bold text-white uppercase tracking-wider">
+                          Itemized Leave Request Audit Trail ({filteredLeaveDetailedRecords.length})
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400">
+                        {leaveReport?.period || 'Selected Period'}
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="bg-[#101218] border-b border-[#262938] text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">
+                            <th className="py-3 px-4">Applied Date</th>
+                            <th className="py-3 px-4">Applicant</th>
+                            <th className="py-3 px-3">Type</th>
+                            <th className="py-3 px-3">Dates &amp; Days</th>
+                            <th className="py-3 px-3">Reason</th>
+                            <th className="py-3 px-3 text-center">Status</th>
+                            <th className="py-3 px-4">Reviewer &amp; Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#1F2230]">
+                          {filteredLeaveDetailedRecords.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="py-12 text-center text-slate-500">
+                                {isLeaveReportLoading ? 'Loading audit records...' : 'No leave applications found.'}
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredLeaveDetailedRecords.map((record) => {
+                              const statusChip =
+                                record.status === 'APPROVED'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                  : record.status === 'PENDING'
+                                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                  : 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+
+                              return (
+                                <tr key={record.id} className="hover:bg-[#1A1D27] transition">
+                                  <td className="py-3.5 px-4 text-slate-400 font-mono text-[11px]">
+                                    {record.appliedAt ? new Date(record.appliedAt).toLocaleDateString() : '—'}
+                                  </td>
+                                  <td className="py-3.5 px-4">
+                                    <div className="font-bold text-white">{record.employeeName}</div>
+                                    <div className="text-[10px] text-slate-400">{record.email}</div>
+                                  </td>
+                                  <td className="py-3.5 px-3">
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#1C1F2B] border border-[#32364A] text-slate-200">
+                                      {record.leaveType}
+                                    </span>
+                                  </td>
+                                  <td className="py-3.5 px-3">
+                                    <div className="text-white font-medium">{record.startDate} → {record.endDate}</div>
+                                    <div className="text-[10.5px] font-bold text-sky-400">{record.totalDays} Day(s)</div>
+                                  </td>
+                                  <td className="py-3.5 px-3 max-w-[200px] truncate text-slate-300" title={record.reason}>
+                                    {record.reason || '—'}
+                                  </td>
+                                  <td className="py-3.5 px-3 text-center">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusChip}`}>
+                                      {record.status}
+                                    </span>
+                                  </td>
+                                  <td className="py-3.5 px-4">
+                                    <div className="font-medium text-slate-200">{record.reviewerName || '—'}</div>
+                                    <div className="text-[10.5px] text-slate-400 italic truncate max-w-[180px]" title={record.reviewComments || ''}>
+                                      {record.reviewComments || 'No reviewer notes'}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </main>
