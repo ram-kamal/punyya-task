@@ -610,4 +610,18 @@ public class ApiClient
         var response = await _httpClient.PostAsJsonAsync($"/api/v1/tasks/backups/{backupId}/dismiss-reminder", new DismissReminderRequest { MilestoneDay = milestoneDay }, _jsonOptions, ct);
         return response.IsSuccessStatusCode;
     }
+
+    public async Task<AppVersionDto?> CheckForUpdateAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/v1/app/version", ct);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<AppVersionDto>(_jsonOptions, ct);
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

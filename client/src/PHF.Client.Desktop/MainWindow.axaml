@@ -1739,5 +1739,48 @@
                 <Button Grid.Column="2" Classes="glass" Content="✕" Padding="6,2" VerticalAlignment="Top" Margin="6,0,0,0" Click="BtnDismissToast_Click" />
             </Grid>
         </Border>
+
+        <!-- ================= APP UPDATE MODAL ================= -->
+        <Grid x:Name="AppUpdateModal" IsVisible="False" Background="#CC000000" ZIndex="999">
+            <Border Background="#161A26" BorderBrush="#E11D48" BorderThickness="1.5" CornerRadius="14"
+                    Padding="24" Width="480" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    BoxShadow="0 16 40 #66000000">
+                <StackPanel Spacing="16">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Border Width="42" Height="42" CornerRadius="10" Background="#33E11D48" VerticalAlignment="Center">
+                            <TextBlock Text="🚀" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="New Update Available!" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF" />
+                            <TextBlock x:Name="TxtAppUpdateVersion" Text="Version 1.0.1 is ready to install" FontSize="12" Foreground="#38BDF8" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <Button Grid.Column="2" Classes="glass" Content="✕" Click="BtnDismissUpdateModal_Click" Padding="8,4" VerticalAlignment="Top" />
+                    </Grid>
+
+                    <Border Background="#0F121C" CornerRadius="8" Padding="14" BorderBrush="#262D40" BorderThickness="1">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="What's New in this Release:" FontSize="12" FontWeight="SemiBold" Foreground="#E2E8F0" />
+                            <TextBlock x:Name="TxtAppUpdateNotes" Text="• Auto clock-out on PC shutdown, restart, and sleep over 12 hours.&#x0a;• Accurate month-end timesheet calculation &amp; live stations fix." FontSize="11" Foreground="#94A3B8" TextWrapping="Wrap" LineHeight="18" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Download Progress Bar (visible during download) -->
+                    <StackPanel x:Name="PnlUpdateProgress" IsVisible="False" Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock x:Name="TxtUpdateStatus" Text="Downloading update..." FontSize="11" Foreground="#38BDF8" />
+                            <TextBlock Grid.Column="1" x:Name="TxtUpdatePercent" Text="0%" FontSize="11" FontWeight="Bold" Foreground="#38BDF8" />
+                        </Grid>
+                        <ProgressBar x:Name="PbUpdateProgress" Height="8" Minimum="0" Maximum="100" Value="0" Foreground="#E11D48" Background="#1E2433" CornerRadius="4" />
+                    </StackPanel>
+
+                    <!-- Buttons -->
+                    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,8,0,0">
+                        <TextBlock x:Name="TxtUpdateNotice" Text="App will restart automatically after install." FontSize="11" Foreground="#64748B" VerticalAlignment="Center" TextWrapping="Wrap" />
+                        <Button Grid.Column="1" x:Name="BtnDismissUpdate" Classes="glass" Content="Remind Me Later" Margin="0,0,8,0" Click="BtnDismissUpdateModal_Click" Padding="14,8" />
+                        <Button Grid.Column="2" x:Name="BtnPerformUpdate" Classes="primary" Content="Update &amp; Restart Now" Click="BtnPerformUpdate_Click" Padding="16,8" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

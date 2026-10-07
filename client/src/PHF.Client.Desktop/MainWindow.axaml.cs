@@ -4,7 +4,9 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -56,6 +58,10 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<AdminAttendanceDailyLogViewModel> _attendanceDailyLogs = new();
     private readonly ObservableCollection<AdminStaffPerformanceRowViewModel> _staffPerformances = new();
     private readonly ObservableCollection<AdminLeaveStaffSummaryViewModel> _leaveSummaries = new();
+
+    public static readonly string CurrentAppVersion = 
+        System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.1";
+    private AppVersionDto? _availableUpdate = null;
 
     private string _reportSubTab = "attendance";
     private int _reportAttendanceMonth = DateTime.UtcNow.Month;
@@ -189,6 +195,9 @@ public partial class MainWindow : Window
             {
                 await InitializeWorkstationSessionAsync();
             }
+
+            // Check for application updates on startup
+            _ = CheckForAppUpdatesAsync(showNoUpdateToast: false);
         }
         catch (Exception ex)
         {
@@ -553,6 +562,12 @@ public partial class MainWindow : Window
             try
             {
                 if (evt == null) return;
+
+                if (evt.EventType == "APP_UPDATE")
+                {
+                    await CheckForAppUpdatesAsync(showNoUpdateToast: false);
+                    return;
+                }
 
                 if (evt.EventType != null && evt.EventType.StartsWith("LEAVE_"))
                 {
@@ -3090,9 +3105,202 @@ public partial class MainWindow : Window
             }
             catch { }
 
-            // Force kill the process completely so it never lingers in Task Manager
+        // Force kill the process completely so it never lingers in Task Manager
             Environment.Exit(0);
         }
+    }
+
+    #endregion
+
+    #region In-App Auto Update & Self-Patcher
+
+    private async Task CheckForAppUpdatesAsync(bool showNoUpdateToast = false)
+    {
+        try
+        {
+            var versionInfo = await _apiClient.CheckForUpdateAsync();
+            if (versionInfo == null || string.IsNullOrWhiteSpace(versionInfo.LatestVersion))
+            {
+                if (showNoUpdateToast) ShowToast("App Up to Date", $"Running version {CurrentAppVersion}");
+                return;
+            }
+
+            if (IsNewerVersion(versionInfo.LatestVersion, CurrentAppVersion))
+            {
+                _availableUpdate = versionInfo;
+                TxtAppUpdateVersion.Text = $"Version {versionInfo.LatestVersion} is ready to install (Current: {CurrentAppVersion})";
+                if (!string.IsNullOrWhiteSpace(versionInfo.ReleaseNotes))
+                {
+                    TxtAppUpdateNotes.Text = versionInfo.ReleaseNotes;
+                }
+
+                AppUpdateModal.IsVisible = true;
+            }
+            else if (showNoUpdateToast)
+            {
+                ShowToast("App Up to Date", $"You are running the latest version {CurrentAppVersion}.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[UpdateCheck] Error: {ex.Message}");
+        }
+    }
+
+    private static bool IsNewerVersion(string latest, string current)
+    {
+        try
+        {
+            var cleanLatest = latest.Split('-')[0].TrimStart('v', 'V');
+            var cleanCurrent = current.Split('-')[0].TrimStart('v', 'V');
+            if (Version.TryParse(cleanLatest, out var vLatest) && Version.TryParse(cleanCurrent, out var vCurrent))
+            {
+                return vLatest > vCurrent;
+            }
+        }
+        catch { }
+        return string.Compare(latest, current, StringComparison.OrdinalIgnoreCase) > 0;
+    }
+
+    private void BtnDismissUpdateModal_Click(object? sender, RoutedEventArgs e)
+    {
+        AppUpdateModal.IsVisible = false;
+    }
+
+    private async void BtnPerformUpdate_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_availableUpdate == null) return;
+
+        BtnPerformUpdate.IsEnabled = false;
+        BtnDismissUpdate.IsEnabled = false;
+        PnlUpdateProgress.IsVisible = true;
+        TxtUpdateStatus.Text = "Connecting to download server...";
+
+        try
+        {
+            var downloadUrl = _availableUpdate.DownloadUrl;
+            var tempFilePath = Path.Combine(Path.GetTempPath(), $"PunnyaHeartDesk_v{_availableUpdate.LatestVersion}.exe");
+
+            using var httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+            HttpResponseMessage response;
+            try
+            {
+                response = await httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
+                if (!response.IsSuccessStatusCode && !string.IsNullOrWhiteSpace(_availableUpdate.FallbackDownloadUrl))
+                {
+                    response.Dispose();
+                    response = await httpClient.GetAsync(_availableUpdate.FallbackDownloadUrl, HttpCompletionOption.ResponseHeadersRead);
+                }
+            }
+            catch when (!string.IsNullOrWhiteSpace(_availableUpdate.FallbackDownloadUrl))
+            {
+                response = await httpClient.GetAsync(_availableUpdate.FallbackDownloadUrl, HttpCompletionOption.ResponseHeadersRead);
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            var totalBytes = response.Content.Headers.ContentLength ?? -1L;
+            var canReportProgress = totalBytes > 0;
+
+            await using (var contentStream = await response.Content.ReadAsStreamAsync())
+            await using (var fileStream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                var buffer = new byte[81920];
+                long totalRead = 0;
+                int bytesRead;
+
+                while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                {
+                    await fileStream.WriteAsync(buffer, 0, bytesRead);
+                    totalRead += bytesRead;
+
+                    if (canReportProgress)
+                    {
+                        var percent = (int)Math.Round((double)totalRead / totalBytes * 100.0);
+                        PbUpdateProgress.Value = percent;
+                        TxtUpdatePercent.Text = $"{percent}%";
+                        TxtUpdateStatus.Text = $"Downloading update ({(totalRead / (1024.0 * 1024.0)):F1} MB / {(totalBytes / (1024.0 * 1024.0)):F1} MB)...";
+                    }
+                }
+            }
+
+            TxtUpdateStatus.Text = "Download complete! Applying update and restarting...";
+            PbUpdateProgress.Value = 100;
+            TxtUpdatePercent.Text = "100%";
+
+            await Task.Delay(800);
+
+            // Safely clock out and flush telemetry before self-update restart
+            if (TxtShiftState.Text == "Clocked In" || _shiftStartTime.HasValue)
+            {
+                try { await _syncWorker.SyncPendingBatchAsync(); } catch { }
+                try { await _apiClient.ClockOutAsync(_stationId); } catch { }
+            }
+
+            ApplyInPlaceUpdateAndRestart(tempFilePath);
+        }
+        catch (Exception ex)
+        {
+            TxtUpdateStatus.Text = $"Update failed: {ex.Message}";
+            BtnPerformUpdate.IsEnabled = true;
+            BtnDismissUpdate.IsEnabled = true;
+        }
+    }
+
+    private void ApplyInPlaceUpdateAndRestart(string newExePath)
+    {
+        var currentExePath = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName;
+        if (string.IsNullOrEmpty(currentExePath))
+        {
+            Process.Start(new ProcessStartInfo { FileName = newExePath, UseShellExecute = true });
+            PerformFullAppShutdown();
+            return;
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            var updaterScript = Path.Combine(Path.GetTempPath(), "phf_self_updater.bat");
+            var scriptContent = $@"@echo off
+chcp 65001 > NUL
+timeout /t 2 /nobreak > NUL
+:retry
+copy /y ""{newExePath}"" ""{currentExePath}"" > NUL 2>&1
+if errorlevel 1 (
+    timeout /t 1 /nobreak > NUL
+    goto retry
+)
+del ""{newExePath}"" > NUL 2>&1
+start """" ""{currentExePath}""
+del ""%~f0"" > NUL 2>&1
+exit
+";
+            File.WriteAllText(updaterScript, scriptContent, Encoding.UTF8);
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = updaterScript,
+                CreateNoWindow = true,
+                UseShellExecute = false
+            });
+        }
+        else
+        {
+            var updaterScript = Path.Combine(Path.GetTempPath(), "phf_self_updater.sh");
+            var scriptContent = $@"#!/bin/bash
+sleep 2
+cp -f ""{newExePath}"" ""{currentExePath}""
+rm -f ""{newExePath}""
+chmod +x ""{currentExePath}""
+""{currentExePath}"" &
+rm -f ""$0""
+exit 0
+";
+            File.WriteAllText(updaterScript, scriptContent);
+            try { Process.Start("chmod", $"+x \"{updaterScript}\"").WaitForExit(); } catch { }
+            Process.Start(new ProcessStartInfo { FileName = "/bin/bash", Arguments = updaterScript, UseShellExecute = false });
+        }
+
+        PerformFullAppShutdown();
     }
 
     #endregion
