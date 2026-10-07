@@ -135,6 +135,21 @@ public partial class MainWindow : Window
 
         Opened += MainWindow_Opened;
         Closing += MainWindow_Closing;
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => PerformFullAppShutdown();
+
+        if (OperatingSystem.IsWindows())
+        {
+            try
+            {
+                Microsoft.Win32.SystemEvents.SessionEnding += (_, _) => PerformFullAppShutdown();
+                Microsoft.Win32.SystemEvents.PowerModeChanged += OnSystemPowerModeChanged;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[SystemEvents] Register error: {ex.Message}");
+            }
+        }
+
         PropertyChanged += (sender, e) =>
         {
             if (e.Property == WindowStateProperty)
@@ -1390,17 +1405,28 @@ public partial class MainWindow : Window
     {
         try
         {
-            await _apiClient.ClockInAsync(_stationId);
+            var res = await _apiClient.ClockInAsync(_stationId);
             TxtShiftState.Text = "Clocked In";
             TxtShiftState.Foreground = new SolidColorBrush(Color.FromRgb(52, 211, 153));
             BtnClockToggle.Content = "Clock Out";
             BtnClockToggle.Classes.Clear();
             BtnClockToggle.Classes.Add("primary");
-            TxtShiftHours.Text = $"Shift Started: {DateTime.Now:hh:mm tt}";
 
-            _shiftStartTime = DateTime.UtcNow;
+            if (res != null && res.ClockIn != default)
+            {
+                _shiftStartTime = res.ClockIn;
+                var localClockIn = res.ClockIn.ToLocalTime();
+                TxtShiftHours.Text = $"Shift Started: {localClockIn:hh:mm tt}";
+            }
+            else
+            {
+                _shiftStartTime = DateTime.UtcNow;
+                TxtShiftHours.Text = $"Shift Started: {DateTime.Now:hh:mm tt}";
+            }
+
             ShiftClockBadge.IsVisible = true;
-            TxtShiftDigitalClock.Text = "00:00:00";
+            var elapsed = DateTime.UtcNow - _shiftStartTime.Value;
+            TxtShiftDigitalClock.Text = $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
             StartShiftClock();
         }
         catch (Exception ex)
@@ -1413,6 +1439,12 @@ public partial class MainWindow : Window
     {
         try
         {
+            try
+            {
+                await _syncWorker.SyncPendingBatchAsync();
+            }
+            catch { }
+
             await _apiClient.ClockOutAsync(_stationId);
             TxtShiftState.Text = "Clocked Out";
             TxtShiftState.Foreground = new SolidColorBrush(Color.FromRgb(245, 158, 11));
@@ -1429,18 +1461,67 @@ public partial class MainWindow : Window
         }
     }
 
+    private DateTime? _lastTickUtc;
+    private DateTime? _sleepEnteredUtc;
+
+    private void OnSystemPowerModeChanged(object? sender, Microsoft.Win32.PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == Microsoft.Win32.PowerModes.Suspend)
+        {
+            _sleepEnteredUtc = DateTime.UtcNow;
+        }
+        else if (e.Mode == Microsoft.Win32.PowerModes.Resume)
+        {
+            var now = DateTime.UtcNow;
+            if (_shiftStartTime.HasValue)
+            {
+                var totalShiftElapsed = now - _shiftStartTime.Value;
+                var sleepDuration = _sleepEnteredUtc.HasValue ? (now - _sleepEnteredUtc.Value) : TimeSpan.Zero;
+
+                if (totalShiftElapsed.TotalHours >= 12.0 || sleepDuration.TotalHours >= 12.0)
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+                    {
+                        await ClockOutInternalAsync();
+                        ShowToast("Shift Auto-Closed", "System resumed after 12+ hours. Shift has been automatically clocked out.");
+                    });
+                }
+            }
+        }
+    }
+
     private void StartShiftClock()
     {
         _shiftTimer?.Stop();
+        _lastTickUtc = DateTime.UtcNow;
         _shiftTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(1)
         };
-        _shiftTimer.Tick += (_, _) =>
+        _shiftTimer.Tick += async (_, _) =>
         {
             if (_shiftStartTime.HasValue)
             {
-                var elapsed = DateTime.UtcNow - _shiftStartTime.Value;
+                var now = DateTime.UtcNow;
+                var elapsed = now - _shiftStartTime.Value;
+
+                // 1. Shift duration reached or exceeded 12 hours -> auto clock out
+                if (elapsed.TotalHours >= 12.0)
+                {
+                    await ClockOutInternalAsync();
+                    ShowToast("Shift Auto-Closed", "Your shift reached the 12-hour limit and was automatically clocked out.");
+                    return;
+                }
+
+                // 2. System sleep/hibernation gap exceeded 12 hours -> auto clock out
+                if (_lastTickUtc.HasValue && (now - _lastTickUtc.Value).TotalHours >= 12.0)
+                {
+                    await ClockOutInternalAsync();
+                    ShowToast("Shift Auto-Closed", "System sleep exceeded 12 hours. Shift was automatically clocked out.");
+                    return;
+                }
+
+                _lastTickUtc = now;
                 TxtShiftDigitalClock.Text = $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
             }
         };
@@ -2882,8 +2963,21 @@ public partial class MainWindow : Window
         _toastDismissTimer?.Stop();
     }
 
-    private void BtnLogout_Click(object? sender, RoutedEventArgs e)
+    private async void BtnLogout_Click(object? sender, RoutedEventArgs e)
     {
+        if (TxtShiftState.Text == "Clocked In" || _shiftStartTime.HasValue)
+        {
+            try
+            {
+                await _syncWorker.SyncPendingBatchAsync();
+                await _apiClient.ClockOutAsync(_stationId);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[Logout] Clock-out on logout error: {ex.Message}");
+            }
+        }
+
         StopShiftClock();
         _engine.Stop();
         _syncWorker.Stop();
@@ -2945,6 +3039,27 @@ public partial class MainWindow : Window
 
         try
         {
+            // 1. Auto clock-out if currently clocked in upon app close, PC shutdown, or restart
+            if (TxtShiftState.Text == "Clocked In" || _shiftStartTime.HasValue)
+            {
+                try
+                {
+                    var syncTask = _syncWorker.SyncPendingBatchAsync();
+                    syncTask.Wait(TimeSpan.FromSeconds(2));
+                }
+                catch { }
+
+                try
+                {
+                    var clockOutTask = _apiClient.ClockOutAsync(_stationId);
+                    clockOutTask.Wait(TimeSpan.FromSeconds(3));
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[Shutdown] Clock-out on exit error: {ex.Message}");
+                }
+            }
+
             StopShiftClock();
             _autoRefreshTimer?.Stop();
             _toastDismissTimer?.Stop();

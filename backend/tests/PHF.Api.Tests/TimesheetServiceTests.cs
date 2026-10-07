@@ -59,7 +59,7 @@ public class TimesheetServiceTests
                 new() { StationId = "ST-101", State = StationState.ACTIVE.ToString() }
             });
 
-        var timesheetService = new TimesheetService(context, mockTelemetry.Object);
+        var timesheetService = new TimesheetService(context, mockTelemetry.Object, new Mock<IShiftService>().Object);
 
         // Act
         var csvBytes = await timesheetService.ExportTimesheetCsvAsync(DateTime.UtcNow.Date);
@@ -124,7 +124,7 @@ public class TimesheetServiceTests
         mockTelemetry.Setup(t => t.GetWorkstationsStatusAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<WorkstationStatusDto>());
 
-        var timesheetService = new TimesheetService(context, mockTelemetry.Object);
+        var timesheetService = new TimesheetService(context, mockTelemetry.Object, new Mock<IShiftService>().Object);
 
         // Act
         var summary = await timesheetService.GetSummaryAsync(firstOfMonth, null, "MONTH");
@@ -181,7 +181,7 @@ public class TimesheetServiceTests
         mockTelemetry.Setup(t => t.GetWorkstationsStatusAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<WorkstationStatusDto>());
 
-        var timesheetService = new TimesheetService(context, mockTelemetry.Object);
+        var timesheetService = new TimesheetService(context, mockTelemetry.Object, new Mock<IShiftService>().Object);
 
         // Act
         var summary = await timesheetService.GetSummaryAsync(null, null, "YESTERDAY");
@@ -234,7 +234,7 @@ public class TimesheetServiceTests
         mockTelemetry.Setup(t => t.GetWorkstationsStatusAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<WorkstationStatusDto>());
 
-        var timesheetService = new TimesheetService(context, mockTelemetry.Object);
+        var timesheetService = new TimesheetService(context, mockTelemetry.Object, new Mock<IShiftService>().Object);
 
         // Act
         var summary = await timesheetService.GetSummaryAsync(null, null, "TODAY");
@@ -305,7 +305,7 @@ public class TimesheetServiceTests
         mockTelemetry.Setup(t => t.GetWorkstationsStatusAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<WorkstationStatusDto>());
 
-        var timesheetService = new TimesheetService(context, mockTelemetry.Object);
+        var timesheetService = new TimesheetService(context, mockTelemetry.Object, new Mock<IShiftService>().Object);
 
         // Act
         var summary = await timesheetService.GetSummaryAsync(today, null, "TODAY");
@@ -341,7 +341,7 @@ public class TimesheetServiceTests
         mockTelemetry.Setup(t => t.GetWorkstationsStatusAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<WorkstationStatusDto>());
 
-        var timesheetService = new TimesheetService(context, mockTelemetry.Object);
+        var timesheetService = new TimesheetService(context, mockTelemetry.Object, new Mock<IShiftService>().Object);
 
         // Act - Request scoped specifically to emp1
         var summary = await timesheetService.GetSummaryAsync(today, null, "TODAY", emp1.Id);
@@ -383,7 +383,7 @@ public class TimesheetServiceTests
         mockTelemetry.Setup(t => t.GetWorkstationsStatusAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<WorkstationStatusDto>());
 
-        var timesheetService = new TimesheetService(context, mockTelemetry.Object);
+        var timesheetService = new TimesheetService(context, mockTelemetry.Object, new Mock<IShiftService>().Object);
 
         // Act: Request Day 1
         var summaryDay1 = await timesheetService.GetSummaryAsync(day1, null, "DAY");

@@ -28,8 +28,8 @@ public class ShiftService : IShiftService
 
         if (existingActive != null)
         {
-            // If active shift is from a previous calendar day, auto-close it and create a fresh one for today
-            if (existingActive.ClockIn.Date < DateTime.UtcNow.Date)
+            // If active shift has exceeded 12 hours or is from a previous calendar day, auto-close it and create a fresh one for today
+            if (existingActive.ClockIn.Date < DateTime.UtcNow.Date || (DateTime.UtcNow - existingActive.ClockIn) >= TimeSpan.FromHours(12))
             {
                 var autoOut = existingActive.ClockIn.AddHours(8);
                 if (autoOut > DateTime.UtcNow) autoOut = DateTime.UtcNow;
@@ -38,7 +38,7 @@ public class ShiftService : IShiftService
                 var elapsed = Math.Max(0, (int)(existingActive.ClockOut.Value - existingActive.ClockIn).TotalSeconds);
                 if (existingActive.TotalActiveSeconds == 0)
                 {
-                    existingActive.TotalActiveSeconds = elapsed;
+                    existingActive.TotalActiveSeconds = Math.Min(elapsed, 28800);
                 }
                 await _dbContext.SaveChangesAsync(cancellationToken);
             }
@@ -132,7 +132,70 @@ public class ShiftService : IShiftService
             .OrderByDescending(s => s.ClockIn)
             .FirstOrDefaultAsync(s => s.UserId == userId, cancellationToken);
 
+        if (shift != null && shift.Status == ShiftStatus.ACTIVE.ToString())
+        {
+            // Auto-close if older than 12 hours or from previous calendar day
+            if (shift.ClockIn.Date < DateTime.UtcNow.Date || (DateTime.UtcNow - shift.ClockIn) >= TimeSpan.FromHours(12))
+            {
+                var autoOut = shift.ClockIn.AddHours(8);
+                if (autoOut > DateTime.UtcNow) autoOut = DateTime.UtcNow;
+                shift.ClockOut = autoOut;
+                shift.Status = ShiftStatus.COMPLETED.ToString();
+                var elapsed = Math.Max(0, (int)(shift.ClockOut.Value - shift.ClockIn).TotalSeconds);
+                if (shift.TotalActiveSeconds == 0)
+                {
+                    shift.TotalActiveSeconds = Math.Min(elapsed, 28800);
+                }
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+        }
+
         return shift != null ? await MapToDto(shift, cancellationToken) : null;
+    }
+
+    public async Task<int> AutoCloseStaleShiftsAsync(CancellationToken cancellationToken = default)
+    {
+        var cutoff = DateTime.UtcNow.AddHours(-12);
+        var todayUtc = DateTime.UtcNow.Date;
+
+        var staleShifts = await _dbContext.Shifts
+            .Where(s => s.Status == ShiftStatus.ACTIVE.ToString() && (s.ClockIn < cutoff || s.ClockIn.Date < todayUtc))
+            .ToListAsync(cancellationToken);
+
+        if (!staleShifts.Any()) return 0;
+
+        foreach (var shift in staleShifts)
+        {
+            var autoOut = shift.ClockIn.AddHours(8);
+            if (autoOut > DateTime.UtcNow) autoOut = DateTime.UtcNow;
+            shift.ClockOut = autoOut;
+            shift.Status = ShiftStatus.COMPLETED.ToString();
+
+            var elapsedShiftSeconds = Math.Max(0, (int)(shift.ClockOut.Value - shift.ClockIn).TotalSeconds);
+
+            var shiftLogStats = await _dbContext.AppActivityLogs
+                .Where(l => l.UserId == shift.UserId && l.LoggedAt >= shift.ClockIn && l.LoggedAt <= shift.ClockOut.Value)
+                .GroupBy(l => l.IsIdle)
+                .Select(g => new { IsIdle = g.Key, TotalSeconds = g.Sum(l => l.DurationSeconds) })
+                .ToListAsync(cancellationToken);
+
+            var loggedActive = shiftLogStats.FirstOrDefault(s => !s.IsIdle)?.TotalSeconds ?? 0;
+            var loggedIdle = shiftLogStats.FirstOrDefault(s => s.IsIdle)?.TotalSeconds ?? 0;
+
+            if (loggedActive + loggedIdle > 0)
+            {
+                shift.TotalIdleSeconds = Math.Min(elapsedShiftSeconds, loggedIdle);
+                shift.TotalActiveSeconds = Math.Min(elapsedShiftSeconds - shift.TotalIdleSeconds, Math.Max(loggedActive, 0));
+            }
+            else
+            {
+                shift.TotalActiveSeconds = Math.Min(elapsedShiftSeconds, 28800);
+                shift.TotalIdleSeconds = 0;
+            }
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return staleShifts.Count;
     }
 
     private async Task<ShiftResponseDto> MapToDto(Shift shift, CancellationToken cancellationToken)

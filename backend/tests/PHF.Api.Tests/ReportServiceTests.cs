@@ -1,8 +1,10 @@
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 using PHF.Core.DTOs;
 using PHF.Core.Entities;
 using PHF.Core.Enums;
+using PHF.Core.Interfaces;
 using PHF.Infrastructure.Data;
 using PHF.Infrastructure.Services;
 using Xunit;
@@ -80,7 +82,7 @@ public class ReportServiceTests
 
         await context.SaveChangesAsync();
 
-        var service = new ReportService(context);
+        var service = new ReportService(context, new Mock<IShiftService>().Object);
 
         // Act - Request October 2026 Attendance Report
         var report = await service.GetAttendanceReportAsync(2026, 10);
@@ -168,7 +170,7 @@ public class ReportServiceTests
 
         await context.SaveChangesAsync();
 
-        var service = new ReportService(context);
+        var service = new ReportService(context, new Mock<IShiftService>().Object);
 
         // Act
         var report = await service.GetPerformanceReportAsync(oct1.Date, oct1.Date.AddDays(1), "DAY");
@@ -234,7 +236,7 @@ public class ReportServiceTests
 
         await context.SaveChangesAsync();
 
-        var service = new ReportService(context);
+        var service = new ReportService(context, new Mock<IShiftService>().Object);
 
         // Act
         var report = await service.GetLeaveReportAsync(oct1, oct1.AddDays(10), "CUSTOM");
@@ -263,7 +265,7 @@ public class ReportServiceTests
         context.Users.Add(emp);
         await context.SaveChangesAsync();
 
-        var service = new ReportService(context);
+        var service = new ReportService(context, new Mock<IShiftService>().Object);
 
         // Act
         var attCsv = await service.ExportAttendanceReportCsvAsync(2026, 10);

@@ -13,11 +13,13 @@ public class TimesheetService : ITimesheetService
 {
     private readonly ApplicationDbContext _dbContext;
     private readonly ITelemetryService _telemetryService;
+    private readonly IShiftService _shiftService;
 
-    public TimesheetService(ApplicationDbContext dbContext, ITelemetryService telemetryService)
+    public TimesheetService(ApplicationDbContext dbContext, ITelemetryService telemetryService, IShiftService shiftService)
     {
         _dbContext = dbContext;
         _telemetryService = telemetryService;
+        _shiftService = shiftService;
     }
 
     public async Task<TimesheetSummaryDto> GetSummaryAsync(
@@ -27,6 +29,16 @@ public class TimesheetService : ITimesheetService
         Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
+        // 0. Auto-close any stale active shifts across the system before calculating timesheets
+        try
+        {
+            await _shiftService.AutoCloseStaleShiftsAsync(cancellationToken);
+        }
+        catch
+        {
+            // Best effort safeguard
+        }
+
         var now = DateTime.UtcNow;
         var normalizedPeriod = (period ?? "DAY").Trim().ToUpperInvariant();
 
@@ -170,6 +182,10 @@ public class TimesheetService : ITimesheetService
         foreach (var s in shifts)
         {
             var sEnd = s.Status == ShiftStatus.ACTIVE.ToString() ? now : (s.ClockOut ?? s.ClockIn);
+            if (s.Status == ShiftStatus.ACTIVE.ToString() && (sEnd - s.ClockIn).TotalHours > 12.0)
+            {
+                sEnd = s.ClockIn.AddHours(12.0);
+            }
             var dStart = s.ClockIn.Date < rangeStart.Date ? rangeStart.Date : s.ClockIn.Date;
             var dEnd = sEnd.Date >= rangeEnd.Date ? rangeEnd.AddDays(-1).Date : sEnd.Date;
             for (var cur = dStart; cur <= dEnd; cur = cur.AddDays(1))
@@ -202,7 +218,16 @@ public class TimesheetService : ITimesheetService
             // Shifts overlapping this specific calendar day
             var dayShifts = shifts.Where(s =>
             {
-                var sEnd = s.Status == ShiftStatus.ACTIVE.ToString() ? now : (s.ClockOut ?? s.ClockIn);
+                DateTime sEnd;
+                if (s.Status == ShiftStatus.ACTIVE.ToString())
+                {
+                    var maxActive = s.ClockIn.AddHours(12.0);
+                    sEnd = now < maxActive ? now : maxActive;
+                }
+                else
+                {
+                    sEnd = s.ClockOut ?? s.ClockIn;
+                }
                 return s.ClockIn < dayEnd && sEnd > dayStart;
             }).ToList();
 
@@ -233,7 +258,9 @@ public class TimesheetService : ITimesheetService
                     DateTime sEnd;
                     if (s.Status == ShiftStatus.ACTIVE.ToString())
                     {
-                        sEnd = (dayStart == now.Date) ? now : dayEnd;
+                        var maxActive = s.ClockIn.AddHours(12.0);
+                        var effectiveNow = now < maxActive ? now : maxActive;
+                        sEnd = (dayStart == now.Date) ? effectiveNow : dayEnd;
                     }
                     else
                     {
@@ -300,7 +327,7 @@ public class TimesheetService : ITimesheetService
 
                 var firstClockIn = empShifts.OrderBy(s => s.ClockIn).FirstOrDefault()?.ClockIn;
                 var lastClockOut = empShifts.OrderByDescending(s => s.ClockOut).FirstOrDefault()?.ClockOut;
-                var activeShift = empShifts.FirstOrDefault(s => s.Status == ShiftStatus.ACTIVE.ToString());
+                var activeShift = empShifts.FirstOrDefault(s => s.Status == ShiftStatus.ACTIVE.ToString() && (now - s.ClockIn).TotalHours < 12.0);
 
                 dailyRows.Add(new TimesheetRowDto
                 {
@@ -346,7 +373,7 @@ public class TimesheetService : ITimesheetService
             var empShifts = shifts.Where(s => s.UserId == emp.Id).ToList();
             var firstClockIn = empShifts.OrderBy(s => s.ClockIn).FirstOrDefault()?.ClockIn;
             var lastClockOut = empShifts.OrderByDescending(s => s.ClockOut).FirstOrDefault()?.ClockOut;
-            var activeShift = empShifts.FirstOrDefault(s => s.Status == ShiftStatus.ACTIVE.ToString());
+            var activeShift = empShifts.FirstOrDefault(s => s.Status == ShiftStatus.ACTIVE.ToString() && (now - s.ClockIn).TotalHours < 12.0);
 
             var periodLabel = isSingleDay
                 ? rangeStart.ToString("yyyy-MM-dd")

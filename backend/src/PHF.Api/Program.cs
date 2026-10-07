@@ -202,6 +202,7 @@ builder.Services.AddScoped<ILeaveService, LeaveService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddSingleton<IStorageService, LocalStorageService>();
 builder.Services.AddScoped<IRealtimeNotifier, SignalRRealtimeNotifier>();
+builder.Services.AddHostedService<ShiftSweeperHostedService>();
 
 var app = builder.Build();
 

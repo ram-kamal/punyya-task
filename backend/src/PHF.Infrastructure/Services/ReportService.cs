@@ -12,10 +12,12 @@ namespace PHF.Infrastructure.Services;
 public class ReportService : IReportService
 {
     private readonly ApplicationDbContext _dbContext;
+    private readonly IShiftService _shiftService;
 
-    public ReportService(ApplicationDbContext dbContext)
+    public ReportService(ApplicationDbContext dbContext, IShiftService shiftService)
     {
         _dbContext = dbContext;
+        _shiftService = shiftService;
     }
 
     #region 1. Month-End Attendance Report
@@ -26,6 +28,12 @@ public class ReportService : IReportService
         Guid? employeeId = null, 
         CancellationToken cancellationToken = default)
     {
+        try
+        {
+            await _shiftService.AutoCloseStaleShiftsAsync(cancellationToken);
+        }
+        catch { }
+
         var now = DateTime.UtcNow;
         var targetYear = year ?? now.Year;
         var targetMonth = month ?? now.Month;
@@ -136,7 +144,16 @@ public class ReportService : IReportService
 
                 var dayShifts = empShifts.Where(s =>
                 {
-                    var sEnd = s.Status == ShiftStatus.ACTIVE.ToString() ? now : (s.ClockOut ?? s.ClockIn);
+                    DateTime sEnd;
+                    if (s.Status == ShiftStatus.ACTIVE.ToString())
+                    {
+                        var maxEnd = s.ClockIn.AddHours(12.0);
+                        sEnd = now < maxEnd ? now : maxEnd;
+                    }
+                    else
+                    {
+                        sEnd = s.ClockOut ?? s.ClockIn;
+                    }
                     return s.ClockIn < nextDay && sEnd > dayDate;
                 }).ToList();
 
@@ -150,9 +167,17 @@ public class ReportService : IReportService
 
                 foreach (var s in dayShifts)
                 {
-                    var sEnd = s.Status == ShiftStatus.ACTIVE.ToString()
-                        ? (dayDate == now.Date ? now : nextDay)
-                        : (s.ClockOut ?? s.ClockIn);
+                    DateTime sEnd;
+                    if (s.Status == ShiftStatus.ACTIVE.ToString())
+                    {
+                        var maxEnd = s.ClockIn.AddHours(12.0);
+                        var effectiveNow = now < maxEnd ? now : maxEnd;
+                        sEnd = (dayDate == now.Date ? effectiveNow : nextDay);
+                    }
+                    else
+                    {
+                        sEnd = s.ClockOut ?? s.ClockIn;
+                    }
 
                     var sliceStart = s.ClockIn > dayDate ? s.ClockIn : dayDate;
                     var sliceEnd = sEnd < nextDay ? sEnd : nextDay;
@@ -398,6 +423,12 @@ public class ReportService : IReportService
         Guid? employeeId = null, 
         CancellationToken cancellationToken = default)
     {
+        try
+        {
+            await _shiftService.AutoCloseStaleShiftsAsync(cancellationToken);
+        }
+        catch { }
+
         var (rangeStart, rangeEnd, periodLabel) = ResolveDateRange(startDate, endDate, period);
 
         // Query Employees
@@ -481,7 +512,16 @@ public class ReportService : IReportService
 
             foreach (var s in empShifts)
             {
-                var sEnd = s.Status == ShiftStatus.ACTIVE.ToString() ? now : (s.ClockOut ?? s.ClockIn);
+                DateTime sEnd;
+                if (s.Status == ShiftStatus.ACTIVE.ToString())
+                {
+                    var maxEnd = s.ClockIn.AddHours(12.0);
+                    sEnd = now < maxEnd ? now : maxEnd;
+                }
+                else
+                {
+                    sEnd = s.ClockOut ?? s.ClockIn;
+                }
                 var sliceStart = s.ClockIn > rangeStart ? s.ClockIn : rangeStart;
                 var sliceEnd = sEnd < rangeEnd ? sEnd : rangeEnd;
                 var elapsed = Math.Max(0, (int)(sliceEnd - sliceStart).TotalSeconds);
