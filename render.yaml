@@ -16,7 +16,7 @@ services:
       - key: DatabaseProvider
         value: PostgreSQL
       - key: DATABASE_URL
-        value: "Host=db.qgxdhwpbqkcvqhewpfwo.supabase.co;Port=5432;Database=postgres;Username=postgres;Password=Kd81P84W9bEUCExG;SSL Mode=Require;Trust Server Certificate=true;"
+        value: "Host=aws-0-ap-south-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.qgxdhwpbqkcvqhewpfwo;Password=Kd81P84W9bEUCExG;SSL Mode=Require;Trust Server Certificate=true;"
       - key: Jwt__Secret
         generateValue: true
       - key: Jwt__Issuer
