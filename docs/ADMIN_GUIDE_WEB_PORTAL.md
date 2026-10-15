@@ -302,7 +302,7 @@ The backend and web frontend are deployed via Render:
 
 | Variable Name | Purpose | Example / Default |
 | :--- | :--- | :--- |
-| `DATABASE_URL` | Supabase PostgreSQL Connection Pooler | `postgres://postgres.qgxdhwpbqkcvqhewpfwo:Kd81P84W9bEUCExG@aws-0-ap-south-1.pooler.supabase.com:5432/postgres` |
+| `DATABASE_URL` | Supabase PostgreSQL Connection Pooler | `postgres://postgres.qgxdhwpbqkcvqhewpfwo:[YOUR-PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:5432/postgres` |
 | `DatabaseProvider` | Database engine selector | `PostgreSQL` |
 | `JWT_SECRET` | 256-bit symmetric HMAC-SHA key | Configured in Render Environment Settings |
 | `DEFAULT_ADMIN_EMAIL` | Fallback admin email if no admin exists | `dhyanidhvaj@gmail.com` |
