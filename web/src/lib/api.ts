@@ -252,6 +252,45 @@ export async function attachDeliverableLink(
   }
 }
 
+export async function uploadDeliverableFile(
+  taskId: string,
+  file: File
+): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const authHeaders = await getAuthHeader();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000); // 1 minute 30 seconds HTTP timeout
+
+    const res = await fetch(`${API_BASE}/api/v1/tasks/${taskId}/attachments`, {
+      method: 'POST',
+      headers: {
+        ...authHeaders,
+      },
+      body: formData,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    handleAuthStatus(res.status);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      return { success: false, error: err?.message || `Upload failed with status ${res.status}` };
+    }
+
+    const data = await res.json();
+    return { success: true, data };
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      return { success: false, error: 'File upload timed out after 1 minute 30 seconds. Please check your network speed and try again.' };
+    }
+    return { success: false, error: err.message || 'File upload failed.' };
+  }
+}
+
 export async function updateTask(
   taskId: string,
   payload: {

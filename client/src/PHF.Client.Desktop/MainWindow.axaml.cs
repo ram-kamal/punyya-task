@@ -1622,7 +1622,41 @@ public partial class MainWindow : Window
             var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
                 Title = "Select Work Deliverable Proof",
-                AllowMultiple = false
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("All Supported Formats")
+                    {
+                        Patterns = new[]
+                        {
+                            "*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp", "*.bmp", "*.svg", "*.ico", "*.tiff", "*.tif", "*.heic", "*.heif", "*.avif",
+                            "*.mp4", "*.mkv", "*.mov", "*.avi", "*.wmv", "*.webm", "*.flv", "*.m4v", "*.3gp", "*.mpeg", "*.mpg",
+                            "*.zip", "*.rar", "*.7z", "*.tar", "*.gz",
+                            "*.docx", "*.doc", "*.xlsx", "*.xls", "*.csv", "*.pptx", "*.ppt", "*.pdf", "*.txt", "*.rtf", "*.json", "*.xml",
+                            "*.mp3", "*.wav", "*.m4a", "*.aac", "*.ogg"
+                        }
+                    },
+                    new FilePickerFileType("Images (*.png, *.jpg, *.jpeg, *.gif, *.webp, *.svg)")
+                    {
+                        Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp", "*.bmp", "*.svg", "*.ico", "*.tiff", "*.tif", "*.heic", "*.avif" }
+                    },
+                    new FilePickerFileType("Videos (*.mp4, *.mkv, *.mov, *.avi, *.webm)")
+                    {
+                        Patterns = new[] { "*.mp4", "*.mkv", "*.mov", "*.avi", "*.wmv", "*.webm", "*.flv", "*.m4v", "*.3gp" }
+                    },
+                    new FilePickerFileType("Documents (*.pdf, *.docx, *.doc, *.xlsx, *.xls, *.pptx, *.txt)")
+                    {
+                        Patterns = new[] { "*.pdf", "*.docx", "*.doc", "*.xlsx", "*.xls", "*.csv", "*.pptx", "*.ppt", "*.txt", "*.rtf", "*.json" }
+                    },
+                    new FilePickerFileType("Archives (*.zip, *.rar, *.7z, *.tar, *.gz)")
+                    {
+                        Patterns = new[] { "*.zip", "*.rar", "*.7z", "*.tar", "*.gz" }
+                    },
+                    new FilePickerFileType("All Files (*.*)")
+                    {
+                        Patterns = new[] { "*.*" }
+                    }
+                }
             });
 
             if (files.Count > 0)
@@ -1630,7 +1664,11 @@ public partial class MainWindow : Window
                 _stagedFilePath = files[0].TryGetLocalPath() ?? (files[0].Path.IsFile ? files[0].Path.LocalPath : null);
                 if (!string.IsNullOrWhiteSpace(_stagedFilePath) && File.Exists(_stagedFilePath))
                 {
-                    TxtSelectedFilePath.Text = $"Selected: {Path.GetFileName(_stagedFilePath)} ({new FileInfo(_stagedFilePath).Length / 1024} KB)";
+                    var fileInfo = new FileInfo(_stagedFilePath);
+                    var sizeText = fileInfo.Length > 1024 * 1024 
+                        ? $"{Math.Round(fileInfo.Length / (1024.0 * 1024.0), 1)} MB" 
+                        : $"{fileInfo.Length / 1024} KB";
+                    TxtSelectedFilePath.Text = $"Selected: {fileInfo.Name} ({sizeText})";
                 }
                 else
                 {
@@ -1675,6 +1713,7 @@ public partial class MainWindow : Window
             }
             else if (hasValidFile)
             {
+                TxtSelectedFilePath.Text = "⏳ Uploading deliverable proof (1m 30s timeout)...";
                 await _apiClient.UploadDeliverableAsync(_modalTargetTaskId.Value, _stagedFilePath!);
             }
 
@@ -1687,6 +1726,11 @@ public partial class MainWindow : Window
             {
                 await LoadAllAdminTasksAsync(silent: true);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            TxtSelectedFilePath.Text = "⚠️ Upload timed out after 1 minute 30 seconds.";
+            ShowToast("⚠️ Upload Timeout", "Upload exceeded the 90-second limit. Please verify network speed.");
         }
         catch (Exception ex)
         {

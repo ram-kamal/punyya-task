@@ -1114,7 +1114,7 @@
                     <Border Background="#1A000000" BorderBrush="#50E11D48" BorderThickness="1.5" CornerRadius="8" Height="90" Padding="14">
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="4">
                             <TextBlock Text="📁 Select Local File or Enter Link Below" FontSize="13" FontWeight="SemiBold" Foreground="#FB7185" HorizontalAlignment="Center" />
-                            <TextBlock Text="ZIP, PDF, DOCX, MP4, code, screenshots, etc." FontSize="10.5" Foreground="#94A3B8" HorizontalAlignment="Center" />
+                            <TextBlock Text="Supports: Images, Videos, ZIP, DOCX, Excel, PPT, PDF, Text, etc. (1m 30s timeout • Max 100 MB)" FontSize="10" Foreground="#94A3B8" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
                         </StackPanel>
                     </Border>
 

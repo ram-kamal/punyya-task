@@ -19,6 +19,20 @@ builder.Services.AddControllers();
 builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
 
+// Configure FormOptions for larger deliverable uploads (100 MB)
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 100 * 1024 * 1024L; // 100 MB
+});
+
+// Configure Kestrel limits and 90-second (1 min 30 sec) request timeout
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024L; // 100 MB
+    options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(90);
+    options.Limits.KeepAliveTimeout = TimeSpan.FromSeconds(90);
+});
+
 // 2. Swagger with Bearer Auth
 builder.Services.AddSwaggerGen(c =>
 {

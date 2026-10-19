@@ -44,7 +44,7 @@ public class ApiClient
         var client = new HttpClient
         {
             BaseAddress = new Uri(baseUrl),
-            Timeout = TimeSpan.FromSeconds(60)
+            Timeout = TimeSpan.FromSeconds(90) // 1 minute 30 seconds HTTP timeout
         };
         if (!string.IsNullOrWhiteSpace(token))
         {
@@ -182,6 +182,9 @@ public class ApiClient
             throw new FileNotFoundException("Deliverable file not found", filePath);
         }
 
+        using var uploadCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        uploadCts.CancelAfter(TimeSpan.FromSeconds(90)); // 1 minute 30 seconds
+
         using var content = new MultipartFormDataContent();
         using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using var streamContent = new StreamContent(fileStream);
@@ -190,34 +193,71 @@ public class ApiClient
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
         var mime = ext switch
         {
-            ".pdf" => "application/pdf",
+            // Images
             ".png" => "image/png",
             ".jpg" or ".jpeg" => "image/jpeg",
             ".gif" => "image/gif",
             ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            ".svg" => "image/svg+xml",
+            ".ico" => "image/x-icon",
+            ".tiff" or ".tif" => "image/tiff",
+            ".heic" => "image/heic",
+            ".heif" => "image/heif",
+            ".avif" => "image/avif",
+            // Videos
+            ".mp4" => "video/mp4",
+            ".mkv" => "video/x-matroska",
+            ".mov" => "video/quicktime",
+            ".avi" => "video/x-msvideo",
+            ".wmv" => "video/x-ms-wmv",
+            ".webm" => "video/webm",
+            ".flv" => "video/x-flv",
+            ".m4v" => "video/x-m4v",
+            ".3gp" => "video/3gpp",
+            ".mpeg" or ".mpg" => "video/mpeg",
+            // Audio
+            ".mp3" => "audio/mpeg",
+            ".wav" => "audio/wav",
+            ".aac" => "audio/aac",
+            ".m4a" => "audio/m4a",
+            ".ogg" => "audio/ogg",
+            ".flac" => "audio/flac",
+            // Archives & Compressed
             ".zip" => "application/zip",
             ".rar" => "application/x-rar-compressed",
             ".7z" => "application/x-7z-compressed",
+            ".tar" => "application/x-tar",
+            ".gz" => "application/gzip",
+            // Documents & Office
             ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".doc" => "application/msword",
             ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            ".txt" => "text/plain",
+            ".xls" => "application/vnd.ms-excel",
             ".csv" => "text/csv",
+            ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            ".ppt" => "application/vnd.ms-powerpoint",
+            ".pdf" => "application/pdf",
+            ".txt" => "text/plain",
+            ".rtf" => "application/rtf",
             ".json" => "application/json",
-            ".mp4" => "video/mp4",
+            ".xml" => "application/xml",
+            ".yaml" or ".yml" => "text/yaml",
+            ".md" => "text/markdown",
+            ".log" => "text/plain",
             _ => "application/octet-stream"
         };
         streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mime);
         content.Add(streamContent, "file", fileName);
 
-        var response = await _httpClient.PostAsync($"/api/v1/tasks/{taskId}/attachments", content, ct);
+        var response = await _httpClient.PostAsync($"/api/v1/tasks/{taskId}/attachments", content, uploadCts.Token);
         if (!response.IsSuccessStatusCode)
         {
-            var err = await response.Content.ReadAsStringAsync(ct);
+            var err = await response.Content.ReadAsStringAsync(uploadCts.Token);
             throw new HttpRequestException($"Upload failed: {response.StatusCode} - {err}");
         }
 
-        return await response.Content.ReadFromJsonAsync<TaskAttachmentDto>(_jsonOptions, ct);
+        return await response.Content.ReadFromJsonAsync<TaskAttachmentDto>(_jsonOptions, uploadCts.Token);
     }
 
     public async Task<ShiftResponseDto?> ClockInAsync(string stationId, CancellationToken ct = default)

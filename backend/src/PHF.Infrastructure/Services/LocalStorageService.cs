@@ -24,9 +24,17 @@ public class LocalStorageService : IStorageService
 
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".doc", ".docx",
-        ".xls", ".xlsx", ".ppt", ".pptx", ".zip", ".rar", ".7z",
-        ".txt", ".csv", ".json", ".xml", ".mp4", ".mp3"
+        // Documents & Text
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".ppt", ".pptx", ".txt", ".rtf", ".odt", ".ods", ".odp",
+        ".json", ".xml", ".yaml", ".yml", ".md", ".log",
+        // Images (all standard formats)
+        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".ico", ".tiff", ".tif", ".heic", ".heif", ".avif", ".raw", ".psd", ".ai",
+        // Videos (all standard formats)
+        ".mp4", ".mkv", ".mov", ".avi", ".wmv", ".webm", ".flv", ".m4v", ".3gp", ".mpeg", ".mpg",
+        // Audio
+        ".mp3", ".wav", ".aac", ".m4a", ".ogg", ".flac", ".wma",
+        // Archives & Compressed
+        ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz"
     };
 
     private static readonly HashSet<string> BlockedExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -36,7 +44,7 @@ public class LocalStorageService : IStorageService
         ".hta", ".cpl", ".msc", ".jar", ".jsp", ".asp", ".aspx", ".php"
     };
 
-    private const long MaxFileSizeBytes = 25 * 1024 * 1024; // 25 MB
+    private const long MaxFileSizeBytes = 100 * 1024 * 1024; // 100 MB
 
     public async Task<string> SaveFileAsync(string fileName, Stream contentStream, string contentType, CancellationToken cancellationToken = default)
     {
@@ -48,7 +56,7 @@ public class LocalStorageService : IStorageService
 
         if (contentStream.CanSeek && contentStream.Length > MaxFileSizeBytes)
         {
-            throw new ArgumentException("File size exceeds maximum permitted limit of 25 MB.");
+            throw new ArgumentException("File size exceeds maximum permitted limit of 100 MB.");
         }
 
         var safeFileName = Path.GetFileName(fileName);
@@ -67,7 +75,7 @@ public class LocalStorageService : IStorageService
                 {
                     fileStream.Dispose();
                     try { File.Delete(fullPath); } catch { }
-                    throw new ArgumentException("File size exceeds maximum permitted limit of 25 MB.");
+                    throw new ArgumentException("File size exceeds maximum permitted limit of 100 MB.");
                 }
                 await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
             }
