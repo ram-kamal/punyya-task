@@ -106,6 +106,7 @@ import {
   downloadPerformanceReportCsv,
   fetchLeaveReport,
   downloadLeaveReportCsv,
+  broadcastAppUpdate,
   login,
   logout,
   getStoredUser,
@@ -505,6 +506,24 @@ export default function AdminDashboardPage() {
   };
 
   const [isExportingCsv, setIsExportingCsv] = useState(false);
+  const [isBroadcastingUpdate, setIsBroadcastingUpdate] = useState(false);
+
+  const handleBroadcastUpdate = async () => {
+    if (!confirm('Broadcast update alert to all active desktop workstations now?')) return;
+    try {
+      setIsBroadcastingUpdate(true);
+      const res = await broadcastAppUpdate();
+      if (res.success) {
+        alert(res.message || 'Update dialog alert dispatched successfully to all workstations.');
+      } else {
+        alert(res.error || 'Failed to dispatch update alert.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error dispatching update alert.');
+    } finally {
+      setIsBroadcastingUpdate(false);
+    }
+  };
 
   const loadTimesheet = useCallback(async (
     period?: 'today' | 'yesterday' | 'week' | 'month' | 'last_month' | 'year' | 'custom',
@@ -1594,6 +1613,19 @@ export default function AdminDashboardPage() {
               >
                 <Upload className="w-3.5 h-3.5 text-indigo-400" />
                 <span>IMPORT SHEET</span>
+              </button>
+            )}
+
+            {/* Broadcast Update Alert Button */}
+            {!isReadOnlyMonitor && (
+              <button
+                onClick={handleBroadcastUpdate}
+                disabled={isBroadcastingUpdate}
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-sky-950/40 hover:bg-sky-900/60 border border-sky-500/30 text-sky-300 hover:text-white text-xs font-bold transition-all active:scale-[0.98] disabled:opacity-50"
+                title="Broadcast update notification dialog to all connected client workstations"
+              >
+                <Radio className={`w-3.5 h-3.5 text-sky-400 ${isBroadcastingUpdate ? 'animate-pulse' : ''}`} />
+                <span>{isBroadcastingUpdate ? 'PUSHING...' : 'PUSH UPDATE'}</span>
               </button>
             )}
 

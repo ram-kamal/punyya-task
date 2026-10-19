@@ -664,4 +664,17 @@ public class ApiClient
             return null;
         }
     }
+
+    public async Task<bool> BroadcastUpdateAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsync("/api/v1/app/broadcast-update", null, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }

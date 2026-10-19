@@ -86,6 +86,7 @@ public partial class MainWindow : Window
     private Guid? _resetPasswordTargetId = null;
 
     private DispatcherTimer? _autoRefreshTimer;
+    private int _autoRefreshTicks = 0;
     private DispatcherTimer? _toastDismissTimer;
     private DispatcherTimer? _shiftTimer;
     private DateTime? _shiftStartTime;
@@ -173,6 +174,7 @@ public partial class MainWindow : Window
             ApplyPlatformChromeLayout();
             UpdateStationIdentifierFromWorkMode();
             ChkAutoLaunchStartup.IsChecked = WindowsStartupHelper.IsStartupEnabled();
+            TxtAppVersionPill.Text = $"v{CurrentAppVersion}";
 
             // Load saved workstation credentials if remembered
             var (savedUser, savedPass, remember) = CredentialStorage.LoadCredentials();
@@ -338,6 +340,7 @@ public partial class MainWindow : Window
         };
         _autoRefreshTimer.Tick += async (_, _) =>
         {
+            _autoRefreshTicks++;
             if (_currentTab == "MY_DESK")
             {
                 await LoadAssignedTasksAsync(silent: true);
@@ -345,6 +348,12 @@ public partial class MainWindow : Window
             else if (_currentTab == "WORKFORCE")
             {
                 await LoadWorkforceFleetAsync(silent: true);
+            }
+
+            // Periodic background check for updates (every 5 minutes / 15 ticks)
+            if (_autoRefreshTicks % 15 == 0)
+            {
+                await CheckForAppUpdatesAsync(showNoUpdateToast: false);
             }
         };
         _autoRefreshTimer.Start();
@@ -3137,13 +3146,30 @@ public partial class MainWindow : Window
             if (IsNewerVersion(versionInfo.LatestVersion, CurrentAppVersion))
             {
                 _availableUpdate = versionInfo;
-                TxtAppUpdateVersion.Text = $"Version {versionInfo.LatestVersion} is ready to install (Current: {CurrentAppVersion})";
+                TxtAppUpdateVersion.Text = $"Version {versionInfo.LatestVersion} is ready to install (Current: v{CurrentAppVersion})";
                 if (!string.IsNullOrWhiteSpace(versionInfo.ReleaseNotes))
                 {
                     TxtAppUpdateNotes.Text = versionInfo.ReleaseNotes;
                 }
 
+                // Reset progress bar & restore button interactivity
+                PnlUpdateProgress.IsVisible = false;
+                BtnPerformUpdate.IsEnabled = true;
+                BtnDismissUpdate.IsEnabled = true;
+
+                // Make sure window is visible, restored, activated and focused
+                if (WindowState == WindowState.Minimized)
+                {
+                    WindowState = WindowState.Normal;
+                }
+                Show();
+                Activate();
+                Focus();
+
+                // Open prominent update dialog
                 AppUpdateModal.IsVisible = true;
+
+                ShowToast("🚀 New Update Available!", $"Version {versionInfo.LatestVersion} is ready to install.");
             }
             else if (showNoUpdateToast)
             {
@@ -3153,6 +3179,40 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Debug.WriteLine($"[UpdateCheck] Error: {ex.Message}");
+            if (showNoUpdateToast)
+            {
+                ShowToast("Update Check Error", "Could not check for updates. Please verify your connection.");
+            }
+        }
+    }
+
+    private async void BtnCheckUpdates_Click(object? sender, RoutedEventArgs e)
+    {
+        await CheckForAppUpdatesAsync(showNoUpdateToast: true);
+    }
+
+    private async void BtnAdminBroadcastUpdate_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            BtnAdminBroadcastUpdate.IsEnabled = false;
+            var success = await _apiClient.BroadcastUpdateAsync();
+            if (success)
+            {
+                ShowToast("📢 Broadcast Dispatched", "Update dialog alert sent to all active workstations.");
+            }
+            else
+            {
+                ShowToast("Broadcast Failed", "Could not dispatch update broadcast. Check network connection.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast("Error", ex.Message);
+        }
+        finally
+        {
+            BtnAdminBroadcastUpdate.IsEnabled = true;
         }
     }
 

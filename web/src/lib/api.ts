@@ -830,4 +830,39 @@ export async function downloadLeaveReportCsv(
   }
 }
 
+export async function getAppVersion(): Promise<{
+  latestVersion: string;
+  versionCode: number;
+  releaseNotes: string;
+  downloadUrl: string;
+  fallbackDownloadUrl: string;
+  releaseDate: string;
+  isMandatory: boolean;
+} | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/app/version`, { cache: 'no-store' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('getAppVersion error:', err);
+    return null;
+  }
+}
+
+export async function broadcastAppUpdate(): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const res = await authFetch(`${API_BASE}/api/v1/app/broadcast-update`, {
+      method: 'POST',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      return { success: false, error: err?.message || `Failed to broadcast update (HTTP ${res.status})` };
+    }
+    const data = await res.json();
+    return { success: true, message: data.message };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error broadcasting update' };
+  }
+}
+
 
