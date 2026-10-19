@@ -83,9 +83,11 @@ public record TaskResponseDto
     public string? Description { get; init; }
     public Guid? AssignedTo { get; init; }
     public string? AssignedToName { get; init; }
+    public string? AssignedToEmail { get; init; }
     public string? AssignedToStation { get; init; }
     public Guid? AssignedBy { get; init; }
     public string? AssignedByName { get; init; }
+    public string? AssignedByEmail { get; init; }
     public string Status { get; init; } = string.Empty;
     public string Priority { get; init; } = string.Empty;
     public bool DeliverableRequired { get; init; }

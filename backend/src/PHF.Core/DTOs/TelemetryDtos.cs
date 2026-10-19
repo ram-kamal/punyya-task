@@ -45,6 +45,7 @@ public record WorkstationHeartbeatDto
     public string StationId { get; init; } = string.Empty;
 
     public Guid? UserId { get; init; }
+    public string? UserEmail { get; init; }
     public string? UserFullName { get; init; }
     public string? CurrentTaskCode { get; init; }
     public string? CurrentTaskTitle { get; init; }
@@ -57,6 +58,9 @@ public record WorkstationStatusDto
 {
     public string StationId { get; init; } = string.Empty;
     public Guid? UserId { get; init; }
+    public string? Email { get; init; }
+    public string? Username { get; init; }
+    public string? Role { get; init; }
     public string? FullName { get; init; }
     public string? CurrentTaskCode { get; init; }
     public string? CurrentTaskTitle { get; init; }
@@ -74,6 +78,7 @@ public record LiveWorkstationEventDto
     public DateTime Timestamp { get; init; } = DateTime.UtcNow;
     public string StationId { get; init; } = string.Empty;
     public string? UserName { get; init; }
+    public string? UserEmail { get; init; }
     public string EventType { get; init; } = string.Empty; // FOCUS_CHANGED, SESSION_LOCKED, SESSION_UNLOCKED, TASK_SWITCHED, CLOCK_IN, CLOCK_OUT
     public string Details { get; init; } = string.Empty;
     public string? ProcessName { get; init; }

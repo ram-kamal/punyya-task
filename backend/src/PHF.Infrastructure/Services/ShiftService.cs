@@ -63,8 +63,9 @@ public class ShiftService : IShiftService
         {
             StationId = shift.StationId,
             UserName = user?.FullName,
+            UserEmail = user?.Email,
             EventType = "CLOCK_IN",
-            Details = $"Employee clocked in at {shift.StationId}"
+            Details = $"{user?.FullName ?? "Employee"} ({user?.Email ?? shift.StationId}) clocked in"
         });
 
         return await MapToDto(shift, cancellationToken);
@@ -119,8 +120,9 @@ public class ShiftService : IShiftService
         {
             StationId = shift.StationId,
             UserName = user?.FullName,
+            UserEmail = user?.Email,
             EventType = "CLOCK_OUT",
-            Details = $"Employee clocked out. Shift ended."
+            Details = $"{user?.FullName ?? "Employee"} ({user?.Email ?? shift.StationId}) clocked out. Shift ended."
         });
 
         return await MapToDto(shift, cancellationToken);

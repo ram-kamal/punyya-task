@@ -1,6 +1,9 @@
 export interface WorkstationStatus {
   stationId: string;
   userId?: string;
+  email?: string;
+  username?: string;
+  role?: string;
   fullName?: string;
   currentTaskCode?: string;
   currentTaskTitle?: string;
@@ -17,6 +20,7 @@ export interface LiveWorkstationEvent {
   timestamp: string;
   stationId: string;
   userName?: string;
+  userEmail?: string;
   eventType: string;
   details: string;
   processName?: string;
@@ -39,9 +43,11 @@ export interface TaskItem {
   description?: string;
   assignedTo?: string;
   assignedToName?: string;
+  assignedToEmail?: string;
   assignedToStation?: string;
   assignedBy?: string;
   assignedByName?: string;
+  assignedByEmail?: string;
   status: 'ASSIGNED' | 'IN_PROGRESS' | 'UNDER_REVIEW' | 'COMPLETED';
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   deliverableRequired: boolean;

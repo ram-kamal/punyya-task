@@ -2040,10 +2040,15 @@ export default function AdminDashboardPage() {
                               </div>
                               <div>
                                 <span className="font-semibold text-slate-200 block text-xs sm:text-sm">{st.fullName || 'Unassigned User'}</span>
+                                {st.email && (
+                                  <span className="text-[11px] text-sky-400 block font-mono font-medium">
+                                    {st.email}
+                                  </span>
+                                )}
                                 {(() => {
                                   const staffMember = staff.find((s) => (st.userId && s.id === st.userId) || s.fullName === st.fullName);
                                   const modeLabel = staffMember?.workMode === 'IN_OFFICE' ? 'In-Office' : 'Remote WFH';
-                                  const roleLabel = staffMember?.role === 'ADMIN' ? 'Admin' : 'Staff';
+                                  const roleLabel = st.role || staffMember?.role || 'Staff';
                                   return (
                                     <span className="text-[10px] text-slate-400 block font-normal">
                                       {modeLabel} • {roleLabel}
@@ -2189,8 +2194,8 @@ export default function AdminDashboardPage() {
                   >
                     <option value="ALL">All Stations</option>
                     {stations.map((s) => (
-                      <option key={s.stationId} value={s.stationId}>
-                        {s.stationId}
+                      <option key={s.userId || s.stationId} value={s.stationId}>
+                        {s.fullName || s.stationId} ({s.email || s.stationId})
                       </option>
                     ))}
                   </select>

@@ -145,8 +145,9 @@ public class TaskService : ITaskService
             {
                 StationId = createdTask.AssignedToStation ?? "ALL",
                 UserName = createdTask.AssignedToName,
+                UserEmail = createdTask.AssignedToEmail,
                 EventType = "TASK_ASSIGNED",
-                Details = $"Task dispatched: {createdTask.TaskCode} - {createdTask.Title}",
+                Details = $"Task dispatched: {createdTask.TaskCode} - {createdTask.Title} to {createdTask.AssignedToName} ({createdTask.AssignedToEmail ?? "Unassigned"})",
                 TaskCode = createdTask.TaskCode
             });
         }
@@ -211,8 +212,9 @@ public class TaskService : ITaskService
             {
                 StationId = updated.AssignedToStation ?? "STATION",
                 UserName = updated.AssignedToName,
+                UserEmail = updated.AssignedToEmail,
                 EventType = "TASK_STATUS_CHANGED",
-                Details = $"{updated.TaskCode} status updated to {targetStatus}",
+                Details = $"{updated.TaskCode} status updated to {targetStatus} ({updated.AssignedToName} - {updated.AssignedToEmail ?? "Unassigned"})",
                 TaskCode = updated.TaskCode
             });
         }
@@ -340,8 +342,9 @@ public class TaskService : ITaskService
             {
                 StationId = updated.AssignedToStation ?? "ALL",
                 UserName = updated.AssignedToName,
+                UserEmail = updated.AssignedToEmail,
                 EventType = "TASK_UPDATED",
-                Details = $"Task updated/reassigned: {updated.TaskCode} - {updated.Title}",
+                Details = $"Task updated/reassigned: {updated.TaskCode} - {updated.Title} ({updated.AssignedToName} - {updated.AssignedToEmail ?? "Unassigned"})",
                 TaskCode = updated.TaskCode
             });
         }
@@ -721,9 +724,11 @@ public class TaskService : ITaskService
             Description = t.Description,
             AssignedTo = t.AssignedTo,
             AssignedToName = t.AssignedToUser?.FullName,
+            AssignedToEmail = t.AssignedToUser?.Email,
             AssignedToStation = t.AssignedToUser?.StationId,
             AssignedBy = t.AssignedBy,
             AssignedByName = t.AssignedByUser?.FullName,
+            AssignedByEmail = t.AssignedByUser?.Email,
             Status = t.Status,
             Priority = t.Priority,
             DeliverableRequired = t.DeliverableRequired,

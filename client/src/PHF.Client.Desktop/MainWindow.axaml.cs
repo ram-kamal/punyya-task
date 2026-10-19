@@ -60,7 +60,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<AdminLeaveStaffSummaryViewModel> _leaveSummaries = new();
 
     public static readonly string CurrentAppVersion = 
-        System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.1";
+        System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.2";
     private AppVersionDto? _availableUpdate = null;
 
     private string _reportSubTab = "attendance";
@@ -92,7 +92,8 @@ public partial class MainWindow : Window
 
     private bool IsAdminOrManager => _currentUser != null &&
         (_currentUser.Role.Equals("ADMIN", StringComparison.OrdinalIgnoreCase) ||
-         _currentUser.Role.Equals("MANAGER", StringComparison.OrdinalIgnoreCase));
+         _currentUser.Role.Equals("MANAGER", StringComparison.OrdinalIgnoreCase) ||
+         _currentUser.Role.Equals("MONITOR", StringComparison.OrdinalIgnoreCase));
 
     public MainWindow()
     {
@@ -171,6 +172,7 @@ public partial class MainWindow : Window
         {
             ApplyPlatformChromeLayout();
             UpdateStationIdentifierFromWorkMode();
+            ChkAutoLaunchStartup.IsChecked = WindowsStartupHelper.IsStartupEnabled();
 
             // Load saved workstation credentials if remembered
             var (savedUser, savedPass, remember) = CredentialStorage.LoadCredentials();
@@ -209,8 +211,6 @@ public partial class MainWindow : Window
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            MacTrafficLightsStack.IsVisible = false;
-            WindowsCaptionButtons.IsVisible = true;
             HeaderLeftStack.Margin = new Avalonia.Thickness(4, 0, 0, 0);
             HeaderRightStack.Margin = new Avalonia.Thickness(0, 0, 0, 0);
             TxtPlatformEdition.Text = "Windows 11 Mica";
@@ -219,72 +219,37 @@ public partial class MainWindow : Window
         }
         else
         {
-            MacTrafficLightsStack.IsVisible = true;
-            WindowsCaptionButtons.IsVisible = false;
             HeaderLeftStack.Margin = new Avalonia.Thickness(4, 0, 0, 0);
             HeaderRightStack.Margin = new Avalonia.Thickness(0, 0, 8, 0);
             TxtPlatformEdition.Text = "macOS Edition";
             TxtTelemetryHook.Text = "macOS CoreGraphics & Cocoa";
             Title = "Punnya Heart Desk — macOS Console";
         }
-        UpdateMaximizeButtonIcon();
     }
 
-    private void TitleBar_PointerPressed(object? sender, PointerPressedEventArgs e)
+    private void ChkAutoLaunchStartup_IsCheckedChanged(object? sender, RoutedEventArgs e)
     {
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        try
         {
-            BeginMoveDrag(e);
+            var enable = ChkAutoLaunchStartup.IsChecked == true;
+            var ok = WindowsStartupHelper.SetStartup(enable);
+            if (ok)
+            {
+                ShowToast("Startup Settings", enable ? "Auto-launch on Windows startup enabled." : "Auto-launch on Windows startup disabled.");
+            }
+            else
+            {
+                ChkAutoLaunchStartup.IsChecked = WindowsStartupHelper.IsStartupEnabled();
+            }
         }
-    }
-
-    private void TitleBar_DoubleTapped(object? sender, TappedEventArgs e)
-    {
-        ToggleWindowState();
-    }
-
-    private void BtnTitleMinimize_Click(object? sender, RoutedEventArgs e)
-    {
-        WindowState = WindowState.Minimized;
-    }
-
-    private void BtnTitleMaximize_Click(object? sender, RoutedEventArgs e)
-    {
-        ToggleWindowState();
-    }
-
-    private void BtnTitleClose_Click(object? sender, RoutedEventArgs e)
-    {
-        PerformFullAppShutdown();
-    }
-
-    private void MacClose_Click(object? sender, RoutedEventArgs e)
-    {
-        PerformFullAppShutdown();
-    }
-
-    private void MacMinimize_Click(object? sender, RoutedEventArgs e)
-    {
-        WindowState = WindowState.Minimized;
-    }
-
-    private void MacMaximize_Click(object? sender, RoutedEventArgs e)
-    {
-        ToggleWindowState();
-    }
-
-    private void ToggleWindowState()
-    {
-        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
-        UpdateMaximizeButtonIcon();
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[ChkAutoLaunchStartup] Error: {ex.Message}");
+        }
     }
 
     private void UpdateMaximizeButtonIcon()
     {
-        if (TxtMaximizeIcon != null)
-        {
-            TxtMaximizeIcon.Text = WindowState == WindowState.Maximized ? "❐" : "□";
-        }
     }
 
     private void UpdateStationIdentifierFromWorkMode()

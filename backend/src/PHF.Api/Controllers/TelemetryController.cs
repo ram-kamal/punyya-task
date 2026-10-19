@@ -59,6 +59,17 @@ public class TelemetryController : ControllerBase
             return BadRequest(new { message = "Station ID is required." });
         }
 
+        var userClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var emailClaim = User.FindFirstValue(ClaimTypes.Email);
+        if (!string.IsNullOrWhiteSpace(userClaim) && Guid.TryParse(userClaim, out var parsedGuid))
+        {
+            heartbeat = heartbeat with
+            {
+                UserId = parsedGuid,
+                UserEmail = !string.IsNullOrWhiteSpace(emailClaim) ? emailClaim : heartbeat.UserEmail
+            };
+        }
+
         await _telemetryService.ProcessHeartbeatAsync(heartbeat, cancellationToken);
         return Ok(new { success = true });
     }

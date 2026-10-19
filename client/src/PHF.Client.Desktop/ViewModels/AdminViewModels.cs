@@ -28,6 +28,9 @@ public class AdminWorkstationItemViewModel
     public string? CurrentTaskTitle => _dto.CurrentTaskTitle;
     public bool HasActiveTask => !string.IsNullOrWhiteSpace(_dto.CurrentTaskCode);
     public string TaskDisplayText => HasActiveTask ? $"{_dto.CurrentTaskCode}: {_dto.CurrentTaskTitle}" : "No active task";
+    public string? UserEmail => _dto.Email;
+    public bool HasEmail => !string.IsNullOrWhiteSpace(_dto.Email);
+    public string UserRole => !string.IsNullOrWhiteSpace(_dto.Role) ? _dto.Role : "EMPLOYEE";
 
     public string ActiveAppName
     {
@@ -98,6 +101,8 @@ public class AdminTaskItemViewModel : INotifyPropertyChanged
     public string Priority => _dto.Priority ?? "MEDIUM";
     public string Status => _dto.Status ?? "ASSIGNED";
     public string AssigneeName => !string.IsNullOrWhiteSpace(_dto.AssignedToName) ? _dto.AssignedToName : "Unassigned";
+    public string? AssigneeEmail => _dto.AssignedToEmail;
+    public bool HasAssigneeEmail => !string.IsNullOrWhiteSpace(_dto.AssignedToEmail);
     public string AssigneeInitial => !string.IsNullOrWhiteSpace(_dto.AssignedToName) ? _dto.AssignedToName[..1].ToUpper() : "?";
     public string AssigneeStation => !string.IsNullOrWhiteSpace(_dto.AssignedToStation) ? _dto.AssignedToStation : "—";
     public string TrackedTimeText => $"{Math.Round(_dto.TotalTrackedSeconds / 60.0)}m";

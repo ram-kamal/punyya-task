@@ -8,11 +8,7 @@
         Width="1180" Height="860"
         MinWidth="980" MinHeight="700"
         WindowStartupLocation="CenterScreen"
-        TransparencyLevelHint="Mica,AcrylicBlur"
-        Background="Transparent"
-        ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaChromeHints="NoChrome"
-        ExtendClientAreaTitleBarHeightHint="46">
+        ExtendClientAreaToDecorationsHint="False">
 
     <Grid>
         <!-- macOS / Windows Frosted Glass Acrylic Background -->
@@ -34,26 +30,17 @@
         <!-- Main Window Layout -->
         <Grid RowDefinitions="Auto,Auto,*,Auto">
             
-            <!-- Top Header Bar -->
+            <!-- Top Header Bar (Native OS controls window caption/buttons) -->
             <Border x:Name="TitleBarBorder"
                     Grid.Row="0"
                     Background="#22151722"
                     BorderBrush="#25FFFFFF"
                     BorderThickness="0,0,0,1"
-                    Padding="16,8,12,8"
-                    PointerPressed="TitleBar_PointerPressed"
-                    DoubleTapped="TitleBar_DoubleTapped">
-                <Grid ColumnDefinitions="*,Auto,Auto">
+                    Padding="16,8,12,8">
+                <Grid ColumnDefinitions="*,Auto">
                     
-                    <!-- Left: Traffic Lights + App Emblem + Organization Info -->
+                    <!-- Left: App Emblem + Organization Info -->
                     <StackPanel x:Name="HeaderLeftStack" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <!-- macOS Traffic Lights (Visible only on macOS) -->
-                        <StackPanel x:Name="MacTrafficLightsStack" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,16,0" IsVisible="False">
-                            <Button Classes="macTrafficBtn" Background="#FF5F56" BorderBrush="#E0443E" ToolTip.Tip="Close" Click="MacClose_Click" />
-                            <Button Classes="macTrafficBtn" Background="#FFBD2E" BorderBrush="#DEA123" ToolTip.Tip="Minimize" Click="MacMinimize_Click" />
-                            <Button Classes="macTrafficBtn" Background="#27C93F" BorderBrush="#1AAB29" ToolTip.Tip="Maximize" Click="MacMaximize_Click" />
-                        </StackPanel>
-
                         <!-- App Emblem -->
                         <Border Width="34" Height="34" CornerRadius="10" Margin="0,0,12,0">
                             <Border.Background>
@@ -89,28 +76,25 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <!-- Right: User Station Profile + Sign Out -->
-                    <StackPanel x:Name="HeaderRightStack" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Right: Startup Auto-Launch Toggle + User Station Profile + Sign Out -->
+                    <StackPanel x:Name="HeaderRightStack" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+                        <Border Background="#1AFFFFFF" BorderBrush="#25FFFFFF" BorderThickness="1" CornerRadius="8" Padding="10,4" VerticalAlignment="Center">
+                            <CheckBox x:Name="ChkAutoLaunchStartup"
+                                      Content="Auto-Launch on Startup"
+                                      FontSize="11.5"
+                                      FontWeight="SemiBold"
+                                      Foreground="#CBD5E1"
+                                      VerticalAlignment="Center"
+                                      IsCheckedChanged="ChkAutoLaunchStartup_IsCheckedChanged" />
+                        </Border>
+
                         <Border Background="#20FFFFFF" BorderBrush="#30FFFFFF" BorderThickness="1" CornerRadius="8" Padding="10,5">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="👤" FontSize="12" Margin="0,0,6,0" />
                                 <TextBlock x:Name="TxtUserInfo" Text="Workstation Desk" FontWeight="SemiBold" FontSize="12" Foreground="#F1F5F9" />
                             </StackPanel>
                         </Border>
-                        <Button x:Name="BtnLogout" Classes="glass" Content="Sign Out" Margin="8,0,0,0" Click="BtnLogout_Click" />
-                    </StackPanel>
-
-                    <!-- Windows Fluent Caption Buttons -->
-                    <StackPanel x:Name="WindowsCaptionButtons" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0" Spacing="4">
-                        <Button x:Name="BtnTitleMinimize" Classes="titleBtn" ToolTip.Tip="Minimize" Click="BtnTitleMinimize_Click">
-                            <TextBlock Text="─" FontSize="11" Foreground="#CBD5E1" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Button>
-                        <Button x:Name="BtnTitleMaximize" Classes="titleBtn" ToolTip.Tip="Maximize / Restore" Click="BtnTitleMaximize_Click">
-                            <TextBlock x:Name="TxtMaximizeIcon" Text="□" FontSize="12" Foreground="#CBD5E1" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Button>
-                        <Button x:Name="BtnTitleClose" Classes="titleBtnClose" ToolTip.Tip="Close" Click="BtnTitleClose_Click">
-                            <TextBlock Text="✕" FontSize="11" Foreground="#CBD5E1" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Button>
+                        <Button x:Name="BtnLogout" Classes="glass" Content="Sign Out" Click="BtnLogout_Click" />
                     </StackPanel>
                 </Grid>
             </Border>
@@ -330,6 +314,7 @@
                                                         </Border>
                                                         <StackPanel VerticalAlignment="Center">
                                                             <TextBlock Text="{Binding UserFullName}" FontSize="12.5" FontWeight="SemiBold" Foreground="#F8FAFC" />
+                                                            <TextBlock Text="{Binding UserEmail}" FontSize="10.5" Foreground="#38BDF8" IsVisible="{Binding HasEmail}" />
                                                             <TextBlock Text="{Binding LastSeenText, StringFormat='Last seen: {0}'}" FontSize="10" Foreground="#64748B" />
                                                         </StackPanel>
                                                     </StackPanel>
@@ -458,6 +443,7 @@
                                                             </Border>
                                                             <StackPanel VerticalAlignment="Center">
                                                                 <TextBlock Text="{Binding AssigneeName}" FontSize="12" FontWeight="SemiBold" Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Text="{Binding AssigneeEmail}" FontSize="10" Foreground="#38BDF8" IsVisible="{Binding HasAssigneeEmail}" />
                                                                 <TextBlock Text="{Binding AssigneeStation, StringFormat='Station: {0}'}" FontSize="10" Foreground="#64748B" />
                                                             </StackPanel>
                                                         </StackPanel>

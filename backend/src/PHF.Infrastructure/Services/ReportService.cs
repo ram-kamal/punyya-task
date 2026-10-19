@@ -77,7 +77,7 @@ public class ReportService : IReportService
         }
         else
         {
-            empQuery = empQuery.Where(u => u.Role == UserRole.EMPLOYEE.ToString() || _dbContext.Shifts.Any(s => s.UserId == u.Id));
+            empQuery = empQuery.Where(u => u.IsActive || _dbContext.Shifts.Any(s => s.UserId == u.Id));
         }
 
         var employees = await empQuery.OrderBy(u => u.FullName).ToListAsync(cancellationToken);
@@ -439,7 +439,7 @@ public class ReportService : IReportService
         }
         else
         {
-            empQuery = empQuery.Where(u => u.Role == UserRole.EMPLOYEE.ToString() || _dbContext.Tasks.Any(t => t.AssignedTo == u.Id));
+            empQuery = empQuery.Where(u => u.IsActive || _dbContext.Tasks.Any(t => t.AssignedTo == u.Id));
         }
 
         var employees = await empQuery.OrderBy(u => u.FullName).ToListAsync(cancellationToken);
@@ -730,7 +730,7 @@ public class ReportService : IReportService
         }
         else
         {
-            empQuery = empQuery.Where(u => u.Role == UserRole.EMPLOYEE.ToString() || _dbContext.LeaveRequests.Any(l => l.UserId == u.Id));
+            empQuery = empQuery.Where(u => u.IsActive || _dbContext.LeaveRequests.Any(l => l.UserId == u.Id));
         }
 
         var employees = await empQuery.OrderBy(u => u.FullName).ToListAsync(cancellationToken);

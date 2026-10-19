@@ -168,7 +168,7 @@ public class TimesheetService : ITimesheetService
         {
             var shiftUserIds = shifts.Select(s => s.UserId).Distinct().ToList();
             employees = await _dbContext.Users
-                .Where(u => u.Role == UserRole.EMPLOYEE.ToString() || shiftUserIds.Contains(u.Id))
+                .Where(u => u.IsActive || shiftUserIds.Contains(u.Id))
                 .OrderBy(u => u.FullName)
                 .ToListAsync(cancellationToken);
         }

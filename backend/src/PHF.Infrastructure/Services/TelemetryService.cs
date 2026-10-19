@@ -22,6 +22,9 @@ public class TelemetryService : ITelemetryService
     {
         public Guid UserId { get; set; }
         public string StationId { get; set; } = string.Empty;
+        public string? Email { get; set; }
+        public string? Username { get; set; }
+        public string? Role { get; set; }
         public string? FullName { get; set; }
         public string? CurrentTaskCode { get; set; }
         public string? CurrentTaskTitle { get; set; }
@@ -193,6 +196,12 @@ public class TelemetryService : ITelemetryService
         var now = DateTime.UtcNow;
         Guid? resolvedUserId = heartbeat.UserId;
 
+        if (!resolvedUserId.HasValue && !string.IsNullOrWhiteSpace(heartbeat.UserEmail))
+        {
+            var userByEmail = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == heartbeat.UserEmail, cancellationToken);
+            resolvedUserId = userByEmail?.Id;
+        }
+
         if (!string.IsNullOrWhiteSpace(heartbeat.StationId) && resolvedUserId.HasValue)
         {
             _stationUserIndex[heartbeat.StationId] = resolvedUserId.Value;
@@ -224,6 +233,7 @@ public class TelemetryService : ITelemetryService
             {
                 UserId = uid,
                 StationId = heartbeat.StationId,
+                Email = heartbeat.UserEmail,
                 LastSeen = now
             });
 
@@ -289,11 +299,18 @@ public class TelemetryService : ITelemetryService
             {
                 state.FullName = heartbeat.UserFullName;
             }
+            if (!string.IsNullOrWhiteSpace(heartbeat.UserEmail))
+            {
+                state.Email = heartbeat.UserEmail;
+            }
 
             var statusDto = new WorkstationStatusDto
             {
                 StationId = state.StationId,
                 UserId = state.UserId,
+                Email = state.Email,
+                Username = state.Username,
+                Role = state.Role,
                 FullName = state.FullName,
                 CurrentTaskCode = state.CurrentTaskCode,
                 CurrentTaskTitle = state.CurrentTaskTitle,
@@ -316,9 +333,7 @@ public class TelemetryService : ITelemetryService
 
         // Fetch all active employees / staff members (User-based tracking!)
         var employees = await _dbContext.Users
-            .Where(u => u.IsActive && 
-                       (u.Role == UserRole.EMPLOYEE.ToString() || 
-                        _dbContext.Shifts.Any(s => s.UserId == u.Id)))
+            .Where(u => u.IsActive || _dbContext.Shifts.Any(s => s.UserId == u.Id))
             .OrderBy(u => u.FullName)
             .ToListAsync(cancellationToken);
 
@@ -450,6 +465,9 @@ public class TelemetryService : ITelemetryService
             {
                 live.ActiveMinutesToday = activeMinutes;
                 live.IdleMinutesToday = idleMinutes;
+                live.Email = emp.Email;
+                live.Username = emp.Username;
+                live.Role = emp.Role;
             }
             else
             {
@@ -457,16 +475,25 @@ public class TelemetryService : ITelemetryService
                 {
                     UserId = uid,
                     StationId = currentStation,
-                    FullName = emp.FullName
+                    FullName = emp.FullName,
+                    Email = emp.Email,
+                    Username = emp.Username,
+                    Role = emp.Role
                 });
                 entry.ActiveMinutesToday = activeMinutes;
                 entry.IdleMinutesToday = idleMinutes;
+                entry.Email = emp.Email;
+                entry.Username = emp.Username;
+                entry.Role = emp.Role;
             }
 
             result.Add(new WorkstationStatusDto
             {
                 StationId = currentStation,
                 UserId = emp.Id,
+                Email = emp.Email,
+                Username = emp.Username,
+                Role = emp.Role,
                 FullName = emp.FullName,
                 CurrentTaskCode = taskCode,
                 CurrentTaskTitle = taskTitle,
