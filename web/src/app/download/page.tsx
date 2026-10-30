@@ -18,9 +18,11 @@ import {
   Command,
   Apple
 } from 'lucide-react';
+import { getAppVersion } from '@/lib/api';
 
 export default function DownloadPage() {
   const [selectedOS, setSelectedOS] = useState<'mac' | 'windows'>('windows');
+  const [appVersion, setAppVersion] = useState<string>('1.0.2');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -29,6 +31,14 @@ export default function DownloadPage() {
         setSelectedOS('mac');
       }
     }
+
+    getAppVersion()
+      .then(info => {
+        if (info?.latestVersion) {
+          setAppVersion(info.latestVersion);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const macArmUrl = '/task/downloads/PunnyaHeartDesk-macOS-AppleSilicon.zip';
@@ -277,16 +287,16 @@ export default function DownloadPage() {
 
                   <div className="shrink-0 flex flex-col items-center md:items-end justify-center space-y-3 min-w-[280px]">
                     <a
-                      href={setupUrl}
-                      download="PunnyaHeartDesk-Setup.exe"
+                      href={exeUrl}
+                      download="PunnyaHeartDesk.exe"
                       className="w-full py-4 px-8 rounded-2xl bg-gradient-to-r from-rose-600 via-rose-500 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-black text-base shadow-xl shadow-rose-600/35 flex items-center justify-center space-x-3 transition active:scale-[0.98] border border-rose-400/30"
                     >
                       <Download className="w-5 h-5" />
-                      <span>Download Windows Installer</span>
+                      <span>Download Windows App (v{appVersion})</span>
                     </a>
                     <div className="text-[11px] text-slate-400 text-center md:text-right space-y-0.5">
-                      <div>File: <strong className="text-slate-200">PunnyaHeartDesk-Setup.exe</strong></div>
-                      <div>Version: <strong className="text-emerald-400">1.0.0-beta</strong> • Size: <strong className="text-slate-200">~42 MB</strong></div>
+                      <div>File: <strong className="text-slate-200">PunnyaHeartDesk.exe</strong></div>
+                      <div>Version: <strong className="text-emerald-400">v{appVersion} (Latest Release)</strong> • Size: <strong className="text-slate-200">~46 MB</strong></div>
                     </div>
                   </div>
                 </div>

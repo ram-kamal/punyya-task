@@ -1528,6 +1528,14 @@
                         <TextBox x:Name="TxtEditStaffStationId" Watermark="e.g. ST-CARDIAC-01" />
                     </StackPanel>
 
+                    <StackPanel Spacing="4">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Reset / Change Password (Optional)" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="Leave blank to keep current" FontSize="10" Foreground="#64748B" VerticalAlignment="Center" />
+                        </Grid>
+                        <TextBox x:Name="TxtEditStaffPassword" Watermark="Enter new password to change..." PasswordChar="•" />
+                    </StackPanel>
+
                     <CheckBox x:Name="ChkEditStaffIsActive" Content="Account Active (Allowed to log in and clock in)" IsChecked="True" FontSize="11.5" Margin="0,4,0,0" />
 
                     <TextBlock x:Name="TxtEditStaffError" Text="" FontSize="11" Foreground="#EF4444" IsVisible="False" />

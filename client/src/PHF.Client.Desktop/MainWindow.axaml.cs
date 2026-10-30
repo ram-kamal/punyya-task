@@ -2338,6 +2338,7 @@ public partial class MainWindow : Window
             TxtEditStaffEmail.Text = member.Email;
             TxtEditStaffUsername.Text = member.Username ?? string.Empty;
             TxtEditStaffStationId.Text = member.StationId ?? string.Empty;
+            TxtEditStaffPassword.Text = string.Empty;
             ChkEditStaffIsActive.IsChecked = member.IsActive;
             TxtEditStaffError.IsVisible = false;
 
@@ -2365,6 +2366,7 @@ public partial class MainWindow : Window
 
     private void BtnCancelEditStaff_Click(object? sender, RoutedEventArgs e)
     {
+        TxtEditStaffPassword.Text = string.Empty;
         EditStaffModal.IsVisible = false;
         _editStaffTargetId = null;
     }
@@ -2393,6 +2395,7 @@ public partial class MainWindow : Window
         var username = TxtEditStaffUsername.Text?.Trim();
         var stationId = TxtEditStaffStationId.Text?.Trim();
         var isActive = ChkEditStaffIsActive.IsChecked == true;
+        var newPassword = TxtEditStaffPassword.Text?.Trim();
 
         try
         {
@@ -2404,9 +2407,11 @@ public partial class MainWindow : Window
                 Role = role,
                 WorkMode = workMode,
                 StationId = string.IsNullOrWhiteSpace(stationId) ? null : stationId,
-                IsActive = isActive
+                IsActive = isActive,
+                NewPassword = string.IsNullOrWhiteSpace(newPassword) ? null : newPassword
             });
 
+            TxtEditStaffPassword.Text = string.Empty;
             EditStaffModal.IsVisible = false;
             _editStaffTargetId = null;
             ShowToast("✓ Profile Updated", $"{fullName}'s profile was updated.");
