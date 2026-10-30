@@ -16,12 +16,14 @@ import {
   Info,
   Sparkles,
   Command,
-  Apple
+  Apple,
+  Smartphone,
+  Wifi
 } from 'lucide-react';
 import { getAppVersion } from '@/lib/api';
 
 export default function DownloadPage() {
-  const [selectedOS, setSelectedOS] = useState<'mac' | 'windows'>('windows');
+  const [selectedOS, setSelectedOS] = useState<'mac' | 'windows' | 'android'>('windows');
   const [appVersion, setAppVersion] = useState<string>('1.0.2');
 
   useEffect(() => {
@@ -46,6 +48,7 @@ export default function DownloadPage() {
   const setupUrl = '/task/downloads/PunnyaHeartDesk-Setup.exe';
   const exeUrl = '/task/downloads/PunnyaHeartDesk.exe';
   const zipUrl = '/task/downloads/PunnyaHeartDesk-Windows.zip';
+  const apkUrl = '/task/downloads/PunnyaAttendance.apk';
 
   return (
     <div className="min-h-screen bg-[#0D0E12] text-slate-100 flex flex-col font-sans antialiased selection:bg-rose-500 selection:text-white">
@@ -357,6 +360,107 @@ export default function DownloadPage() {
                     <Download className="w-3.5 h-3.5 text-indigo-400" />
                     <span>Download ZIP Package</span>
                   </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Android Section */}
+        {selectedOS === 'android' && (
+          <div>
+            <div className="mb-10">
+              <div className="bg-[#151720] border-2 border-rose-500/60 hover:border-rose-500 rounded-3xl p-6 sm:p-10 shadow-2xl shadow-rose-950/30 transition-all relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-gradient-to-l from-rose-600 to-pink-600 text-white text-[11px] font-extrabold px-4 py-1 rounded-bl-2xl uppercase tracking-wider shadow-md">
+                  ★ Official Android APK
+                </div>
+
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
+                  <div className="space-y-4 max-w-xl">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-14 h-14 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                        <Smartphone className="w-7 h-7" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-black text-white tracking-tight">Punnya Attendance APK</h3>
+                        <p className="text-xs text-rose-300/80 font-medium">Auto Office Wi-Fi Shift Detection • GPS Geo-Fence • Tasks &amp; Hours</p>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                      Dedicated mobile attendance companion for clinic and hospital staff. Automatically marks shift login upon entering and connecting to the office Wi-Fi, features a drop-in clock-out button, tracks total daily hours worked, and displays assigned tasks.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs text-slate-300 pt-2">
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>Auto Clock-in via Office Wi-Fi</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>Drop-in 1-Tap Clock-Out</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>Live Shift Timer &amp; Worked Hours</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>Assigned Tasks &amp; Status Updates</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 flex flex-col items-center md:items-end justify-center space-y-3 min-w-[280px]">
+                    <a
+                      href={apkUrl}
+                      download="PunnyaAttendance.apk"
+                      className="w-full py-4 px-8 rounded-2xl bg-gradient-to-r from-rose-600 via-rose-500 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-black text-base shadow-xl shadow-rose-600/35 flex items-center justify-center space-x-3 transition active:scale-[0.98] border border-rose-400/30"
+                    >
+                      <Download className="w-5 h-5" />
+                      <span>Download Android APK</span>
+                    </a>
+                    <div className="text-[11px] text-slate-400 text-center md:text-right space-y-0.5">
+                      <div>File: <strong className="text-slate-200">PunnyaAttendance.apk</strong></div>
+                      <div>Compatibility: <strong className="text-emerald-400">Android 7.0 to Android 15</strong> • Size: <strong className="text-slate-200">~5.6 MB</strong></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Android 3-Step Setup Guide */}
+            <div className="bg-[#151720]/80 border border-[#262938] rounded-2xl p-6 sm:p-8 mb-14">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-8 h-8 rounded-lg bg-rose-500/15 text-rose-400 flex items-center justify-center font-bold text-xs">
+                  APK
+                </div>
+                <h4 className="text-base font-bold text-white">How to Install on Your Android Phone</h4>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="bg-[#1B1E2B] border border-[#2B3044] p-4 rounded-xl space-y-2">
+                  <div className="w-6 h-6 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-xs font-bold">1</div>
+                  <h5 className="text-sm font-bold text-white">Download APK</h5>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Tap the Download button above on your Android phone to save <code className="text-slate-200">PunnyaAttendance.apk</code>.
+                  </p>
+                </div>
+
+                <div className="bg-[#1B1E2B] border border-[#2B3044] p-4 rounded-xl space-y-2">
+                  <div className="w-6 h-6 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-xs font-bold">2</div>
+                  <h5 className="text-sm font-bold text-white">Allow Install</h5>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Tap the downloaded notification. If prompted, toggle <em>&quot;Allow from this source&quot;</em> in your browser settings.
+                  </p>
+                </div>
+
+                <div className="bg-[#1B1E2B] border border-[#2B3044] p-4 rounded-xl space-y-2">
+                  <div className="w-6 h-6 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-xs font-bold">3</div>
+                  <h5 className="text-sm font-bold text-white">Login &amp; Connect</h5>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Open the app, sign in with your Saaol credentials, and connect to the clinic Wi-Fi. It will automatically detect your shift!
+                  </p>
                 </div>
               </div>
             </div>

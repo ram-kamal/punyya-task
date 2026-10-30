@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/card_bg"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Office &amp; Network Configuration"
+        android:textColor="@color/text_primary"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Set allowed office Wi-Fi networks and geo-coordinates."
+        android:textColor="@color/text_secondary"
+        android:textSize="11.5sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Allowed Office Wi-Fi SSIDs (Comma-separated)"
+        android:textColor="@color/text_secondary"
+        android:textSize="11sp" />
+
+    <EditText
+        android:id="@+id/editSettingsWifi"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:background="#1E2333"
+        android:padding="10dp"
+        android:textColor="@color/text_primary"
+        android:textSize="13sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="API Server URL"
+        android:textColor="@color/text_secondary"
+        android:textSize="11sp" />
+
+    <EditText
+        android:id="@+id/editSettingsApiUrl"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:background="#1E2333"
+        android:padding="10dp"
+        android:textColor="@color/text_primary"
+        android:textSize="13sp" />
+
+</LinearLayout>
