@@ -300,7 +300,7 @@ public partial class MainWindow : Window
         // Configure Role-Based Views
         AdminNavBarBorder.IsVisible = true;
         RoleBadgeBorder.IsVisible = true;
-        TxtUserRoleBadge.Text = _currentUser?.Role.ToUpper() ?? "STAFF";
+        TxtUserRoleBadge.Text = _currentUser?.Role.Equals("MONITOR", StringComparison.OrdinalIgnoreCase) == true ? "VIEWER" : (_currentUser?.Role.ToUpper() ?? "STAFF");
 
         BtnTabWorkforce.IsVisible = IsAdminOrManager;
         BtnTabTasks.IsVisible = IsAdminOrManager;
@@ -2343,7 +2343,7 @@ public partial class MainWindow : Window
 
             for (int i = 0; i < CmbEditStaffRole.Items.Count; i++)
             {
-                if (CmbEditStaffRole.Items[i] is ComboBoxItem item && string.Equals(item.Tag?.ToString(), member.Role, StringComparison.OrdinalIgnoreCase))
+                if (CmbEditStaffRole.Items[i] is ComboBoxItem item && (string.Equals(item.Tag?.ToString(), member.Role, StringComparison.OrdinalIgnoreCase) || (string.Equals(item.Tag?.ToString(), "MONITOR", StringComparison.OrdinalIgnoreCase) && string.Equals(member.Role, "VIEWER", StringComparison.OrdinalIgnoreCase))))
                 {
                     CmbEditStaffRole.SelectedIndex = i;
                     break;

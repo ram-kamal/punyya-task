@@ -111,7 +111,7 @@ public class StaffService : IStaffService
             Email = cleanEmail,
             Username = cleanUsername,
             FullName = request.FullName.Trim(),
-            Role = string.IsNullOrWhiteSpace(request.Role) ? "EMPLOYEE" : request.Role.Trim().ToUpper(),
+            Role = string.IsNullOrWhiteSpace(request.Role) ? "EMPLOYEE" : (request.Role.Trim().ToUpper() == "VIEWER" ? "MONITOR" : request.Role.Trim().ToUpper()),
             WorkMode = string.IsNullOrWhiteSpace(request.WorkMode) ? "IN_OFFICE" : request.WorkMode.Trim().ToUpper(),
             StationId = defaultStation,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(string.IsNullOrWhiteSpace(request.Password) 
@@ -196,7 +196,7 @@ public class StaffService : IStaffService
         user.FullName = request.FullName.Trim();
         user.Email = cleanEmail;
         user.Username = cleanUsername;
-        user.Role = string.IsNullOrWhiteSpace(request.Role) ? "EMPLOYEE" : request.Role.Trim().ToUpper();
+        user.Role = string.IsNullOrWhiteSpace(request.Role) ? "EMPLOYEE" : (request.Role.Trim().ToUpper() == "VIEWER" ? "MONITOR" : request.Role.Trim().ToUpper());
         user.WorkMode = string.IsNullOrWhiteSpace(request.WorkMode) ? "IN_OFFICE" : request.WorkMode.Trim().ToUpper();
 
         if (!string.IsNullOrWhiteSpace(request.StationId))

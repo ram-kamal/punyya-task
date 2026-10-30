@@ -269,6 +269,11 @@ public class AdminStaffMemberViewModel
     public string Username => _dto.Username ?? "—";
     public string Email => _dto.Email;
     public string Role => _dto.Role;
+    public string RoleDisplay => _dto.Role switch
+    {
+        "MONITOR" or "VIEWER" => "VIEWER",
+        _ => _dto.Role
+    };
     public string WorkMode => _dto.WorkMode;
     public string WorkModeDisplay => WorkMode == "REMOTE_WFH" ? "Remote WFH" : "In-Office";
 
@@ -289,6 +294,7 @@ public class AdminStaffMemberViewModel
     {
         "ADMIN" => new SolidColorBrush(Color.FromArgb(50, 225, 29, 72)),
         "MANAGER" => new SolidColorBrush(Color.FromArgb(50, 99, 102, 241)),
+        "MONITOR" or "VIEWER" => new SolidColorBrush(Color.FromArgb(50, 6, 182, 212)),
         _ => new SolidColorBrush(Color.FromArgb(35, 148, 163, 184))
     };
 
@@ -296,6 +302,7 @@ public class AdminStaffMemberViewModel
     {
         "ADMIN" => new SolidColorBrush(Color.FromRgb(251, 113, 133)),
         "MANAGER" => new SolidColorBrush(Color.FromRgb(165, 180, 252)),
+        "MONITOR" or "VIEWER" => new SolidColorBrush(Color.FromRgb(34, 211, 238)),
         _ => new SolidColorBrush(Color.FromRgb(203, 213, 225))
     };
 
@@ -413,6 +420,11 @@ public class AdminStaffPerformanceRowViewModel
     public string EmployeeName => _dto.EmployeeName;
     public string Email => _dto.Email;
     public string Role => _dto.Role;
+    public string RoleDisplay => _dto.Role switch
+    {
+        "MONITOR" or "VIEWER" => "VIEWER",
+        _ => _dto.Role
+    };
     public string StationId => !string.IsNullOrWhiteSpace(_dto.StationId) ? _dto.StationId : "—";
     public int TasksAssigned => _dto.TasksAssigned;
     public int TasksCompleted => _dto.TasksCompleted;

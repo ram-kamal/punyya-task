@@ -769,7 +769,7 @@
 
                                                     <!-- Col 1: Role -->
                                                     <Border Grid.Column="1" Background="{Binding RoleBadgeBrush}" CornerRadius="6" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding Role}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding RoleFgBrush}" />
+                                                        <TextBlock Text="{Binding RoleDisplay}" FontSize="10.5" FontWeight="Bold" Foreground="{Binding RoleFgBrush}" />
                                                     </Border>
 
                                                     <!-- Col 2: Work Mode -->
@@ -1452,6 +1452,7 @@
                             <ComboBox x:Name="CmbAddStaffRole" SelectedIndex="0" HorizontalAlignment="Stretch">
                                 <ComboBoxItem Content="EMPLOYEE" Tag="EMPLOYEE" />
                                 <ComboBoxItem Content="MANAGER" Tag="MANAGER" />
+                                <ComboBoxItem Content="VIEWER" Tag="MONITOR" />
                                 <ComboBoxItem Content="ADMIN" Tag="ADMIN" />
                             </ComboBox>
                         </StackPanel>
@@ -1509,6 +1510,7 @@
                             <ComboBox x:Name="CmbEditStaffRole" SelectedIndex="0" HorizontalAlignment="Stretch">
                                 <ComboBoxItem Content="EMPLOYEE" Tag="EMPLOYEE" />
                                 <ComboBoxItem Content="MANAGER" Tag="MANAGER" />
+                                <ComboBoxItem Content="VIEWER" Tag="MONITOR" />
                                 <ComboBoxItem Content="ADMIN" Tag="ADMIN" />
                             </ComboBox>
                         </StackPanel>

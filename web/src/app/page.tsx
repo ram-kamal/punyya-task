@@ -3528,7 +3528,7 @@ export default function AdminDashboardPage() {
                                   : 'bg-slate-800 text-slate-300 border-slate-700'
                               }`}
                             >
-                              {member.role}
+                              {member.role === 'MONITOR' ? 'VIEWER' : member.role}
                             </span>
                           </td>
 
@@ -5818,7 +5818,7 @@ export default function AdminDashboardPage() {
                   >
                     <option value="EMPLOYEE">Employee</option>
                     <option value="MANAGER">Manager / Lead</option>
-                    <option value="MONITOR">Monitor / Observer (Read-Only)</option>
+                    <option value="MONITOR">Viewer / Monitor (Read-Only)</option>
                     <option value="ADMIN">System Admin</option>
                   </select>
                 </div>
@@ -6060,7 +6060,7 @@ export default function AdminDashboardPage() {
                   >
                     <option value="EMPLOYEE">Employee (Task Worker)</option>
                     <option value="MANAGER">Manager / Team Lead</option>
-                    <option value="MONITOR">Monitor / Observer (Read-Only)</option>
+                    <option value="MONITOR">Viewer / Monitor (Read-Only)</option>
                     <option value="ADMIN">System Administrator</option>
                   </select>
                 </div>
