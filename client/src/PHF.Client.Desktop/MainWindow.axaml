@@ -1426,39 +1426,49 @@
                     <TextBlock Text="Create a user profile, set authorization role and work mode" FontSize="11.5" Foreground="#94A3B8" />
 
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Full Name" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtAddStaffFullName" Watermark="e.g. Dr. Jane Smith"
+                        <TextBlock x:Name="LblAddStaffFullName" Text="Full Name" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox x:Name="TxtAddStaffFullName" Watermark="e.g. Dr. Jane Smith" TabIndex="1"
                                  AutomationProperties.Name="Full Name"
+                                 AutomationProperties.AutomationId="TxtAddStaffFullName"
+                                 AutomationProperties.LabeledBy="{Binding #LblAddStaffFullName}"
                                  AutomationProperties.HelpText="Enter employee's full legal name, e.g. Dr. Jane Smith" />
                     </StackPanel>
 
                     <Grid ColumnDefinitions="*,12,*">
                         <StackPanel Grid.Column="0" Spacing="4">
-                            <TextBlock Text="Email Address" FontSize="11" Foreground="#94A3B8" />
-                            <TextBox x:Name="TxtAddStaffEmail" Watermark="jane@punnya.org"
+                            <TextBlock x:Name="LblAddStaffEmail" Text="Email Address" FontSize="11" Foreground="#94A3B8" />
+                            <TextBox x:Name="TxtAddStaffEmail" Watermark="jane@punnya.org" TabIndex="2"
                                      AutomationProperties.Name="Email Address"
+                                     AutomationProperties.AutomationId="TxtAddStaffEmail"
+                                     AutomationProperties.LabeledBy="{Binding #LblAddStaffEmail}"
                                      AutomationProperties.HelpText="Enter employee's email address, e.g. jane@punnya.org" />
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="4">
-                            <TextBlock Text="Username (Optional)" FontSize="11" Foreground="#94A3B8" />
-                            <TextBox x:Name="TxtAddStaffUsername" Watermark="jsmith"
+                            <TextBlock x:Name="LblAddStaffUsername" Text="Username (Optional)" FontSize="11" Foreground="#94A3B8" />
+                            <TextBox x:Name="TxtAddStaffUsername" Watermark="jsmith" TabIndex="3"
                                      AutomationProperties.Name="Username (Optional)"
+                                     AutomationProperties.AutomationId="TxtAddStaffUsername"
+                                     AutomationProperties.LabeledBy="{Binding #LblAddStaffUsername}"
                                      AutomationProperties.HelpText="Enter optional username for login, e.g. jsmith" />
                         </StackPanel>
                     </Grid>
 
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Initial Password" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtAddStaffPassword" Watermark="Temporary password"
+                        <TextBlock x:Name="LblAddStaffPassword" Text="Initial Password" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox x:Name="TxtAddStaffPassword" Watermark="Temporary password" TabIndex="4"
                                  AutomationProperties.Name="Initial Password"
+                                 AutomationProperties.AutomationId="TxtAddStaffPassword"
+                                 AutomationProperties.LabeledBy="{Binding #LblAddStaffPassword}"
                                  AutomationProperties.HelpText="Enter initial temporary password for first sign in" />
                     </StackPanel>
 
                     <Grid ColumnDefinitions="*,12,*">
                         <StackPanel Grid.Column="0" Spacing="4">
-                            <TextBlock Text="Authorization Role" FontSize="11" Foreground="#94A3B8" />
-                            <ComboBox x:Name="CmbAddStaffRole" SelectedIndex="0" HorizontalAlignment="Stretch"
+                            <TextBlock x:Name="LblAddStaffRole" Text="Authorization Role" FontSize="11" Foreground="#94A3B8" />
+                            <ComboBox x:Name="CmbAddStaffRole" SelectedIndex="0" HorizontalAlignment="Stretch" TabIndex="5"
                                       AutomationProperties.Name="Authorization Role"
+                                      AutomationProperties.AutomationId="CmbAddStaffRole"
+                                      AutomationProperties.LabeledBy="{Binding #LblAddStaffRole}"
                                       AutomationProperties.HelpText="Select authorization role: Employee, Manager, Viewer, or Admin">
                                 <ComboBoxItem Content="EMPLOYEE" Tag="EMPLOYEE" AutomationProperties.Name="Employee Role" />
                                 <ComboBoxItem Content="MANAGER" Tag="MANAGER" AutomationProperties.Name="Manager Role" />
@@ -1467,9 +1477,11 @@
                             </ComboBox>
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="4">
-                            <TextBlock Text="Work Mode" FontSize="11" Foreground="#94A3B8" />
-                            <ComboBox x:Name="CmbAddStaffWorkMode" SelectedIndex="0" HorizontalAlignment="Stretch"
+                            <TextBlock x:Name="LblAddStaffWorkMode" Text="Work Mode" FontSize="11" Foreground="#94A3B8" />
+                            <ComboBox x:Name="CmbAddStaffWorkMode" SelectedIndex="0" HorizontalAlignment="Stretch" TabIndex="6"
                                       AutomationProperties.Name="Work Mode"
+                                      AutomationProperties.AutomationId="CmbAddStaffWorkMode"
+                                      AutomationProperties.LabeledBy="{Binding #LblAddStaffWorkMode}"
                                       AutomationProperties.HelpText="Select work mode: In-Office or Remote WFH">
                                 <ComboBoxItem Content="IN_OFFICE" Tag="IN_OFFICE" AutomationProperties.Name="In Office" />
                                 <ComboBoxItem Content="REMOTE_WFH" Tag="REMOTE_WFH" AutomationProperties.Name="Remote Work From Home" />
@@ -1478,9 +1490,11 @@
                     </Grid>
 
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Station Identifier (Optional)" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtAddStaffStationId" Watermark="e.g. ST-CARDIAC-01"
+                        <TextBlock x:Name="LblAddStaffStationId" Text="Station Identifier (Optional)" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox x:Name="TxtAddStaffStationId" Watermark="e.g. ST-CARDIAC-01" TabIndex="7"
                                  AutomationProperties.Name="Station Identifier (Optional)"
+                                 AutomationProperties.AutomationId="TxtAddStaffStationId"
+                                 AutomationProperties.LabeledBy="{Binding #LblAddStaffStationId}"
                                  AutomationProperties.HelpText="Enter optional workstation identifier, e.g. ST-CARDIAC-01" />
                     </StackPanel>
 
@@ -1489,11 +1503,13 @@
                                AutomationProperties.LiveSetting="Assertive" />
 
                     <Grid ColumnDefinitions="*,10,*" Margin="0,10,0,0">
-                        <Button Grid.Column="0" Classes="glass" Content="Cancel" HorizontalAlignment="Stretch" Click="BtnCancelAddStaff_Click"
+                        <Button Grid.Column="0" Classes="glass" Content="Cancel" HorizontalAlignment="Stretch" Click="BtnCancelAddStaff_Click" TabIndex="8"
                                 AutomationProperties.Name="Cancel Adding Team Member"
+                                AutomationProperties.AutomationId="BtnCancelAddStaff"
                                 AutomationProperties.HelpText="Closes the dialog without creating a new member" />
-                        <Button Grid.Column="2" Classes="primary" Content="Create Member ✓" HorizontalAlignment="Stretch" Click="BtnSubmitAddStaff_Click"
+                        <Button Grid.Column="2" Classes="primary" Content="Create Member ✓" HorizontalAlignment="Stretch" Click="BtnSubmitAddStaff_Click" TabIndex="9"
                                 AutomationProperties.Name="Create Team Member"
+                                AutomationProperties.AutomationId="BtnSubmitAddStaff"
                                 AutomationProperties.HelpText="Submits the form to create the team member" />
                     </Grid>
                 </StackPanel>
@@ -1509,32 +1525,40 @@
                     <TextBlock Text="Update staff authorization role, work mode, and workstation mapping" FontSize="11.5" Foreground="#94A3B8" />
 
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Full Name" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtEditStaffFullName" Watermark="e.g. Dr. Jane Smith"
+                        <TextBlock x:Name="LblEditStaffFullName" Text="Full Name" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox x:Name="TxtEditStaffFullName" Watermark="e.g. Dr. Jane Smith" TabIndex="1"
                                  AutomationProperties.Name="Full Name"
+                                 AutomationProperties.AutomationId="TxtEditStaffFullName"
+                                 AutomationProperties.LabeledBy="{Binding #LblEditStaffFullName}"
                                  AutomationProperties.HelpText="Enter employee's full legal name" />
                     </StackPanel>
 
                     <Grid ColumnDefinitions="*,12,*">
                         <StackPanel Grid.Column="0" Spacing="4">
-                            <TextBlock Text="Email Address" FontSize="11" Foreground="#94A3B8" />
-                            <TextBox x:Name="TxtEditStaffEmail" Watermark="jane@punnya.org"
+                            <TextBlock x:Name="LblEditStaffEmail" Text="Email Address" FontSize="11" Foreground="#94A3B8" />
+                            <TextBox x:Name="TxtEditStaffEmail" Watermark="jane@punnya.org" TabIndex="2"
                                      AutomationProperties.Name="Email Address"
+                                     AutomationProperties.AutomationId="TxtEditStaffEmail"
+                                     AutomationProperties.LabeledBy="{Binding #LblEditStaffEmail}"
                                      AutomationProperties.HelpText="Enter employee's email address" />
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="4">
-                            <TextBlock Text="Username" FontSize="11" Foreground="#94A3B8" />
-                            <TextBox x:Name="TxtEditStaffUsername" Watermark="jsmith"
+                            <TextBlock x:Name="LblEditStaffUsername" Text="Username" FontSize="11" Foreground="#94A3B8" />
+                            <TextBox x:Name="TxtEditStaffUsername" Watermark="jsmith" TabIndex="3"
                                      AutomationProperties.Name="Username"
+                                     AutomationProperties.AutomationId="TxtEditStaffUsername"
+                                     AutomationProperties.LabeledBy="{Binding #LblEditStaffUsername}"
                                      AutomationProperties.HelpText="Enter employee's login username" />
                         </StackPanel>
                     </Grid>
 
                     <Grid ColumnDefinitions="*,12,*">
                         <StackPanel Grid.Column="0" Spacing="4">
-                            <TextBlock Text="Authorization Role" FontSize="11" Foreground="#94A3B8" />
-                            <ComboBox x:Name="CmbEditStaffRole" SelectedIndex="0" HorizontalAlignment="Stretch"
+                            <TextBlock x:Name="LblEditStaffRole" Text="Authorization Role" FontSize="11" Foreground="#94A3B8" />
+                            <ComboBox x:Name="CmbEditStaffRole" SelectedIndex="0" HorizontalAlignment="Stretch" TabIndex="4"
                                       AutomationProperties.Name="Authorization Role"
+                                      AutomationProperties.AutomationId="CmbEditStaffRole"
+                                      AutomationProperties.LabeledBy="{Binding #LblEditStaffRole}"
                                       AutomationProperties.HelpText="Select authorization role: Employee, Manager, Viewer, or Admin">
                                 <ComboBoxItem Content="EMPLOYEE" Tag="EMPLOYEE" AutomationProperties.Name="Employee Role" />
                                 <ComboBoxItem Content="MANAGER" Tag="MANAGER" AutomationProperties.Name="Manager Role" />
@@ -1543,9 +1567,11 @@
                             </ComboBox>
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="4">
-                            <TextBlock Text="Work Mode" FontSize="11" Foreground="#94A3B8" />
-                            <ComboBox x:Name="CmbEditStaffWorkMode" SelectedIndex="0" HorizontalAlignment="Stretch"
+                            <TextBlock x:Name="LblEditStaffWorkMode" Text="Work Mode" FontSize="11" Foreground="#94A3B8" />
+                            <ComboBox x:Name="CmbEditStaffWorkMode" SelectedIndex="0" HorizontalAlignment="Stretch" TabIndex="5"
                                       AutomationProperties.Name="Work Mode"
+                                      AutomationProperties.AutomationId="CmbEditStaffWorkMode"
+                                      AutomationProperties.LabeledBy="{Binding #LblEditStaffWorkMode}"
                                       AutomationProperties.HelpText="Select work mode: In-Office or Remote WFH">
                                 <ComboBoxItem Content="IN_OFFICE" Tag="IN_OFFICE" AutomationProperties.Name="In Office" />
                                 <ComboBoxItem Content="REMOTE_WFH" Tag="REMOTE_WFH" AutomationProperties.Name="Remote Work From Home" />
@@ -1554,24 +1580,29 @@
                     </Grid>
 
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Station Identifier (Optional)" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtEditStaffStationId" Watermark="e.g. ST-CARDIAC-01"
+                        <TextBlock x:Name="LblEditStaffStationId" Text="Station Identifier (Optional)" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox x:Name="TxtEditStaffStationId" Watermark="e.g. ST-CARDIAC-01" TabIndex="6"
                                  AutomationProperties.Name="Station Identifier (Optional)"
+                                 AutomationProperties.AutomationId="TxtEditStaffStationId"
+                                 AutomationProperties.LabeledBy="{Binding #LblEditStaffStationId}"
                                  AutomationProperties.HelpText="Enter optional workstation identifier, e.g. ST-CARDIAC-01" />
                     </StackPanel>
 
                     <StackPanel Spacing="4">
                         <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Grid.Column="0" Text="Reset / Change Password (Optional)" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" />
+                            <TextBlock x:Name="LblEditStaffPassword" Grid.Column="0" Text="Reset / Change Password (Optional)" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="1" Text="Leave blank to keep current" FontSize="10" Foreground="#64748B" VerticalAlignment="Center" />
                         </Grid>
-                        <TextBox x:Name="TxtEditStaffPassword" Watermark="Enter new password to change..." PasswordChar="•"
+                        <TextBox x:Name="TxtEditStaffPassword" Watermark="Enter new password to change..." PasswordChar="•" TabIndex="7"
                                  AutomationProperties.Name="Reset or Change Password (Optional)"
+                                 AutomationProperties.AutomationId="TxtEditStaffPassword"
+                                 AutomationProperties.LabeledBy="{Binding #LblEditStaffPassword}"
                                  AutomationProperties.HelpText="Enter new password to change or leave blank to keep current password" />
                     </StackPanel>
 
-                    <CheckBox x:Name="ChkEditStaffIsActive" Content="Account Active (Allowed to log in and clock in)" IsChecked="True" FontSize="11.5" Margin="0,4,0,0"
+                    <CheckBox x:Name="ChkEditStaffIsActive" Content="Account Active (Allowed to log in and clock in)" IsChecked="True" FontSize="11.5" Margin="0,4,0,0" TabIndex="8"
                               AutomationProperties.Name="Account Active (Allowed to log in and clock in)"
+                              AutomationProperties.AutomationId="ChkEditStaffIsActive"
                               AutomationProperties.HelpText="Toggle whether employee account is active and allowed to log in" />
 
                     <TextBlock x:Name="TxtEditStaffError" Text="" FontSize="11" Foreground="#EF4444" IsVisible="False"
@@ -1579,11 +1610,13 @@
                                AutomationProperties.LiveSetting="Assertive" />
 
                     <Grid ColumnDefinitions="*,10,*" Margin="0,10,0,0">
-                        <Button Grid.Column="0" Classes="glass" Content="Cancel" HorizontalAlignment="Stretch" Click="BtnCancelEditStaff_Click"
+                        <Button Grid.Column="0" Classes="glass" Content="Cancel" HorizontalAlignment="Stretch" Click="BtnCancelEditStaff_Click" TabIndex="9"
                                 AutomationProperties.Name="Cancel Editing Team Member"
+                                AutomationProperties.AutomationId="BtnCancelEditStaff"
                                 AutomationProperties.HelpText="Closes the dialog without saving changes" />
-                        <Button Grid.Column="2" Classes="primary" Content="Save Changes ✓" HorizontalAlignment="Stretch" Click="BtnSubmitEditStaff_Click"
+                        <Button Grid.Column="2" Classes="primary" Content="Save Changes ✓" HorizontalAlignment="Stretch" Click="BtnSubmitEditStaff_Click" TabIndex="10"
                                 AutomationProperties.Name="Save Changes"
+                                AutomationProperties.AutomationId="BtnSubmitEditStaff"
                                 AutomationProperties.HelpText="Saves modifications made to the team member profile" />
                     </Grid>
                 </StackPanel>
