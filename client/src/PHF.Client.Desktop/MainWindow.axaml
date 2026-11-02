@@ -396,7 +396,7 @@
                     <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
                         <TextBlock x:Name="TxtAdminTasksCount" Grid.Column="0" Text="All Workforce Tasks (0 total)" FontSize="13" FontWeight="SemiBold" Foreground="#CBD5E1" VerticalAlignment="Center" />
                         
-                        <TextBox x:Name="TxtAdminTaskSearch" Grid.Column="1" Margin="16,0,16,0" Watermark="🔍 Search task title, code, staff..." TextChanged="TxtAdminTaskSearch_TextChanged" VerticalAlignment="Center" MaxWidth="320" HorizontalAlignment="Left" />
+                        <TextBox x:Name="TxtAdminTaskSearch" Grid.Column="1" Margin="16,0,16,0" Watermark="🔍 Search task title, code, staff..." TextChanged="TxtAdminTaskSearch_TextChanged" VerticalAlignment="Center" MaxWidth="320" HorizontalAlignment="Left" AutomationProperties.Name="Search Tasks" AutomationProperties.HelpText="Search task title, code, or assigned staff member" />
 
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                             <Button x:Name="BtnFilterTaskAll" Classes="glass" Content="ALL" Tag="ALL" Click="BtnFilterTaskStatus_Click" Padding="10,4" />
@@ -721,7 +721,7 @@
 
                     <!-- Search & Filter Row -->
                     <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
-                        <TextBox x:Name="TxtStaffSearch" Grid.Column="0" Watermark="🔍 Search staff by name, email, role, or station..." TextChanged="TxtStaffSearch_TextChanged" MaxWidth="360" HorizontalAlignment="Left" />
+                        <TextBox x:Name="TxtStaffSearch" Grid.Column="0" Watermark="🔍 Search staff by name, email, role, or station..." TextChanged="TxtStaffSearch_TextChanged" MaxWidth="360" HorizontalAlignment="Left" AutomationProperties.Name="Search Staff Directory" AutomationProperties.HelpText="Search staff by name, email, role, or station" />
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                             <Button x:Name="BtnFilterStaffAll" Classes="glass" Content="ALL" Tag="ALL" Click="BtnFilterStaffStatus_Click" Padding="10,4" />
                             <Button x:Name="BtnFilterStaffActive" Classes="glass" Content="ACTIVE" Tag="ACTIVE" Click="BtnFilterStaffStatus_Click" Padding="10,4" />
@@ -909,7 +909,7 @@
                                 </StackPanel>
 
                                 <!-- Search Filter -->
-                                <TextBox Grid.Column="1" x:Name="TxtRepSearch" Watermark="Search records..." Width="180" Height="28" FontSize="11" TextChanged="TxtRepSearch_TextChanged" />
+                                <TextBox Grid.Column="1" x:Name="TxtRepSearch" Watermark="Search records..." Width="180" Height="28" FontSize="11" TextChanged="TxtRepSearch_TextChanged" AutomationProperties.Name="Search Report Records" AutomationProperties.HelpText="Filter records in executive reports" />
                             </Grid>
                         </Border>
                     </Grid>
@@ -1131,7 +1131,7 @@
                     <TextBlock x:Name="TxtSelectedFilePath" Text="No file selected" FontSize="11" Foreground="#CBD5E1" TextTrimming="CharacterEllipsis" />
 
                     <TextBlock Text="Or External Deliverable Link / URL (Google Drive, GitHub, etc.):" FontSize="11" Foreground="#94A3B8" />
-                    <TextBox x:Name="TxtDeliverableUrlInput" Watermark="https://drive.google.com/..." />
+                    <TextBox x:Name="TxtDeliverableUrlInput" Watermark="https://drive.google.com/..." AutomationProperties.Name="Deliverable Link URL" AutomationProperties.HelpText="External proof of work link, e.g. Google Drive or GitHub" />
 
                     <Grid ColumnDefinitions="*,10,*" Margin="0,10,0,0">
                         <Button Grid.Column="0" Classes="glass" Content="Cancel" HorizontalAlignment="Stretch" Click="BtnCancelDeliverable_Click" />
@@ -1161,12 +1161,12 @@
 
                     <StackPanel Spacing="4">
                         <TextBlock Text="Username or Email" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtLoginEmail" Watermark="employee@punnya.org" />
+                        <TextBox x:Name="TxtLoginEmail" Watermark="employee@punnya.org" AutomationProperties.Name="Username or Email" AutomationProperties.HelpText="Enter employee email or username" />
                     </StackPanel>
 
                     <StackPanel Spacing="4">
                         <TextBlock Text="Password" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtLoginPassword" PasswordChar="•" />
+                        <TextBox x:Name="TxtLoginPassword" PasswordChar="•" AutomationProperties.Name="Password" AutomationProperties.HelpText="Enter account password" />
                     </StackPanel>
 
                     <!-- Remember Credentials Option -->
@@ -1183,9 +1183,9 @@
                     <Expander Header="⚙ Advanced Connection (Optional)" FontSize="11" Foreground="#94A3B8">
                         <StackPanel Spacing="6" Margin="4,6,4,0">
                             <TextBlock Text="Server API URL" FontSize="10" Foreground="#94A3B8" />
-                            <TextBox x:Name="TxtServerUrl" Text="https://punnya-api.onrender.com" FontSize="11" />
+                            <TextBox x:Name="TxtServerUrl" Text="https://punnya-api.onrender.com" FontSize="11" AutomationProperties.Name="Server API URL" AutomationProperties.HelpText="Central API endpoint URL" />
                             <TextBlock Text="Station Identifier" FontSize="10" Foreground="#94A3B8" />
-                            <TextBox x:Name="TxtLoginStation" Text="WFH-MAC" FontSize="11" />
+                            <TextBox x:Name="TxtLoginStation" Text="WFH-MAC" FontSize="11" AutomationProperties.Name="Station Identifier" AutomationProperties.HelpText="Local workstation device identifier" />
                         </StackPanel>
                     </Expander>
 
@@ -1216,7 +1216,7 @@
                                 <TextBlock Text="APPLY FOR LEAVE" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8" />
                                 
                                 <TextBlock Text="Leave Type" FontSize="11" Foreground="#94A3B8" />
-                                <ComboBox x:Name="CmbLeaveType" SelectedIndex="0" HorizontalAlignment="Stretch">
+                                <ComboBox x:Name="CmbLeaveType" SelectedIndex="0" HorizontalAlignment="Stretch" AutomationProperties.Name="Leave Type" AutomationProperties.HelpText="Select leave category">
                                     <ComboBoxItem Content="CASUAL — Casual Leave" Tag="CASUAL" />
                                     <ComboBoxItem Content="SICK — Sick Leave" Tag="SICK" />
                                     <ComboBoxItem Content="MEDICAL — Medical Leave" Tag="MEDICAL" />
@@ -1225,13 +1225,13 @@
                                 </ComboBox>
 
                                 <TextBlock Text="Start Date (YYYY-MM-DD)" FontSize="11" Foreground="#94A3B8" />
-                                <TextBox x:Name="TxtLeaveStartDate" />
+                                <TextBox x:Name="TxtLeaveStartDate" AutomationProperties.Name="Start Date" AutomationProperties.HelpText="Format YYYY-MM-DD" />
 
                                 <TextBlock Text="End Date (YYYY-MM-DD)" FontSize="11" Foreground="#94A3B8" />
-                                <TextBox x:Name="TxtLeaveEndDate" />
+                                <TextBox x:Name="TxtLeaveEndDate" AutomationProperties.Name="End Date" AutomationProperties.HelpText="Format YYYY-MM-DD" />
 
                                 <TextBlock Text="Reason / Justification" FontSize="11" Foreground="#94A3B8" />
-                                <TextBox x:Name="TxtLeaveReason" Height="50" AcceptsReturn="True" TextWrapping="Wrap" />
+                                <TextBox x:Name="TxtLeaveReason" Height="50" AcceptsReturn="True" TextWrapping="Wrap" AutomationProperties.Name="Reason for Leave" AutomationProperties.HelpText="Enter reason or justification for leave" />
 
                                 <TextBlock x:Name="TxtLeaveFormMessage" Text="" FontSize="10.5" Foreground="#34D399" IsVisible="False" />
                                 <Button x:Name="BtnSubmitLeaveApplication" Classes="primary" Content="Submit Application ✓" HorizontalAlignment="Stretch" Click="BtnSubmitLeaveApplication_Click" />
@@ -1285,22 +1285,22 @@
 
                     <StackPanel Spacing="4">
                         <TextBlock Text="Task Title" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtDispatchTitle" Watermark="e.g. Audit Telemetry Stream Baseline" />
+                        <TextBox x:Name="TxtDispatchTitle" Watermark="e.g. Audit Telemetry Stream Baseline" AutomationProperties.Name="Task Title" AutomationProperties.HelpText="Enter task title" />
                     </StackPanel>
 
                     <StackPanel Spacing="4">
                         <TextBlock Text="Task Description" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtDispatchDescription" Height="60" AcceptsReturn="True" TextWrapping="Wrap" Watermark="Detailed instructions..." />
+                        <TextBox x:Name="TxtDispatchDescription" Height="60" AcceptsReturn="True" TextWrapping="Wrap" Watermark="Detailed instructions..." AutomationProperties.Name="Task Description" AutomationProperties.HelpText="Enter detailed task instructions" />
                     </StackPanel>
 
                     <Grid ColumnDefinitions="*,12,*">
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="Assignee" FontSize="11" Foreground="#94A3B8" />
-                            <ComboBox x:Name="CmbDispatchAssignee" HorizontalAlignment="Stretch" />
+                            <ComboBox x:Name="CmbDispatchAssignee" HorizontalAlignment="Stretch" AutomationProperties.Name="Task Assignee" AutomationProperties.HelpText="Select staff member to assign this task" />
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="4">
                             <TextBlock Text="Priority" FontSize="11" Foreground="#94A3B8" />
-                            <ComboBox x:Name="CmbDispatchPriority" SelectedIndex="1" HorizontalAlignment="Stretch">
+                            <ComboBox x:Name="CmbDispatchPriority" SelectedIndex="1" HorizontalAlignment="Stretch" AutomationProperties.Name="Task Priority" AutomationProperties.HelpText="Select priority level">
                                 <ComboBoxItem Content="LOW" Tag="LOW" />
                                 <ComboBoxItem Content="MEDIUM" Tag="MEDIUM" />
                                 <ComboBoxItem Content="HIGH" Tag="HIGH" />
@@ -1311,7 +1311,7 @@
 
                     <StackPanel Spacing="4">
                         <TextBlock Text="Due Date (Optional YYYY-MM-DD)" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtDispatchDueDate" Watermark="2026-10-10" />
+                        <TextBox x:Name="TxtDispatchDueDate" Watermark="2026-10-10" AutomationProperties.Name="Due Date" AutomationProperties.HelpText="Format YYYY-MM-DD" />
                     </StackPanel>
 
                     <CheckBox x:Name="ChkDispatchDeliverableRequired" Content="Proof of Work Deliverable Required to Close" IsChecked="True" Foreground="#CBD5E1" FontSize="11" Margin="2,4,0,0" />
@@ -1341,22 +1341,22 @@
 
                     <StackPanel Spacing="4">
                         <TextBlock Text="Task Title" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtEditTaskTitle" />
+                        <TextBox x:Name="TxtEditTaskTitle" AutomationProperties.Name="Task Title" AutomationProperties.HelpText="Edit task title" />
                     </StackPanel>
 
                     <StackPanel Spacing="4">
                         <TextBlock Text="Task Description / Scope" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtEditTaskDescription" Height="65" AcceptsReturn="True" TextWrapping="Wrap" />
+                        <TextBox x:Name="TxtEditTaskDescription" Height="65" AcceptsReturn="True" TextWrapping="Wrap" AutomationProperties.Name="Task Description" AutomationProperties.HelpText="Edit task instructions and scope" />
                     </StackPanel>
 
                     <Grid ColumnDefinitions="*,12,*">
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="Reassign / Replace Staff" FontSize="11" Foreground="#94A3B8" />
-                            <ComboBox x:Name="CmbEditTaskAssignee" HorizontalAlignment="Stretch" />
+                            <ComboBox x:Name="CmbEditTaskAssignee" HorizontalAlignment="Stretch" AutomationProperties.Name="Reassign Staff" AutomationProperties.HelpText="Select staff member to reassign" />
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="4">
                             <TextBlock Text="Priority" FontSize="11" Foreground="#94A3B8" />
-                            <ComboBox x:Name="CmbEditTaskPriority" HorizontalAlignment="Stretch">
+                            <ComboBox x:Name="CmbEditTaskPriority" HorizontalAlignment="Stretch" AutomationProperties.Name="Task Priority" AutomationProperties.HelpText="Select priority level">
                                 <ComboBoxItem Content="LOW" Tag="LOW" />
                                 <ComboBoxItem Content="MEDIUM" Tag="MEDIUM" />
                                 <ComboBoxItem Content="HIGH" Tag="HIGH" />
@@ -1368,7 +1368,7 @@
                     <Grid ColumnDefinitions="*,12,*">
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="Task Status" FontSize="11" Foreground="#94A3B8" />
-                            <ComboBox x:Name="CmbEditTaskStatus" HorizontalAlignment="Stretch">
+                            <ComboBox x:Name="CmbEditTaskStatus" HorizontalAlignment="Stretch" AutomationProperties.Name="Task Status" AutomationProperties.HelpText="Select task status">
                                 <ComboBoxItem Content="ASSIGNED" Tag="ASSIGNED" />
                                 <ComboBoxItem Content="IN_PROGRESS" Tag="IN_PROGRESS" />
                                 <ComboBoxItem Content="UNDER_REVIEW" Tag="UNDER_REVIEW" />
@@ -1377,7 +1377,7 @@
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="4">
                             <TextBlock Text="Due Date &amp; Time" FontSize="11" Foreground="#94A3B8" />
-                            <TextBox x:Name="TxtEditTaskDueDate" Watermark="YYYY-MM-DD HH:mm" />
+                            <TextBox x:Name="TxtEditTaskDueDate" Watermark="YYYY-MM-DD HH:mm" AutomationProperties.Name="Due Date and Time" AutomationProperties.HelpText="Format YYYY-MM-DD HH:mm" />
                         </StackPanel>
                     </Grid>
 
@@ -1405,7 +1405,7 @@
 
                     <StackPanel Spacing="4" Margin="0,6,0,0">
                         <TextBlock Text="Supervisor Review Comments (Optional)" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtReviewSupervisorComments" Height="50" AcceptsReturn="True" TextWrapping="Wrap" Watermark="e.g. Approved. Please hand over active cases." />
+                        <TextBox x:Name="TxtReviewSupervisorComments" Height="50" AcceptsReturn="True" TextWrapping="Wrap" Watermark="e.g. Approved. Please hand over active cases." AutomationProperties.Name="Supervisor Review Comments" AutomationProperties.HelpText="Optional comments for leave approval or rejection" />
                     </StackPanel>
 
                     <Grid ColumnDefinitions="*,10,*,10,*" Margin="0,12,0,0">
@@ -1418,114 +1418,146 @@
         </Grid>
 
         <!-- Glass Modal Dialog: Add Staff Member (Admin) -->
-        <Grid x:Name="AddStaffModal" IsVisible="False" Background="#CC000000">
+        <Grid x:Name="AddStaffModal" IsVisible="False" Background="#CC000000" AutomationProperties.Name="Add New Team Member Dialog">
             <Border Background="#F0141722" BorderBrush="#40FFFFFF" BorderThickness="1" CornerRadius="14" Width="480" Padding="24"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
                 <StackPanel Spacing="10">
-                    <TextBlock Text="Add New Team Member" FontSize="16" FontWeight="Bold" Foreground="#F8FAFC" />
+                    <TextBlock Text="Add New Team Member" FontSize="16" FontWeight="Bold" Foreground="#F8FAFC" AutomationProperties.Name="Add New Team Member Header" />
                     <TextBlock Text="Create a user profile, set authorization role and work mode" FontSize="11.5" Foreground="#94A3B8" />
 
                     <StackPanel Spacing="4">
                         <TextBlock Text="Full Name" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtAddStaffFullName" Watermark="e.g. Dr. Jane Smith" />
+                        <TextBox x:Name="TxtAddStaffFullName" Watermark="e.g. Dr. Jane Smith"
+                                 AutomationProperties.Name="Full Name"
+                                 AutomationProperties.HelpText="Enter employee's full legal name, e.g. Dr. Jane Smith" />
                     </StackPanel>
 
                     <Grid ColumnDefinitions="*,12,*">
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="Email Address" FontSize="11" Foreground="#94A3B8" />
-                            <TextBox x:Name="TxtAddStaffEmail" Watermark="jane@punnya.org" />
+                            <TextBox x:Name="TxtAddStaffEmail" Watermark="jane@punnya.org"
+                                     AutomationProperties.Name="Email Address"
+                                     AutomationProperties.HelpText="Enter employee's email address, e.g. jane@punnya.org" />
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="4">
                             <TextBlock Text="Username (Optional)" FontSize="11" Foreground="#94A3B8" />
-                            <TextBox x:Name="TxtAddStaffUsername" Watermark="jsmith" />
+                            <TextBox x:Name="TxtAddStaffUsername" Watermark="jsmith"
+                                     AutomationProperties.Name="Username (Optional)"
+                                     AutomationProperties.HelpText="Enter optional username for login, e.g. jsmith" />
                         </StackPanel>
                     </Grid>
 
                     <StackPanel Spacing="4">
                         <TextBlock Text="Initial Password" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtAddStaffPassword" Watermark="Temporary password" />
+                        <TextBox x:Name="TxtAddStaffPassword" Watermark="Temporary password"
+                                 AutomationProperties.Name="Initial Password"
+                                 AutomationProperties.HelpText="Enter initial temporary password for first sign in" />
                     </StackPanel>
 
                     <Grid ColumnDefinitions="*,12,*">
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="Authorization Role" FontSize="11" Foreground="#94A3B8" />
-                            <ComboBox x:Name="CmbAddStaffRole" SelectedIndex="0" HorizontalAlignment="Stretch">
-                                <ComboBoxItem Content="EMPLOYEE" Tag="EMPLOYEE" />
-                                <ComboBoxItem Content="MANAGER" Tag="MANAGER" />
-                                <ComboBoxItem Content="VIEWER" Tag="MONITOR" />
-                                <ComboBoxItem Content="ADMIN" Tag="ADMIN" />
+                            <ComboBox x:Name="CmbAddStaffRole" SelectedIndex="0" HorizontalAlignment="Stretch"
+                                      AutomationProperties.Name="Authorization Role"
+                                      AutomationProperties.HelpText="Select authorization role: Employee, Manager, Viewer, or Admin">
+                                <ComboBoxItem Content="EMPLOYEE" Tag="EMPLOYEE" AutomationProperties.Name="Employee Role" />
+                                <ComboBoxItem Content="MANAGER" Tag="MANAGER" AutomationProperties.Name="Manager Role" />
+                                <ComboBoxItem Content="VIEWER" Tag="MONITOR" AutomationProperties.Name="Viewer Role" />
+                                <ComboBoxItem Content="ADMIN" Tag="ADMIN" AutomationProperties.Name="Admin Role" />
                             </ComboBox>
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="4">
                             <TextBlock Text="Work Mode" FontSize="11" Foreground="#94A3B8" />
-                            <ComboBox x:Name="CmbAddStaffWorkMode" SelectedIndex="0" HorizontalAlignment="Stretch">
-                                <ComboBoxItem Content="IN_OFFICE" Tag="IN_OFFICE" />
-                                <ComboBoxItem Content="REMOTE_WFH" Tag="REMOTE_WFH" />
+                            <ComboBox x:Name="CmbAddStaffWorkMode" SelectedIndex="0" HorizontalAlignment="Stretch"
+                                      AutomationProperties.Name="Work Mode"
+                                      AutomationProperties.HelpText="Select work mode: In-Office or Remote WFH">
+                                <ComboBoxItem Content="IN_OFFICE" Tag="IN_OFFICE" AutomationProperties.Name="In Office" />
+                                <ComboBoxItem Content="REMOTE_WFH" Tag="REMOTE_WFH" AutomationProperties.Name="Remote Work From Home" />
                             </ComboBox>
                         </StackPanel>
                     </Grid>
 
                     <StackPanel Spacing="4">
                         <TextBlock Text="Station Identifier (Optional)" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtAddStaffStationId" Watermark="e.g. ST-CARDIAC-01" />
+                        <TextBox x:Name="TxtAddStaffStationId" Watermark="e.g. ST-CARDIAC-01"
+                                 AutomationProperties.Name="Station Identifier (Optional)"
+                                 AutomationProperties.HelpText="Enter optional workstation identifier, e.g. ST-CARDIAC-01" />
                     </StackPanel>
 
-                    <TextBlock x:Name="TxtAddStaffError" Text="" FontSize="11" Foreground="#EF4444" IsVisible="False" />
+                    <TextBlock x:Name="TxtAddStaffError" Text="" FontSize="11" Foreground="#EF4444" IsVisible="False"
+                               AutomationProperties.Name="Validation Error Message"
+                               AutomationProperties.LiveSetting="Assertive" />
 
                     <Grid ColumnDefinitions="*,10,*" Margin="0,10,0,0">
-                        <Button Grid.Column="0" Classes="glass" Content="Cancel" HorizontalAlignment="Stretch" Click="BtnCancelAddStaff_Click" />
-                        <Button Grid.Column="2" Classes="primary" Content="Create Member ✓" HorizontalAlignment="Stretch" Click="BtnSubmitAddStaff_Click" />
+                        <Button Grid.Column="0" Classes="glass" Content="Cancel" HorizontalAlignment="Stretch" Click="BtnCancelAddStaff_Click"
+                                AutomationProperties.Name="Cancel Adding Team Member"
+                                AutomationProperties.HelpText="Closes the dialog without creating a new member" />
+                        <Button Grid.Column="2" Classes="primary" Content="Create Member ✓" HorizontalAlignment="Stretch" Click="BtnSubmitAddStaff_Click"
+                                AutomationProperties.Name="Create Team Member"
+                                AutomationProperties.HelpText="Submits the form to create the team member" />
                     </Grid>
                 </StackPanel>
             </Border>
         </Grid>
 
         <!-- Glass Modal Dialog: Edit Staff Member (Admin) -->
-        <Grid x:Name="EditStaffModal" IsVisible="False" Background="#CC000000">
+        <Grid x:Name="EditStaffModal" IsVisible="False" Background="#CC000000" AutomationProperties.Name="Edit Team Member Profile Dialog">
             <Border Background="#F0141722" BorderBrush="#40FFFFFF" BorderThickness="1" CornerRadius="14" Width="480" Padding="24"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
                 <StackPanel Spacing="10">
-                    <TextBlock Text="Edit Team Member Profile" FontSize="16" FontWeight="Bold" Foreground="#F8FAFC" />
+                    <TextBlock Text="Edit Team Member Profile" FontSize="16" FontWeight="Bold" Foreground="#F8FAFC" AutomationProperties.Name="Edit Team Member Profile Header" />
                     <TextBlock Text="Update staff authorization role, work mode, and workstation mapping" FontSize="11.5" Foreground="#94A3B8" />
 
                     <StackPanel Spacing="4">
                         <TextBlock Text="Full Name" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtEditStaffFullName" Watermark="e.g. Dr. Jane Smith" />
+                        <TextBox x:Name="TxtEditStaffFullName" Watermark="e.g. Dr. Jane Smith"
+                                 AutomationProperties.Name="Full Name"
+                                 AutomationProperties.HelpText="Enter employee's full legal name" />
                     </StackPanel>
 
                     <Grid ColumnDefinitions="*,12,*">
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="Email Address" FontSize="11" Foreground="#94A3B8" />
-                            <TextBox x:Name="TxtEditStaffEmail" Watermark="jane@punnya.org" />
+                            <TextBox x:Name="TxtEditStaffEmail" Watermark="jane@punnya.org"
+                                     AutomationProperties.Name="Email Address"
+                                     AutomationProperties.HelpText="Enter employee's email address" />
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="4">
                             <TextBlock Text="Username" FontSize="11" Foreground="#94A3B8" />
-                            <TextBox x:Name="TxtEditStaffUsername" Watermark="jsmith" />
+                            <TextBox x:Name="TxtEditStaffUsername" Watermark="jsmith"
+                                     AutomationProperties.Name="Username"
+                                     AutomationProperties.HelpText="Enter employee's login username" />
                         </StackPanel>
                     </Grid>
 
                     <Grid ColumnDefinitions="*,12,*">
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="Authorization Role" FontSize="11" Foreground="#94A3B8" />
-                            <ComboBox x:Name="CmbEditStaffRole" SelectedIndex="0" HorizontalAlignment="Stretch">
-                                <ComboBoxItem Content="EMPLOYEE" Tag="EMPLOYEE" />
-                                <ComboBoxItem Content="MANAGER" Tag="MANAGER" />
-                                <ComboBoxItem Content="VIEWER" Tag="MONITOR" />
-                                <ComboBoxItem Content="ADMIN" Tag="ADMIN" />
+                            <ComboBox x:Name="CmbEditStaffRole" SelectedIndex="0" HorizontalAlignment="Stretch"
+                                      AutomationProperties.Name="Authorization Role"
+                                      AutomationProperties.HelpText="Select authorization role: Employee, Manager, Viewer, or Admin">
+                                <ComboBoxItem Content="EMPLOYEE" Tag="EMPLOYEE" AutomationProperties.Name="Employee Role" />
+                                <ComboBoxItem Content="MANAGER" Tag="MANAGER" AutomationProperties.Name="Manager Role" />
+                                <ComboBoxItem Content="VIEWER" Tag="MONITOR" AutomationProperties.Name="Viewer Role" />
+                                <ComboBoxItem Content="ADMIN" Tag="ADMIN" AutomationProperties.Name="Admin Role" />
                             </ComboBox>
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="4">
                             <TextBlock Text="Work Mode" FontSize="11" Foreground="#94A3B8" />
-                            <ComboBox x:Name="CmbEditStaffWorkMode" SelectedIndex="0" HorizontalAlignment="Stretch">
-                                <ComboBoxItem Content="IN_OFFICE" Tag="IN_OFFICE" />
-                                <ComboBoxItem Content="REMOTE_WFH" Tag="REMOTE_WFH" />
+                            <ComboBox x:Name="CmbEditStaffWorkMode" SelectedIndex="0" HorizontalAlignment="Stretch"
+                                      AutomationProperties.Name="Work Mode"
+                                      AutomationProperties.HelpText="Select work mode: In-Office or Remote WFH">
+                                <ComboBoxItem Content="IN_OFFICE" Tag="IN_OFFICE" AutomationProperties.Name="In Office" />
+                                <ComboBoxItem Content="REMOTE_WFH" Tag="REMOTE_WFH" AutomationProperties.Name="Remote Work From Home" />
                             </ComboBox>
                         </StackPanel>
                     </Grid>
 
                     <StackPanel Spacing="4">
                         <TextBlock Text="Station Identifier (Optional)" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtEditStaffStationId" Watermark="e.g. ST-CARDIAC-01" />
+                        <TextBox x:Name="TxtEditStaffStationId" Watermark="e.g. ST-CARDIAC-01"
+                                 AutomationProperties.Name="Station Identifier (Optional)"
+                                 AutomationProperties.HelpText="Enter optional workstation identifier, e.g. ST-CARDIAC-01" />
                     </StackPanel>
 
                     <StackPanel Spacing="4">
@@ -1533,39 +1565,57 @@
                             <TextBlock Grid.Column="0" Text="Reset / Change Password (Optional)" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="1" Text="Leave blank to keep current" FontSize="10" Foreground="#64748B" VerticalAlignment="Center" />
                         </Grid>
-                        <TextBox x:Name="TxtEditStaffPassword" Watermark="Enter new password to change..." PasswordChar="•" />
+                        <TextBox x:Name="TxtEditStaffPassword" Watermark="Enter new password to change..." PasswordChar="•"
+                                 AutomationProperties.Name="Reset or Change Password (Optional)"
+                                 AutomationProperties.HelpText="Enter new password to change or leave blank to keep current password" />
                     </StackPanel>
 
-                    <CheckBox x:Name="ChkEditStaffIsActive" Content="Account Active (Allowed to log in and clock in)" IsChecked="True" FontSize="11.5" Margin="0,4,0,0" />
+                    <CheckBox x:Name="ChkEditStaffIsActive" Content="Account Active (Allowed to log in and clock in)" IsChecked="True" FontSize="11.5" Margin="0,4,0,0"
+                              AutomationProperties.Name="Account Active (Allowed to log in and clock in)"
+                              AutomationProperties.HelpText="Toggle whether employee account is active and allowed to log in" />
 
-                    <TextBlock x:Name="TxtEditStaffError" Text="" FontSize="11" Foreground="#EF4444" IsVisible="False" />
+                    <TextBlock x:Name="TxtEditStaffError" Text="" FontSize="11" Foreground="#EF4444" IsVisible="False"
+                               AutomationProperties.Name="Validation Error Message"
+                               AutomationProperties.LiveSetting="Assertive" />
 
                     <Grid ColumnDefinitions="*,10,*" Margin="0,10,0,0">
-                        <Button Grid.Column="0" Classes="glass" Content="Cancel" HorizontalAlignment="Stretch" Click="BtnCancelEditStaff_Click" />
-                        <Button Grid.Column="2" Classes="primary" Content="Save Changes ✓" HorizontalAlignment="Stretch" Click="BtnSubmitEditStaff_Click" />
+                        <Button Grid.Column="0" Classes="glass" Content="Cancel" HorizontalAlignment="Stretch" Click="BtnCancelEditStaff_Click"
+                                AutomationProperties.Name="Cancel Editing Team Member"
+                                AutomationProperties.HelpText="Closes the dialog without saving changes" />
+                        <Button Grid.Column="2" Classes="primary" Content="Save Changes ✓" HorizontalAlignment="Stretch" Click="BtnSubmitEditStaff_Click"
+                                AutomationProperties.Name="Save Changes"
+                                AutomationProperties.HelpText="Saves modifications made to the team member profile" />
                     </Grid>
                 </StackPanel>
             </Border>
         </Grid>
 
         <!-- Glass Modal Dialog: Reset Staff Password (Admin) -->
-        <Grid x:Name="ResetStaffPasswordModal" IsVisible="False" Background="#CC000000">
+        <Grid x:Name="ResetStaffPasswordModal" IsVisible="False" Background="#CC000000" AutomationProperties.Name="Reset Employee Password Dialog">
             <Border Background="#F0141722" BorderBrush="#40FFFFFF" BorderThickness="1" CornerRadius="14" Width="420" Padding="24"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="Reset Employee Password" FontSize="16" FontWeight="Bold" Foreground="#F8FAFC" />
+                    <TextBlock Text="Reset Employee Password" FontSize="16" FontWeight="Bold" Foreground="#F8FAFC" AutomationProperties.Name="Reset Employee Password Header" />
                     <TextBlock x:Name="TxtResetPasswordTargetInfo" Text="Target: User" FontSize="11.5" Foreground="#CBD5E1" />
 
                     <StackPanel Spacing="4">
                         <TextBlock Text="New Temporary Password" FontSize="11" Foreground="#94A3B8" />
-                        <TextBox x:Name="TxtResetPasswordNewPassword" Watermark="Enter new secure password" />
+                        <TextBox x:Name="TxtResetPasswordNewPassword" Watermark="Enter new secure password"
+                                 AutomationProperties.Name="New Temporary Password"
+                                 AutomationProperties.HelpText="Enter new secure temporary password" />
                     </StackPanel>
 
-                    <TextBlock x:Name="TxtResetPasswordError" Text="" FontSize="11" Foreground="#EF4444" IsVisible="False" />
+                    <TextBlock x:Name="TxtResetPasswordError" Text="" FontSize="11" Foreground="#EF4444" IsVisible="False"
+                               AutomationProperties.Name="Validation Error Message"
+                               AutomationProperties.LiveSetting="Assertive" />
 
                     <Grid ColumnDefinitions="*,10,*" Margin="0,10,0,0">
-                        <Button Grid.Column="0" Classes="glass" Content="Cancel" HorizontalAlignment="Stretch" Click="BtnCancelResetPassword_Click" />
-                        <Button Grid.Column="2" Classes="accentGreen" Content="Reset Key 🔑" HorizontalAlignment="Stretch" Click="BtnSubmitResetPassword_Click" />
+                        <Button Grid.Column="0" Classes="glass" Content="Cancel" HorizontalAlignment="Stretch" Click="BtnCancelResetPassword_Click"
+                                AutomationProperties.Name="Cancel Password Reset"
+                                AutomationProperties.HelpText="Closes the reset password dialog" />
+                        <Button Grid.Column="2" Classes="accentGreen" Content="Reset Key 🔑" HorizontalAlignment="Stretch" Click="BtnSubmitResetPassword_Click"
+                                AutomationProperties.Name="Confirm Reset Password"
+                                AutomationProperties.HelpText="Applies the new temporary password for the staff member" />
                     </Grid>
                 </StackPanel>
             </Border>
@@ -1596,7 +1646,8 @@
                     <!-- Raw CSV TextBox -->
                     <TextBox x:Name="TxtBulkImportCsv" Grid.Row="2" Height="100" AcceptsReturn="True" TextWrapping="Wrap"
                              Watermark="Paste CSV/TSV data here or click 'Browse CSV/TSV File' / 'Load Sample'..."
-                             FontFamily="Consolas, Cascadia Code, monospace" FontSize="11" Margin="0,0,0,10" />
+                             FontFamily="Consolas, Cascadia Code, monospace" FontSize="11" Margin="0,0,0,10"
+                             AutomationProperties.Name="Bulk Import CSV or TSV Content" AutomationProperties.HelpText="Paste CSV or TSV data here or load from sample" />
 
                     <!-- Parsed Items Preview Area -->
                     <Border Grid.Row="3" Background="#15000000" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="8" Padding="10" MinHeight="160" MaxHeight="220">

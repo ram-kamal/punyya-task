@@ -1937,6 +1937,7 @@ public partial class MainWindow : Window
         TxtAddStaffStationId.Text = "";
         TxtAddStaffError.IsVisible = false;
         AddStaffModal.IsVisible = true;
+        TxtAddStaffFullName.Focus();
     }
 
     private void BtnCancelAddStaff_Click(object? sender, RoutedEventArgs e)
@@ -2361,6 +2362,7 @@ public partial class MainWindow : Window
             }
 
             EditStaffModal.IsVisible = true;
+            TxtEditStaffFullName.Focus();
         }
     }
 
@@ -2436,6 +2438,7 @@ public partial class MainWindow : Window
             TxtResetPasswordNewPassword.Text = string.Empty;
             TxtResetPasswordError.IsVisible = false;
             ResetStaffPasswordModal.IsVisible = true;
+            TxtResetPasswordNewPassword.Focus();
         }
     }
 

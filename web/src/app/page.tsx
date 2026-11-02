@@ -5768,13 +5768,16 @@ export default function AdminDashboardPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateStaff} className="space-y-4 text-xs">
+            <form onSubmit={handleCreateStaff} className="space-y-4 text-xs" aria-label="Add New Team Member Form">
               <div>
-                <label className="block font-bold text-slate-300 mb-1">Full Legal Name</label>
+                <label htmlFor="newStaffFullName" className="block font-bold text-slate-300 mb-1">Full Legal Name</label>
                 <input
+                  id="newStaffFullName"
                   type="text"
                   required
                   placeholder="e.g. John Doe"
+                  aria-label="Full Legal Name"
+                  aria-required="true"
                   value={newStaffFullName}
                   onChange={(e) => setNewStaffFullName(e.target.value)}
                   className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
@@ -5783,35 +5786,44 @@ export default function AdminDashboardPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">Username / Staff ID</label>
+                  <label htmlFor="newStaffUsername" className="block font-bold text-slate-300 mb-1">Username / Staff ID</label>
                   <input
+                    id="newStaffUsername"
                     type="text"
                     placeholder="e.g. jdoe or PHF-101"
+                    aria-label="Username or Staff ID"
+                    aria-describedby="newStaffUsernameHelp"
                     value={newStaffUsername}
                     onChange={(e) => setNewStaffUsername(e.target.value)}
                     className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                   />
-                  <span className="text-[10px] text-slate-500">Can be used to sign into desktop app</span>
+                  <span id="newStaffUsernameHelp" className="text-[10px] text-slate-500">Can be used to sign into desktop app</span>
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">Personal / Work Email</label>
+                  <label htmlFor="newStaffEmail" className="block font-bold text-slate-300 mb-1">Personal / Work Email</label>
                   <input
+                    id="newStaffEmail"
                     type="email"
                     required
                     placeholder="e.g. employee@punnyaheart.org"
+                    aria-label="Personal or Work Email"
+                    aria-required="true"
+                    aria-describedby="newStaffEmailHelp"
                     value={newStaffEmail}
                     onChange={(e) => setNewStaffEmail(e.target.value)}
                     className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                   />
-                  <span className="text-[10px] text-slate-500">Any free email provider (no domain required)</span>
+                  <span id="newStaffEmailHelp" className="text-[10px] text-slate-500">Any free email provider (no domain required)</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">Role</label>
+                  <label htmlFor="newStaffRole" className="block font-bold text-slate-300 mb-1">Role</label>
                   <select
+                    id="newStaffRole"
+                    aria-label="Authorization Role"
                     value={newStaffRole}
                     onChange={(e) => setNewStaffRole(e.target.value)}
                     className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
@@ -5824,8 +5836,10 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">Work Mode</label>
+                  <label htmlFor="newStaffWorkMode" className="block font-bold text-slate-300 mb-1">Work Mode</label>
                   <select
+                    id="newStaffWorkMode"
+                    aria-label="Work Mode"
                     value={newStaffWorkMode}
                     onChange={(e) => setNewStaffWorkMode(e.target.value)}
                     className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
@@ -5838,23 +5852,27 @@ export default function AdminDashboardPage() {
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block font-bold text-slate-300">Initial Temporary Password</label>
+                  <label htmlFor="newStaffPassword" className="block font-bold text-slate-300">Initial Temporary Password</label>
                   <button
                     type="button"
                     onClick={generateRandomPassword}
+                    aria-label="Generate Secure Temporary Password"
                     className="text-[11px] text-rose-400 hover:text-rose-300 transition font-semibold"
                   >
                     🎲 Generate Secure
                   </button>
                 </div>
                 <input
+                  id="newStaffPassword"
                   type="text"
                   placeholder="Enter temporary password or click Generate"
+                  aria-label="Initial Temporary Password"
+                  aria-describedby="newStaffPasswordHelp"
                   value={newStaffPassword}
                   onChange={(e) => setNewStaffPassword(e.target.value)}
                   className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-rose-500"
                 />
-                <span className="text-[10px] text-slate-500">Leave blank to use default onboarding password or click Generate Secure</span>
+                <span id="newStaffPasswordHelp" className="text-[10px] text-slate-500">Leave blank to use default onboarding password or click Generate Secure</span>
               </div>
 
               {addStaffMessage && (
@@ -5915,12 +5933,15 @@ export default function AdminDashboardPage() {
 
             <form onSubmit={handleResetStaffPassword} className="space-y-4 text-xs">
               <div>
-                <label className="block font-bold text-slate-300 mb-1">New Temporary Password</label>
+                <label htmlFor="newResetPassword" className="block font-bold text-slate-300 mb-1">New Temporary Password</label>
                 <input
+                  id="newResetPassword"
                   type="text"
                   required
                   autoFocus
                   placeholder="e.g. PHF-Pass@2026"
+                  aria-label="New Temporary Password"
+                  aria-required="true"
                   value={newResetPassword}
                   onChange={(e) => setNewResetPassword(e.target.value)}
                   className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-rose-500"
@@ -6007,16 +6028,19 @@ export default function AdminDashboardPage() {
               </span>
             </div>
 
-            <form onSubmit={handleUpdateStaff} className="space-y-4 text-xs">
+            <form onSubmit={handleUpdateStaff} className="space-y-4 text-xs" aria-label="Edit Team Member Profile Form">
               {/* Row 1: Full Name */}
               <div>
-                <label className="block font-bold text-slate-300 mb-1">Full Legal Name *</label>
+                <label htmlFor="editFullName" className="block font-bold text-slate-300 mb-1">Full Legal Name *</label>
                 <input
+                  id="editFullName"
                   type="text"
                   required
                   value={editFullName}
                   onChange={(e) => setEditFullName(e.target.value)}
                   placeholder="e.g. John Doe"
+                  aria-label="Full Legal Name"
+                  aria-required="true"
                   className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
                 />
               </div>
@@ -6024,36 +6048,45 @@ export default function AdminDashboardPage() {
               {/* Row 2: Username & Email */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">Username / Staff Handle</label>
+                  <label htmlFor="editUsername" className="block font-bold text-slate-300 mb-1">Username / Staff Handle</label>
                   <input
+                    id="editUsername"
                     type="text"
                     value={editUsername}
                     onChange={(e) => setEditUsername(e.target.value)}
                     placeholder="e.g. jdoe or PHF-101"
+                    aria-label="Username or Staff Handle"
+                    aria-describedby="editUsernameHelp"
                     className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                   />
-                  <span className="text-[10px] text-slate-500">Sign-in handle for desktop telemetry agent</span>
+                  <span id="editUsernameHelp" className="text-[10px] text-slate-500">Sign-in handle for desktop telemetry agent</span>
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">Personal / Work Email *</label>
+                  <label htmlFor="editEmail" className="block font-bold text-slate-300 mb-1">Personal / Work Email *</label>
                   <input
+                    id="editEmail"
                     type="email"
                     required
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
                     placeholder="e.g. employee@punnyaheart.org"
+                    aria-label="Personal or Work Email"
+                    aria-required="true"
+                    aria-describedby="editEmailHelp"
                     className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                   />
-                  <span className="text-[10px] text-slate-500">Used for notifications and web admin access</span>
+                  <span id="editEmailHelp" className="text-[10px] text-slate-500">Used for notifications and web admin access</span>
                 </div>
               </div>
 
               {/* Row 3: Role & Work Mode */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">System Role</label>
+                  <label htmlFor="editRole" className="block font-bold text-slate-300 mb-1">System Role</label>
                   <select
+                    id="editRole"
+                    aria-label="System Role"
                     value={editRole}
                     onChange={(e) => setEditRole(e.target.value)}
                     className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
@@ -6066,8 +6099,10 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">Work Mode</label>
+                  <label htmlFor="editWorkMode" className="block font-bold text-slate-300 mb-1">Work Mode</label>
                   <select
+                    id="editWorkMode"
+                    aria-label="Work Mode"
                     value={editWorkMode}
                     onChange={(e) => {
                       const newMode = e.target.value;
@@ -6087,15 +6122,18 @@ export default function AdminDashboardPage() {
               {/* Row 4: Station ID & Account Status */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1">Assigned Station / Device ID</label>
+                  <label htmlFor="editStationId" className="block font-bold text-slate-300 mb-1">Assigned Station / Device ID</label>
                   <input
+                    id="editStationId"
                     type="text"
                     value={editStationId}
                     onChange={(e) => setEditStationId(e.target.value)}
                     placeholder="e.g. ST-101 or WFH-DESK"
+                    aria-label="Assigned Station or Device ID"
+                    aria-describedby="editStationIdHelp"
                     className="w-full bg-[#0D0E12] border border-[#262938] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-rose-500"
                   />
-                  <span className="text-[10px] text-slate-500">Matches client app telemetry routing</span>
+                  <span id="editStationIdHelp" className="text-[10px] text-slate-500">Matches client app telemetry routing</span>
                 </div>
 
                 <div>
@@ -6131,12 +6169,14 @@ export default function AdminDashboardPage() {
 
               {/* Row 5: Optional Password Override */}
               <div className="pt-2 border-t border-[#262938]">
-                <label className="block font-bold text-slate-300 mb-1">
+                <label htmlFor="editNewPassword" className="block font-bold text-slate-300 mb-1">
                   Change Password <span className="text-slate-500 font-normal">(Leave blank to keep unchanged)</span>
                 </label>
                 <div className="relative">
                   <input
+                    id="editNewPassword"
                     type="text"
+                    aria-label="Reset or Change Password (Optional)"
                     value={editNewPassword}
                     onChange={(e) => setEditNewPassword(e.target.value)}
                     placeholder="Enter new password to reset, or leave empty"
