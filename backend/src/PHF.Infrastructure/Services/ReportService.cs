@@ -5,6 +5,7 @@ using PHF.Core.DTOs;
 using PHF.Core.Entities;
 using PHF.Core.Enums;
 using PHF.Core.Interfaces;
+using PHF.Core.Utils;
 using PHF.Infrastructure.Data;
 
 namespace PHF.Infrastructure.Services;
@@ -356,15 +357,44 @@ public class ReportService : IReportService
         var report = await GetAttendanceReportAsync(year, month, employeeId, cancellationToken);
         var sb = new StringBuilder();
 
+        // Load users to filter out Ramkamal and Viewers (MONITOR / VIEWER) from CSV export
+        var allUsers = await _dbContext.Users.ToListAsync(cancellationToken);
+        var userRoleByEmail = allUsers
+            .Where(u => !string.IsNullOrWhiteSpace(u.Email))
+            .ToDictionary(u => u.Email.Trim(), u => u.Role, StringComparer.OrdinalIgnoreCase);
+        var userRoleByName = allUsers
+            .Where(u => !string.IsNullOrWhiteSpace(u.FullName))
+            .ToDictionary(u => u.FullName.Trim(), u => u.Role, StringComparer.OrdinalIgnoreCase);
+
+        var staffSummaries = report.StaffSummaries.Where(s =>
+        {
+            var role = (!string.IsNullOrWhiteSpace(s.Email) && userRoleByEmail.TryGetValue(s.Email.Trim(), out var r1))
+                ? r1
+                : ((!string.IsNullOrWhiteSpace(s.EmployeeName) && userRoleByName.TryGetValue(s.EmployeeName.Trim(), out var r2)) ? r2 : null);
+
+            return !CsvExportFilter.ShouldExcludeFromCsv(s.EmployeeName, s.Email, null, role);
+        }).ToList();
+
+        var dailyLogs = report.DailyAttendanceLogs.Where(d =>
+        {
+            var role = (!string.IsNullOrWhiteSpace(d.EmployeeName) && userRoleByName.TryGetValue(d.EmployeeName.Trim(), out var r2)) ? r2 : null;
+            return !CsvExportFilter.ShouldExcludeFromCsv(d.EmployeeName, null, null, role);
+        }).ToList();
+
+        var teamAttendanceRate = staffSummaries.Any()
+            ? Math.Round(staffSummaries.Average(s => s.AttendanceRatePercentage), 1)
+            : 0.0;
+        var totalHoursLogged = Math.Round(staffSummaries.Sum(s => s.TotalHours), 2);
+
         // Month-End Attendance Executive Header
         sb.AppendLine($"# PUNNYA HEART FOUNDATION - MONTH-END ATTENDANCE REPORT");
         sb.AppendLine($"# Period: {report.Period} ({report.StartDate} to {report.EndDate})");
-        sb.AppendLine($"# Total Working Days: {report.TotalWorkingDays} | Elapsed: {report.WorkingDaysElapsed} | Team Attendance Rate: {report.AverageAttendanceRate}% | Total Hours Logged: {report.TotalHoursLogged}h");
+        sb.AppendLine($"# Total Working Days: {report.TotalWorkingDays} | Elapsed: {report.WorkingDaysElapsed} | Team Attendance Rate: {teamAttendanceRate}% | Total Hours Logged: {totalHoursLogged}h");
         sb.AppendLine();
 
         sb.AppendLine("Employee Name,Email,Station ID,Work Mode,Working Days,Days Present,Days Absent,Approved Leave Days,Attendance Rate %,Total Hours,Total Time (HH:MM),Active Hours,Idle Hours,Avg Daily Hours,Efficiency %");
 
-        foreach (var s in report.StaffSummaries)
+        foreach (var s in staffSummaries)
         {
             sb.AppendLine(string.Format(
                 CultureInfo.InvariantCulture,
@@ -391,7 +421,7 @@ public class ReportService : IReportService
         sb.AppendLine("# DAILY ATTENDANCE AUDIT LOG");
         sb.AppendLine("Date,Day of Week,Employee Name,Station ID,Status,Clock In,Clock Out,Hours Worked,Time (HH:MM)");
 
-        foreach (var d in report.DailyAttendanceLogs.OrderByDescending(x => x.Date).ThenBy(x => x.EmployeeName))
+        foreach (var d in dailyLogs.OrderByDescending(x => x.Date).ThenBy(x => x.EmployeeName))
         {
             sb.AppendLine(string.Format(
                 CultureInfo.InvariantCulture,
@@ -659,14 +689,24 @@ public class ReportService : IReportService
         var report = await GetPerformanceReportAsync(startDate, endDate, period, employeeId, cancellationToken);
         var sb = new StringBuilder();
 
+        // Filter out Ramkamal and Viewers (MONITOR / VIEWER) from CSV export
+        var staffPerformance = report.StaffPerformance.Where(p =>
+            !CsvExportFilter.ShouldExcludeFromCsv(p.EmployeeName, p.Email, null, p.Role)
+        ).ToList();
+
+        var totalTasksAssigned = staffPerformance.Sum(x => x.TasksAssigned);
+        var totalTasksCompleted = staffPerformance.Sum(x => x.TasksCompleted);
+        var teamVelocity = totalTasksAssigned > 0 ? Math.Round((double)totalTasksCompleted / totalTasksAssigned * 100, 1) : 0;
+        var avgFocusScore = staffPerformance.Any() ? Math.Round(staffPerformance.Average(x => x.FocusEfficiencyPercentage), 1) : 0;
+
         sb.AppendLine($"# PUNNYA HEART FOUNDATION - STAFF PERFORMANCE & VELOCITY REPORT");
         sb.AppendLine($"# Period: {report.Period} ({report.StartDate} to {report.EndDate})");
-        sb.AppendLine($"# Total Tasks Assigned: {report.TotalTasksAssigned} | Completed: {report.TotalTasksCompleted} | Team Velocity: {report.TeamCompletionRate}% | Avg Focus Score: {report.AverageFocusScore}%");
+        sb.AppendLine($"# Total Tasks Assigned: {totalTasksAssigned} | Completed: {totalTasksCompleted} | Team Velocity: {teamVelocity}% | Avg Focus Score: {avgFocusScore}%");
         sb.AppendLine();
 
         sb.AppendLine("Employee Name,Email,Role,Station ID,Tasks Assigned,Tasks Completed,In Progress,Pending,Completion Rate %,Hours Worked,Total Time (HH:MM),Active Hours,Idle Hours,Focus Score %,Deliverables Submitted,Deliverables Required,Deliverable Compliance %,Performance Rating");
 
-        foreach (var p in report.StaffPerformance)
+        foreach (var p in staffPerformance)
         {
             sb.AppendLine(string.Format(
                 CultureInfo.InvariantCulture,
@@ -816,18 +856,40 @@ public class ReportService : IReportService
         var report = await GetLeaveReportAsync(startDate, endDate, period, employeeId, cancellationToken);
         var sb = new StringBuilder();
 
+        // Load users to filter out Ramkamal and Viewers (MONITOR / VIEWER) from CSV export
+        var allUsers = await _dbContext.Users.ToListAsync(cancellationToken);
+        var userRoleByEmail = allUsers
+            .Where(u => !string.IsNullOrWhiteSpace(u.Email))
+            .ToDictionary(u => u.Email.Trim(), u => u.Role, StringComparer.OrdinalIgnoreCase);
+        var userRoleByName = allUsers
+            .Where(u => !string.IsNullOrWhiteSpace(u.FullName))
+            .ToDictionary(u => u.FullName.Trim(), u => u.Role, StringComparer.OrdinalIgnoreCase);
+
         var isDetailed = viewType?.Equals("detailed", StringComparison.OrdinalIgnoreCase) == true;
 
         if (isDetailed)
         {
+            var detailedRecords = report.DetailedRecords.Where(d =>
+            {
+                var role = (!string.IsNullOrWhiteSpace(d.Email) && userRoleByEmail.TryGetValue(d.Email.Trim(), out var r1))
+                    ? r1
+                    : ((!string.IsNullOrWhiteSpace(d.EmployeeName) && userRoleByName.TryGetValue(d.EmployeeName.Trim(), out var r2)) ? r2 : null);
+
+                return !CsvExportFilter.ShouldExcludeFromCsv(d.EmployeeName, d.Email, null, role);
+            }).ToList();
+
+            var totalApprovedDays = detailedRecords.Where(x => x.Status == LeaveStatus.APPROVED.ToString()).Sum(x => x.TotalDays);
+            var totalPending = detailedRecords.Count(x => x.Status == LeaveStatus.PENDING.ToString());
+            var totalRejected = detailedRecords.Count(x => x.Status == LeaveStatus.REJECTED.ToString());
+
             sb.AppendLine($"# PUNNYA HEART FOUNDATION - ITEMIZED LEAVE REQUESTS AUDIT LOG");
             sb.AppendLine($"# Period: {report.Period} ({report.StartDate} to {report.EndDate})");
-            sb.AppendLine($"# Total Applications: {report.TotalApplications} | Approved Days: {report.TotalApprovedDays} | Pending: {report.TotalPendingRequests} | Rejected: {report.TotalRejectedRequests}");
+            sb.AppendLine($"# Total Applications: {detailedRecords.Count} | Approved Days: {totalApprovedDays} | Pending: {totalPending} | Rejected: {totalRejected}");
             sb.AppendLine();
 
             sb.AppendLine("Leave ID,Employee Name,Email,Leave Type,Start Date,End Date,Total Days,Reason,Status,Reviewer,Review Comments,Applied At,Reviewed At");
 
-            foreach (var d in report.DetailedRecords)
+            foreach (var d in detailedRecords)
             {
                 sb.AppendLine(string.Format(
                     CultureInfo.InvariantCulture,
@@ -850,14 +912,28 @@ public class ReportService : IReportService
         }
         else
         {
+            var staffSummaries = report.StaffSummaries.Where(s =>
+            {
+                var role = (!string.IsNullOrWhiteSpace(s.Email) && userRoleByEmail.TryGetValue(s.Email.Trim(), out var r1))
+                    ? r1
+                    : ((!string.IsNullOrWhiteSpace(s.EmployeeName) && userRoleByName.TryGetValue(s.EmployeeName.Trim(), out var r2)) ? r2 : null);
+
+                return !CsvExportFilter.ShouldExcludeFromCsv(s.EmployeeName, s.Email, null, role);
+            }).ToList();
+
+            var totalApps = staffSummaries.Sum(x => x.TotalRequests);
+            var approvedDays = staffSummaries.Sum(x => x.TotalApprovedDays);
+            var pendingReqs = staffSummaries.Sum(x => x.PendingRequests);
+            var rejectedReqs = staffSummaries.Sum(x => x.RejectedRequests);
+
             sb.AppendLine($"# PUNNYA HEART FOUNDATION - MONTH-END / PERIOD LEAVE SUMMARY");
             sb.AppendLine($"# Period: {report.Period} ({report.StartDate} to {report.EndDate})");
-            sb.AppendLine($"# Total Applications: {report.TotalApplications} | Approved Days: {report.TotalApprovedDays} | Pending: {report.TotalPendingRequests} | Rejected: {report.TotalRejectedRequests}");
+            sb.AppendLine($"# Total Applications: {totalApps} | Approved Days: {approvedDays} | Pending: {pendingReqs} | Rejected: {rejectedReqs}");
             sb.AppendLine();
 
             sb.AppendLine("Employee Name,Email,Station ID,Total Applications,Approved Days,Casual Leave Days,Sick Leave Days,Medical Leave Days,Annual Leave Days,Emergency Leave Days,Pending Requests,Rejected Requests");
 
-            foreach (var s in report.StaffSummaries)
+            foreach (var s in staffSummaries)
             {
                 sb.AppendLine(string.Format(
                     CultureInfo.InvariantCulture,

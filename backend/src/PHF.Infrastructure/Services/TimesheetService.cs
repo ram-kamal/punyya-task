@@ -5,6 +5,7 @@ using PHF.Core.DTOs;
 using PHF.Core.Entities;
 using PHF.Core.Enums;
 using PHF.Core.Interfaces;
+using PHF.Core.Utils;
 using PHF.Infrastructure.Data;
 
 namespace PHF.Infrastructure.Services;
@@ -439,6 +440,24 @@ public class TimesheetService : ITimesheetService
 
         var isSummaryExport = viewType?.Equals("summary", StringComparison.OrdinalIgnoreCase) == true && summary.Period != "DAY" && summary.Period != "TODAY" && summary.Period != "YESTERDAY";
         var exportRows = isSummaryExport ? summary.Rows : (summary.DailyBreakdown.Any() ? summary.DailyBreakdown : summary.Rows);
+
+        // Load users to filter out Ramkamal and Viewers (MONITOR / VIEWER) from CSV export
+        var allUsers = await _dbContext.Users.ToListAsync(cancellationToken);
+        var userRoleByEmail = allUsers
+            .Where(u => !string.IsNullOrWhiteSpace(u.Email))
+            .ToDictionary(u => u.Email.Trim(), u => u.Role, StringComparer.OrdinalIgnoreCase);
+        var userRoleByName = allUsers
+            .Where(u => !string.IsNullOrWhiteSpace(u.FullName))
+            .ToDictionary(u => u.FullName.Trim(), u => u.Role, StringComparer.OrdinalIgnoreCase);
+
+        exportRows = exportRows.Where(row =>
+        {
+            var role = (!string.IsNullOrWhiteSpace(row.Email) && userRoleByEmail.TryGetValue(row.Email.Trim(), out var r1))
+                ? r1
+                : ((!string.IsNullOrWhiteSpace(row.EmployeeName) && userRoleByName.TryGetValue(row.EmployeeName.Trim(), out var r2)) ? r2 : null);
+
+            return !CsvExportFilter.ShouldExcludeFromCsv(row.EmployeeName, row.Email, null, role);
+        }).ToList();
 
         if (isSummaryExport)
         {
