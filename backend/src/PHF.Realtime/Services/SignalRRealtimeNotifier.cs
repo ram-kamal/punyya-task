@@ -16,6 +16,15 @@ public class SignalRRealtimeNotifier : IRealtimeNotifier
 
     public async Task BroadcastWorkstationEventAsync(LiveWorkstationEventDto eventDto)
     {
+        // System-wide app updates or broadcast events must go to ALL connected workstations & clients
+        if (eventDto.EventType == "APP_UPDATE" || 
+            eventDto.EventType == "BROADCAST" || 
+            string.Equals(eventDto.StationId, "BROADCAST", StringComparison.OrdinalIgnoreCase))
+        {
+            await _hubContext.Clients.All.SendAsync("WorkstationEventReceived", eventDto);
+            return;
+        }
+
         // Broadcast to manager dashboard live feed
         await _hubContext.Clients.Group(WorkstationHub.ManagerGroup)
             .SendAsync("WorkstationEventReceived", eventDto);
