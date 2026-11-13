@@ -2,9 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using Avalonia.Media;
 using PHF.Core.DTOs;
 
@@ -376,6 +379,110 @@ public static class TaskCsvImporter
         }
 
         return result;
+    }
+
+    public static bool IsExcelFile(string? path) =>
+        !string.IsNullOrWhiteSpace(path) && path.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase);
+
+    public static string ConvertExcelToCsv(Stream stream)
+    {
+        try
+        {
+            using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);
+
+            var sharedStrings = new List<string>();
+            var sstEntry = archive.GetEntry("xl/sharedStrings.xml");
+            if (sstEntry != null)
+            {
+                using var sstStream = sstEntry.Open();
+                var sstDoc = XDocument.Load(sstStream);
+                XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+                foreach (var si in sstDoc.Descendants(ns + "si"))
+                {
+                    sharedStrings.Add(string.Concat(si.Descendants(ns + "t").Select(t => t.Value)));
+                }
+            }
+
+            var sheetEntry = archive.GetEntry("xl/worksheets/sheet1.xml") 
+                ?? archive.Entries.FirstOrDefault(e => e.FullName.StartsWith("xl/worksheets/sheet", StringComparison.OrdinalIgnoreCase));
+            if (sheetEntry == null) return string.Empty;
+
+            using var sheetStream = sheetEntry.Open();
+            var sheetDoc = XDocument.Load(sheetStream);
+            XNamespace sNs = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+
+            var rows = sheetDoc.Descendants(sNs + "row").ToList();
+            var csvLines = new List<string>();
+
+            foreach (var row in rows)
+            {
+                var cells = row.Elements(sNs + "c").ToList();
+                if (!cells.Any()) continue;
+
+                var rowValues = new SortedDictionary<int, string>();
+                foreach (var c in cells)
+                {
+                    var cellRef = (string?)c.Attribute("r") ?? string.Empty;
+                    int colIndex = GetColumnIndexFromCellRef(cellRef);
+                    var type = (string?)c.Attribute("t");
+                    string val = string.Empty;
+
+                    if (type == "s")
+                    {
+                        var v = c.Element(sNs + "v")?.Value;
+                        if (int.TryParse(v, out int sstIdx) && sstIdx >= 0 && sstIdx < sharedStrings.Count)
+                        {
+                            val = sharedStrings[sstIdx];
+                        }
+                    }
+                    else if (type == "inlineStr")
+                    {
+                        val = c.Element(sNs + "is")?.Element(sNs + "t")?.Value ?? string.Empty;
+                    }
+                    else
+                    {
+                        val = c.Element(sNs + "v")?.Value ?? string.Empty;
+                    }
+
+                    rowValues[colIndex] = val;
+                }
+
+                if (!rowValues.Any()) continue;
+                int maxCol = rowValues.Keys.Max();
+                var lineValues = new List<string>();
+                for (int i = 1; i <= maxCol; i++)
+                {
+                    string cv = rowValues.TryGetValue(i, out var found) ? found : string.Empty;
+                    if (cv.Contains(",") || cv.Contains("\"") || cv.Contains("\n") || cv.Contains("\r"))
+                    {
+                        cv = "\"" + cv.Replace("\"", "\"\"") + "\"";
+                    }
+                    lineValues.Add(cv);
+                }
+                csvLines.Add(string.Join(",", lineValues));
+            }
+
+            return string.Join(Environment.NewLine, csvLines);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[TaskCsvImporter] Excel conversion failed: {ex.Message}");
+            return string.Empty;
+        }
+    }
+
+    private static int GetColumnIndexFromCellRef(string cellRef)
+    {
+        int col = 0;
+        foreach (char ch in cellRef)
+        {
+            if (char.IsLetter(ch))
+            {
+                col = col * 26 + (char.ToUpperInvariant(ch) - 'A' + 1);
+            }
+            else break;
+        }
+        return col > 0 ? col : 1;
     }
 
     public static string GetSampleMatrixCsv()

@@ -60,7 +60,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<AdminLeaveStaffSummaryViewModel> _leaveSummaries = new();
 
     public static readonly string CurrentAppVersion = 
-        System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.2";
+        System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.3";
     private AppVersionDto? _availableUpdate = null;
 
     private string _reportSubTab = "attendance";
@@ -90,6 +90,16 @@ public partial class MainWindow : Window
     private DispatcherTimer? _toastDismissTimer;
     private DispatcherTimer? _shiftTimer;
     private DateTime? _shiftStartTime;
+    private int _priorShiftSecondsToday = 0;
+
+    private static string FormatHoursMinutes(int totalSeconds)
+    {
+        if (totalSeconds <= 0) return "0h 0m";
+        var totalMinutes = totalSeconds / 60;
+        var h = totalMinutes / 60;
+        var m = totalMinutes % 60;
+        return $"{h}h {m}m";
+    }
 
     private bool IsAdminOrManager => _currentUser != null &&
         (_currentUser.Role.Equals("ADMIN", StringComparison.OrdinalIgnoreCase) ||
@@ -333,6 +343,7 @@ public partial class MainWindow : Window
         }
 
         await LoadAssignedTasksAsync();
+        await LoadCurrentShiftStatusAsync();
 
         _autoRefreshTimer = new DispatcherTimer
         {
@@ -1404,17 +1415,20 @@ public partial class MainWindow : Window
             if (res != null && res.ClockIn != default)
             {
                 _shiftStartTime = res.ClockIn;
+                _priorShiftSecondsToday = res.PriorSecondsToday;
                 var localClockIn = res.ClockIn.ToLocalTime();
-                TxtShiftHours.Text = $"Shift Started: {localClockIn:hh:mm tt}";
+                var combinedSeconds = _priorShiftSecondsToday + Math.Max(0, (int)(DateTime.UtcNow - res.ClockIn).TotalSeconds);
+                TxtShiftHours.Text = $"Shift Started: {localClockIn:hh:mm tt} (Total Today: {FormatHoursMinutes(combinedSeconds)})";
             }
             else
             {
                 _shiftStartTime = DateTime.UtcNow;
+                _priorShiftSecondsToday = 0;
                 TxtShiftHours.Text = $"Shift Started: {DateTime.Now:hh:mm tt}";
             }
 
             ShiftClockBadge.IsVisible = true;
-            var elapsed = DateTime.UtcNow - _shiftStartTime.Value;
+            var elapsed = TimeSpan.FromSeconds(_priorShiftSecondsToday) + (DateTime.UtcNow - _shiftStartTime.Value);
             TxtShiftDigitalClock.Text = $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
             StartShiftClock();
         }
@@ -1434,19 +1448,77 @@ public partial class MainWindow : Window
             }
             catch { }
 
-            await _apiClient.ClockOutAsync(_stationId);
+            var res = await _apiClient.ClockOutAsync(_stationId);
             TxtShiftState.Text = "Clocked Out";
             TxtShiftState.Foreground = new SolidColorBrush(Color.FromRgb(245, 158, 11));
             BtnClockToggle.Content = "Clock In";
             BtnClockToggle.Classes.Clear();
             BtnClockToggle.Classes.Add("accentGreen");
-            TxtShiftHours.Text = $"Clocked out at {DateTime.Now:hh:mm tt}";
 
             StopShiftClock();
+
+            if (res != null)
+            {
+                _priorShiftSecondsToday = res.TotalSecondsToday;
+                var totalCombined = TimeSpan.FromSeconds(res.TotalSecondsToday);
+                TxtShiftHours.Text = $"Clocked out at {DateTime.Now:hh:mm tt} (Total Today: {res.TotalTimeFormatted})";
+                TxtShiftDigitalClock.Text = $"{(int)totalCombined.TotalHours:D2}:{totalCombined.Minutes:D2}:{totalCombined.Seconds:D2}";
+                ShiftClockBadge.IsVisible = true;
+            }
+            else
+            {
+                TxtShiftHours.Text = $"Clocked out at {DateTime.Now:hh:mm tt}";
+            }
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"[Shift] Clock-out error: {ex.Message}");
+        }
+    }
+
+    private async Task LoadCurrentShiftStatusAsync()
+    {
+        try
+        {
+            var shift = await _apiClient.GetCurrentShiftAsync();
+            if (shift != null)
+            {
+                _priorShiftSecondsToday = shift.PriorSecondsToday;
+
+                if (shift.Status == "ACTIVE")
+                {
+                    TxtShiftState.Text = "Clocked In";
+                    TxtShiftState.Foreground = new SolidColorBrush(Color.FromRgb(52, 211, 153));
+                    BtnClockToggle.Content = "Clock Out";
+                    BtnClockToggle.Classes.Clear();
+                    BtnClockToggle.Classes.Add("primary");
+
+                    _shiftStartTime = shift.ClockIn;
+                    var localClockIn = shift.ClockIn.ToLocalTime();
+                    var totalElapsed = TimeSpan.FromSeconds(_priorShiftSecondsToday) + (DateTime.UtcNow - _shiftStartTime.Value);
+                    TxtShiftHours.Text = $"Shift Started: {localClockIn:hh:mm tt} (Total Today: {FormatHoursMinutes((int)totalElapsed.TotalSeconds)})";
+                    TxtShiftDigitalClock.Text = $"{(int)totalElapsed.TotalHours:D2}:{totalElapsed.Minutes:D2}:{totalElapsed.Seconds:D2}";
+                    ShiftClockBadge.IsVisible = true;
+                    StartShiftClock();
+                }
+                else if (shift.TotalSecondsToday > 0)
+                {
+                    TxtShiftState.Text = "Clocked Out";
+                    TxtShiftState.Foreground = new SolidColorBrush(Color.FromRgb(245, 158, 11));
+                    BtnClockToggle.Content = "Clock In";
+                    BtnClockToggle.Classes.Clear();
+                    BtnClockToggle.Classes.Add("accentGreen");
+
+                    var totalElapsed = TimeSpan.FromSeconds(shift.TotalSecondsToday);
+                    TxtShiftHours.Text = $"Logged Today: {shift.TotalTimeFormatted}";
+                    TxtShiftDigitalClock.Text = $"{(int)totalElapsed.TotalHours:D2}:{totalElapsed.Minutes:D2}:{totalElapsed.Seconds:D2}";
+                    ShiftClockBadge.IsVisible = true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Shift] LoadCurrentShiftStatus error: {ex.Message}");
         }
     }
 
@@ -1492,10 +1564,10 @@ public partial class MainWindow : Window
             if (_shiftStartTime.HasValue)
             {
                 var now = DateTime.UtcNow;
-                var elapsed = now - _shiftStartTime.Value;
+                var currentSessionElapsed = now - _shiftStartTime.Value;
 
                 // 1. Shift duration reached or exceeded 12 hours -> auto clock out
-                if (elapsed.TotalHours >= 12.0)
+                if (currentSessionElapsed.TotalHours >= 12.0)
                 {
                     await ClockOutInternalAsync();
                     ShowToast("Shift Auto-Closed", "Your shift reached the 12-hour limit and was automatically clocked out.");
@@ -1511,7 +1583,11 @@ public partial class MainWindow : Window
                 }
 
                 _lastTickUtc = now;
-                TxtShiftDigitalClock.Text = $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
+                var totalCombinedElapsed = TimeSpan.FromSeconds(_priorShiftSecondsToday) + currentSessionElapsed;
+                TxtShiftDigitalClock.Text = $"{(int)totalCombinedElapsed.TotalHours:D2}:{totalCombinedElapsed.Minutes:D2}:{totalCombinedElapsed.Seconds:D2}";
+                
+                var localClockIn = _shiftStartTime.Value.ToLocalTime();
+                TxtShiftHours.Text = $"Shift Started: {localClockIn:hh:mm tt} (Total Today: {FormatHoursMinutes((int)totalCombinedElapsed.TotalSeconds)})";
             }
         };
         _shiftTimer.Start();
@@ -2164,10 +2240,12 @@ public partial class MainWindow : Window
         {
             var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Title = "Open CSV/TSV File for Task Dispatch",
+                Title = "Open CSV/Excel File for Task Dispatch",
                 AllowMultiple = false,
                 FileTypeFilter = new[]
                 {
+                    new FilePickerFileType("Spreadsheets (*.xlsx, *.csv, *.tsv)") { Patterns = new[] { "*.xlsx", "*.csv", "*.tsv", "*.txt" } },
+                    new FilePickerFileType("Excel Workbooks (*.xlsx)") { Patterns = new[] { "*.xlsx" } },
                     new FilePickerFileType("CSV and TSV files") { Patterns = new[] { "*.csv", "*.tsv", "*.txt" } },
                     new FilePickerFileType("All files") { Patterns = new[] { "*.*" } }
                 }
@@ -2179,7 +2257,19 @@ public partial class MainWindow : Window
                 string text = string.Empty;
                 var localPath = file.TryGetLocalPath() ?? (file.Path.IsFile ? file.Path.LocalPath : null);
 
-                if (!string.IsNullOrWhiteSpace(localPath) && File.Exists(localPath))
+                if (!string.IsNullOrWhiteSpace(localPath) && TaskCsvImporter.IsExcelFile(localPath))
+                {
+                    try
+                    {
+                        await using var stream = new FileStream(localPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                        text = TaskCsvImporter.ConvertExcelToCsv(stream);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[BulkImport] Excel read error: {ex.Message}");
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(localPath) && File.Exists(localPath))
                 {
                     try
                     {
@@ -2198,9 +2288,17 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    await using var stream = await file.OpenReadAsync();
-                    using var reader = new StreamReader(stream);
-                    text = await reader.ReadToEndAsync();
+                    if (file.Name.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await using var stream = await file.OpenReadAsync();
+                        text = TaskCsvImporter.ConvertExcelToCsv(stream);
+                    }
+                    else
+                    {
+                        await using var stream = await file.OpenReadAsync();
+                        using var reader = new StreamReader(stream);
+                        text = await reader.ReadToEndAsync();
+                    }
                 }
 
                 if (!string.IsNullOrWhiteSpace(text))
@@ -3204,14 +3302,14 @@ public partial class MainWindow : Window
         try
         {
             BtnAdminBroadcastUpdate.IsEnabled = false;
-            var success = await _apiClient.BroadcastUpdateAsync();
+            var (success, message, statusCode) = await _apiClient.BroadcastUpdateAsync();
             if (success)
             {
-                ShowToast("📢 Broadcast Dispatched", "Update dialog alert sent to all active workstations.");
+                ShowToast("📢 Broadcast Dispatched", message);
             }
             else
             {
-                ShowToast("Broadcast Failed", "Could not dispatch update broadcast. Check network connection.");
+                ShowToast("Broadcast Failed", message);
             }
         }
         catch (Exception ex)

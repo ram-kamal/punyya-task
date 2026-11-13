@@ -855,6 +855,12 @@ export async function broadcastAppUpdate(): Promise<{ success: boolean; message?
       method: 'POST',
     });
     if (!res.ok) {
+      if (res.status === 401) {
+        return { success: false, error: 'Your admin session has expired or you are not signed in. Please sign out and sign in again.' };
+      }
+      if (res.status === 502 || res.status === 503) {
+        return { success: false, error: 'Render backend is waking up. Please retry in 30 seconds.' };
+      }
       const err = await res.json().catch(() => null);
       return { success: false, error: err?.message || `Failed to broadcast update (HTTP ${res.status})` };
     }

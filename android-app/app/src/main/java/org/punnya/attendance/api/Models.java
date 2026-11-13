@@ -26,6 +26,8 @@ public class Models {
         public String activeTimeFormatted;
         public String stationId;
         public String error;
+        public int priorSecondsToday;
+        public int totalSecondsToday;
     }
 
     public static class TaskItem {

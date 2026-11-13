@@ -71,6 +71,8 @@ public class ApiClient {
                     s.totalHoursToday = json.optDouble("totalHoursToday", 0.0);
                     s.totalTimeFormatted = json.optString("totalTimeFormatted", "0h 0m");
                     s.activeTimeFormatted = json.optString("activeTimeFormatted", "0h 0m");
+                    s.priorSecondsToday = json.optInt("priorSecondsToday", 0);
+                    s.totalSecondsToday = json.optInt("totalSecondsToday", 0);
                     s.stationId = json.optString("stationId", "");
 
                     String clockInStr = json.optString("clockIn", null);
@@ -106,7 +108,18 @@ public class ApiClient {
                     s.stationId = json.optString("stationId", stationId);
                     s.totalHoursToday = json.optDouble("totalHoursToday", 0.0);
                     s.totalTimeFormatted = json.optString("totalTimeFormatted", "0h 0m");
-                    s.clockInEpoch = System.currentTimeMillis();
+                    s.priorSecondsToday = json.optInt("priorSecondsToday", 0);
+                    s.totalSecondsToday = json.optInt("totalSecondsToday", 0);
+                    String cIn = json.optString("clockIn", null);
+                    if (cIn != null && !cIn.isEmpty()) {
+                        try {
+                            s.clockInEpoch = Instant.parse(cIn).toEpochMilli();
+                        } catch (Exception ignored) {
+                            s.clockInEpoch = System.currentTimeMillis();
+                        }
+                    } else {
+                        s.clockInEpoch = System.currentTimeMillis();
+                    }
                     postSuccess(callback, s);
                 } else {
                     postError(callback, parseErrorMessage(res.body, "Failed to clock in"));
@@ -132,6 +145,10 @@ public class ApiClient {
                     s.totalHoursToday = json.optDouble("totalHoursToday", 0.0);
                     s.totalTimeFormatted = json.optString("totalTimeFormatted", "0h 0m");
                     s.activeTimeFormatted = json.optString("activeTimeFormatted", "0h 0m");
+                    s.priorSecondsToday = json.optInt("priorSecondsToday", 0);
+                    s.totalSecondsToday = json.optInt("totalSecondsToday", 0);
+                    s.priorSecondsToday = json.optInt("priorSecondsToday", 0);
+                    s.totalSecondsToday = json.optInt("totalSecondsToday", 0);
                     postSuccess(callback, s);
                 } else {
                     postError(callback, parseErrorMessage(res.body, "Failed to clock out"));

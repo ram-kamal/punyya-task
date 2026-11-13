@@ -22,15 +22,15 @@ public class AppController : ControllerBase
     [HttpGet("version")]
     public IActionResult GetLatestVersion()
     {
-        var latest = _config["App:LatestVersion"] ?? "1.0.2";
-        var notes = _config["App:ReleaseNotes"] ?? "• Toggle to enable or disable automatic launch on Windows startup.\n• Native standard Windows title bar with minimize, maximize (Snap Layouts), and exit buttons.\n• Workforce fleet, tasks, and timesheets tied to employee email with full Monitor access.\n• 100% accurate live attendance, active/idle time tracking, and auto-update support.";
-        var downloadUrl = _config["App:DownloadUrl"] ?? "https://punnya.org/task/downloads/PunnyaHeartDesk.exe";
+        var latest = _config["App:LatestVersion"] ?? "1.0.3";
+        var notes = _config["App:ReleaseNotes"] ?? "• Classified IDEs and development environments as active (Antigravity, VS Code, Android Studio, Emulators).\n• Total work shift duration accumulation across multiple daily clock-in/out cycles.\n• Enhanced screen reader accessibility and UI optimizations.\n• 100% accurate live attendance, active/idle time tracking, and auto-update support.";
+        var downloadUrl = _config["App:DownloadUrl"] ?? "https://punyya.org/task/downloads/PunnyaHeartDesk.exe";
         var fallbackUrl = _config["App:FallbackDownloadUrl"] ?? "https://punnya-api.onrender.com/downloads/PunnyaHeartDesk.exe";
 
         return Ok(new AppVersionDto
         {
             LatestVersion = latest,
-            VersionCode = 102,
+            VersionCode = 103,
             ReleaseNotes = notes,
             DownloadUrl = downloadUrl,
             FallbackDownloadUrl = fallbackUrl,
@@ -43,12 +43,12 @@ public class AppController : ControllerBase
     [HttpPost("broadcast-update")]
     public async Task<IActionResult> BroadcastUpdateNotification(CancellationToken cancellationToken)
     {
-        var latest = _config["App:LatestVersion"] ?? "1.0.2";
+        var latest = _config["App:LatestVersion"] ?? "1.0.3";
         await _realtimeNotifier.BroadcastWorkstationEventAsync(new LiveWorkstationEventDto
         {
             StationId = "BROADCAST",
             EventType = "APP_UPDATE",
-            Details = $"A new update (v{latest}) is available with auto-shutdown clock out. Please update."
+            Details = $"A new update (v{latest}) is available with active IDE telemetry & shift hours accumulation. Please update."
         });
 
         return Ok(new { message = $"Update broadcast for version {latest} dispatched successfully." });

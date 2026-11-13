@@ -120,4 +120,78 @@ public class ShiftServiceTests
         Assert.Equal("3h 0m", result.ActiveTimeFormatted);
         Assert.Equal("3h 0m", result.TotalTimeFormatted);
     }
+
+    [Fact]
+    public async Task ClockInAndOutMultipleTimesWithinDay_CombinesOldAndNewTime()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var mockNotifier = new Mock<IRealtimeNotifier>();
+
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "multishift@punnyaheart.org",
+            FullName = "Multi Shift Employee",
+            Role = UserRole.EMPLOYEE.ToString(),
+            StationId = "ST-MULTI",
+            PasswordHash = "hash"
+        };
+        context.Users.Add(user);
+
+        var today = DateTime.UtcNow.Date;
+
+        // Shift 1: Completed earlier today (4 hours: 09:00 to 13:00)
+        var shift1 = new Shift
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            StationId = "ST-MULTI",
+            ClockIn = today.AddHours(9),
+            ClockOut = today.AddHours(13),
+            TotalActiveSeconds = 14400,
+            TotalIdleSeconds = 0,
+            Status = ShiftStatus.COMPLETED.ToString()
+        };
+        context.Shifts.Add(shift1);
+        await context.SaveChangesAsync();
+
+        var shiftService = new ShiftService(context, mockNotifier.Object);
+
+        // Act 1 - Employee clocks in again for Shift 2
+        var clockInResult = await shiftService.ClockInAsync(user.Id, "ST-MULTI");
+
+        // Assert 1: Prior seconds must reflect Shift 1 (14400s / 4.0h)
+        Assert.NotNull(clockInResult);
+        Assert.Equal(ShiftStatus.ACTIVE.ToString(), clockInResult.Status);
+        Assert.Equal(14400, clockInResult.PriorSecondsToday);
+        Assert.True(clockInResult.TotalHoursToday >= 3.99);
+        Assert.Equal("4h 0m", clockInResult.TotalTimeFormatted);
+
+        // Simulate Shift 2 running for 2 hours (started 2 hours ago, clocking out now)
+        var shift2Entity = await context.Shifts.FindAsync(clockInResult.Id);
+        Assert.NotNull(shift2Entity);
+        shift2Entity.ClockIn = DateTime.UtcNow.AddHours(-2);
+        await context.SaveChangesAsync();
+
+        // Act 2 - Employee clocks out of Shift 2
+        var clockOutResult = await shiftService.ClockOutAsync(user.Id, "ST-MULTI");
+
+        // Assert 2: Combined total work hours must equal old time (4h) + new time (2h) = 6h!
+        Assert.NotNull(clockOutResult);
+        Assert.Equal(ShiftStatus.COMPLETED.ToString(), clockOutResult.Status);
+        Assert.Equal(14400, clockOutResult.PriorSecondsToday);
+        // Total should be approx 6 hours (21600 seconds)
+        Assert.True(clockOutResult.TotalHoursToday >= 5.98 && clockOutResult.TotalHoursToday <= 6.02, 
+            $"Expected TotalHoursToday to be approx 6.0, but got {clockOutResult.TotalHoursToday}");
+        Assert.True(clockOutResult.TotalSecondsToday >= 21590 && clockOutResult.TotalSecondsToday <= 21610);
+        Assert.Equal("6h 0m", clockOutResult.TotalTimeFormatted);
+
+        // Act 3 - Query GetCurrentShiftAsync while clocked out
+        var currentShift = await shiftService.GetCurrentShiftAsync(user.Id);
+        Assert.NotNull(currentShift);
+        Assert.Equal(ShiftStatus.COMPLETED.ToString(), currentShift.Status);
+        Assert.True(currentShift.TotalHoursToday >= 5.98 && currentShift.TotalHoursToday <= 6.02);
+        Assert.Equal("6h 0m", currentShift.TotalTimeFormatted);
+    }
 }

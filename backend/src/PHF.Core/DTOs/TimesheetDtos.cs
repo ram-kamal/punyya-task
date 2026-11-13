@@ -23,6 +23,10 @@ public record ShiftResponseDto
     public double TotalHoursToday { get; init; }
     public string ActiveTimeFormatted { get; init; } = string.Empty;
     public string TotalTimeFormatted { get; init; } = string.Empty;
+    public int PriorSecondsToday { get; init; }
+    public int TotalSecondsToday { get; init; }
+    public int ActiveSecondsToday { get; init; }
+    public int IdleSecondsToday { get; init; }
 }
 
 public record TimesheetRowDto

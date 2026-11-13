@@ -665,16 +665,50 @@ public class ApiClient
         }
     }
 
-    public async Task<bool> BroadcastUpdateAsync(CancellationToken ct = default)
+    public async Task<(bool Success, string Message, int StatusCode)> BroadcastUpdateAsync(CancellationToken ct = default)
     {
         try
         {
             var response = await _httpClient.PostAsync("/api/v1/app/broadcast-update", null, ct);
-            return response.IsSuccessStatusCode;
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>(_jsonOptions, ct);
+                var msg = content != null && content.TryGetValue("message", out var m) ? m : "Update dialog alert sent to all active workstations.";
+                return (true, msg, (int)response.StatusCode);
+            }
+
+            var errBody = await response.Content.ReadAsStringAsync(ct);
+            string errorDetail;
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                errorDetail = "Session expired or unauthorized. Please sign out and sign in again.";
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                errorDetail = "Admin privileges required to broadcast update.";
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.BadGateway || response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable)
+            {
+                errorDetail = "Render backend is waking up. Please wait 30 seconds and try again.";
+            }
+            else
+            {
+                errorDetail = !string.IsNullOrWhiteSpace(errBody) ? errBody : $"Server returned HTTP {(int)response.StatusCode} ({response.ReasonPhrase})";
+            }
+
+            return (false, errorDetail, (int)response.StatusCode);
         }
-        catch
+        catch (HttpRequestException ex)
         {
-            return false;
+            return (false, $"Network error: {ex.Message}", 0);
+        }
+        catch (TaskCanceledException)
+        {
+            return (false, "Request timed out while contacting API server.", 0);
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message, 0);
         }
     }
 }

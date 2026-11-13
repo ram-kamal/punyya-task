@@ -73,6 +73,7 @@ public class MainActivity extends AppCompatActivity implements WifiAndLocationDe
     private Runnable timerRunnable;
     private boolean isClockedIn = false;
     private long clockInEpoch = 0;
+    private int priorSecondsToday = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -306,6 +307,7 @@ public class MainActivity extends AppCompatActivity implements WifiAndLocationDe
     private void updateShiftUI(Models.ShiftInfo info) {
         isClockedIn = info.isClockedIn;
         prefs.setClockedIn(isClockedIn);
+        priorSecondsToday = info.priorSecondsToday;
 
         if (isClockedIn) {
             clockInEpoch = info.clockInEpoch > 0 ? info.clockInEpoch : System.currentTimeMillis();
@@ -324,7 +326,12 @@ public class MainActivity extends AppCompatActivity implements WifiAndLocationDe
             txtShiftBadge.setText("NOT CLOCKED IN");
             txtShiftBadge.setTextColor(Color.parseColor("#EF4444"));
             txtShiftBadge.setBackgroundColor(Color.parseColor("#2E1418"));
-            txtShiftTimer.setText("00:00:00");
+
+            long totalSeconds = info.totalSecondsToday;
+            long s = totalSeconds % 60;
+            long m = (totalSeconds / 60) % 60;
+            long h = totalSeconds / 3600;
+            txtShiftTimer.setText(String.format(Locale.getDefault(), "%02d:%02d:%02d", h, m, s));
 
             btnClockIn.setVisibility(View.VISIBLE);
             btnClockOut.setVisibility(View.GONE);
@@ -339,10 +346,11 @@ public class MainActivity extends AppCompatActivity implements WifiAndLocationDe
             @Override
             public void run() {
                 if (!isClockedIn) return;
-                long elapsedMillis = Math.max(0, System.currentTimeMillis() - clockInEpoch);
-                long seconds = (elapsedMillis / 1000) % 60;
-                long minutes = (elapsedMillis / (1000 * 60)) % 60;
-                long hours = (elapsedMillis / (1000 * 60 * 60));
+                long sessionMillis = Math.max(0, System.currentTimeMillis() - clockInEpoch);
+                long totalMillis = (priorSecondsToday * 1000L) + sessionMillis;
+                long seconds = (totalMillis / 1000) % 60;
+                long minutes = (totalMillis / (1000 * 60)) % 60;
+                long hours = (totalMillis / (1000 * 60 * 60));
 
                 txtShiftTimer.setText(String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds));
                 timerHandler.postDelayed(this, 1000);

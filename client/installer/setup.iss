@@ -2,7 +2,7 @@
 ; Inno Setup 6 Script for Punnya Heart Desk
 
 #define MyAppName "Punnya Heart Desk"
-#define MyAppVersion "1.0.2"
+#define MyAppVersion "1.0.3"
 #define MyAppPublisher "Punnya Heart Foundation"
 #define MyAppURL "https://punnya.org/task"
 #define MyAppExeName "PunnyaHeartDesk.exe"

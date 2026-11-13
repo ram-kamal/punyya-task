@@ -24,7 +24,7 @@ import { getAppVersion } from '@/lib/api';
 
 export default function DownloadPage() {
   const [selectedOS, setSelectedOS] = useState<'mac' | 'windows' | 'android'>('windows');
-  const [appVersion, setAppVersion] = useState<string>('1.0.2');
+  const [appVersion, setAppVersion] = useState<string>('1.0.3');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {

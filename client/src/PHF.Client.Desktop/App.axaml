@@ -5,46 +5,76 @@
     <Application.Styles>
         <FluentTheme />
         
-        <!-- Mac Glass Button Styles -->
+        <!-- Apple & Fluent Glass Button Styles -->
         <Style Selector="Button.primary">
             <Setter Property="Background" Value="#E11D48" />
             <Setter Property="Foreground" Value="#FFFFFF" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="15,8" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
         </Style>
         <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#BE123C" />
+            <Setter Property="Background" Value="#F43F5E" />
         </Style>
 
         <Style Selector="Button.glass">
-            <Setter Property="Background" Value="#25FFFFFF" />
-            <Setter Property="Foreground" Value="#E2E8F0" />
+            <Setter Property="Background" Value="#1C1C1E" />
+            <Setter Property="Foreground" Value="#F5F5F7" />
             <Setter Property="FontWeight" Value="Medium" />
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="12,7" />
-            <Setter Property="BorderBrush" Value="#35FFFFFF" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="14,7" />
+            <Setter Property="BorderBrush" Value="#2C2C2E" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
         </Style>
         <Style Selector="Button.glass:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#35FFFFFF" />
-            <Setter Property="BorderBrush" Value="#50FFFFFF" />
+            <Setter Property="Background" Value="#2C2C2E" />
+            <Setter Property="BorderBrush" Value="#38383A" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
         </Style>
 
         <Style Selector="Button.accentGreen">
-            <Setter Property="Background" Value="#10B981" />
+            <Setter Property="Background" Value="#34C759" />
             <Setter Property="Foreground" Value="#FFFFFF" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="15,8" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
         </Style>
         <Style Selector="Button.accentGreen:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#059669" />
+            <Setter Property="Background" Value="#30B74F" />
+        </Style>
+
+        <Style Selector="Button.accentRed">
+            <Setter Property="Background" Value="#FF3B30" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="15,8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.accentRed:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#E03228" />
+        </Style>
+
+        <Style Selector="Button.danger">
+            <Setter Property="Background" Value="#2A1215" />
+            <Setter Property="Foreground" Value="#FF453A" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="14,7" />
+            <Setter Property="BorderBrush" Value="#50FF3B30" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FF3B30" />
+            <Setter Property="BorderBrush" Value="#FF3B30" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
         </Style>
 
         <!-- macOS Traffic Light Button Styles -->
@@ -88,53 +118,80 @@
             <Setter Property="Cursor" Value="Hand" />
         </Style>
         <Style Selector="Button.titleBtnClose:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#E11D48" />
+            <Setter Property="Background" Value="#FF3B30" />
         </Style>
         <Style Selector="Button.titleBtnClose:pointerover TextBlock">
             <Setter Property="Foreground" Value="#FFFFFF" />
         </Style>
 
-        <!-- Mac Glass TextBoxes -->
+        <!-- Modern Apple Dark Glass TextBoxes -->
         <Style Selector="TextBox">
-            <Setter Property="Background" Value="#20000000" />
-            <Setter Property="Foreground" Value="#F8FAFC" />
-            <Setter Property="BorderBrush" Value="#30FFFFFF" />
+            <Setter Property="Background" Value="#161617" />
+            <Setter Property="Foreground" Value="#F5F5F7" />
+            <Setter Property="BorderBrush" Value="#2C2C2E" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="FontFamily" Value="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Arial, sans-serif" />
         </Style>
         <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
-            <Setter Property="BorderBrush" Value="#E11D48" />
-            <Setter Property="Background" Value="#28000000" />
+            <Setter Property="BorderBrush" Value="#2997FF" />
+            <Setter Property="Background" Value="#1C1C1E" />
         </Style>
-        <!-- Navigation Tab Buttons -->
+
+        <!-- Modern Apple Dark ComboBox -->
+        <Style Selector="ComboBox">
+            <Setter Property="Background" Value="#161617" />
+            <Setter Property="Foreground" Value="#F5F5F7" />
+            <Setter Property="BorderBrush" Value="#2C2C2E" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="12,7" />
+            <Setter Property="FontFamily" Value="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Arial, sans-serif" />
+        </Style>
+        <Style Selector="ComboBox:focus /template/ Border">
+            <Setter Property="BorderBrush" Value="#2997FF" />
+        </Style>
+
+        <!-- Apple Segmented Navigation Tab Buttons -->
         <Style Selector="Button.tabBtn">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="#94A3B8" />
+            <Setter Property="Foreground" Value="#86868B" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="13,7" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="14,7" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontFamily" Value="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Arial, sans-serif" />
         </Style>
         <Style Selector="Button.tabBtn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#15FFFFFF" />
-            <Setter Property="Foreground" Value="#F8FAFC" />
+            <Setter Property="Background" Value="#1C1C1E" />
+            <Setter Property="Foreground" Value="#F5F5F7" />
         </Style>
         <Style Selector="Button.tabBtnActive">
-            <Setter Property="Background" Value="#25E11D48" />
-            <Setter Property="Foreground" Value="#FDA4AF" />
+            <Setter Property="Background" Value="#2C2C2E" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="13,7" />
-            <Setter Property="BorderBrush" Value="#50E11D48" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="14,7" />
+            <Setter Property="BorderBrush" Value="#424245" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontFamily" Value="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Arial, sans-serif" />
         </Style>
         <Style Selector="Button.tabBtnActive:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#35E11D48" />
+            <Setter Property="Background" Value="#3A3A3C" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+
+        <!-- Clean Translucent ScrollBars -->
+        <Style Selector="ScrollBar">
+            <Setter Property="Opacity" Value="0.65" />
+        </Style>
+        <Style Selector="ScrollBar:pointerover">
+            <Setter Property="Opacity" Value="0.95" />
         </Style>
     </Application.Styles>
 </Application>

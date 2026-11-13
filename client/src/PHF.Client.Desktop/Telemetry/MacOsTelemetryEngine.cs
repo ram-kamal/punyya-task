@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -31,7 +32,7 @@ public class MacOsTelemetryEngine : ITelemetryEngine
 
     public string CurrentProcessName => _currentProcessName;
     public string CurrentWindowTitle => _currentWindowTitle;
-    public bool IsIdle => _isIdle;
+    public bool IsIdle => !IsDevelopmentEnvironment(CurrentProcessName, CurrentWindowTitle) && _isIdle;
     public int IdleSeconds => _idleSeconds;
     public Guid? CurrentTaskId => _currentTaskId;
     public string? CurrentTaskCode => _currentTaskCode;
@@ -151,11 +152,13 @@ public class MacOsTelemetryEngine : ITelemetryEngine
                 var duration = (int)(now - _lastFocusChange).TotalSeconds;
                 if (duration > 0 && !string.IsNullOrWhiteSpace(_currentProcessName))
                 {
+                    var isDev = IsDevelopmentEnvironment(_currentProcessName, _currentWindowTitle);
+                    var isIdle = !isDev && _isIdle;
                     ActivityLogged?.Invoke(
                         _currentProcessName,
                         _currentWindowTitle,
                         duration,
-                        _isIdle,
+                        isIdle,
                         _currentTaskId,
                         _currentTaskCode,
                         now);
@@ -246,11 +249,13 @@ public class MacOsTelemetryEngine : ITelemetryEngine
 
         if (duration > 0 && !string.IsNullOrWhiteSpace(_currentProcessName))
         {
+            var isDev = IsDevelopmentEnvironment(_currentProcessName, _currentWindowTitle);
+            var isIdle = !isDev && _isIdle;
             ActivityLogged?.Invoke(
                 _currentProcessName,
                 _currentWindowTitle,
                 duration,
-                _isIdle,
+                isIdle,
                 _currentTaskId,
                 _currentTaskCode,
                 now);
@@ -262,5 +267,64 @@ public class MacOsTelemetryEngine : ITelemetryEngine
         Stop();
         _pollTimer.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    private static readonly HashSet<string> KnownDevelopmentProcesses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "antigravity", "antigravity ide", "antigravity-x64", "cursor", "windsurf",
+        "code", "code - insiders", "visual studio code", "devenv", "visual studio",
+        "studio64", "studio", "android studio", "emulator", "qemu-system-x86_64", "adb",
+        "idea64", "idea", "intellij idea", "pycharm64", "pycharm", "webstorm64", "webstorm",
+        "rider64", "rider", "clion64", "clion", "goland64", "goland", "phpstorm64", "phpstorm",
+        "sublime_text", "sublime text", "eclipse", "netbeans", "xcode",
+        "terminal", "iterm", "iterm2", "powershell", "pwsh", "bash", "zsh",
+        "dotnet", "node", "python", "python3", "gradle", "gradlew", "java", "javaw"
+    };
+
+    public static bool IsDevelopmentEnvironment(string? processName, string? windowTitle = null)
+    {
+        if (string.IsNullOrWhiteSpace(processName) && string.IsNullOrWhiteSpace(windowTitle))
+            return false;
+
+        var proc = (processName ?? "").Trim();
+        if (proc.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || proc.EndsWith(".app", StringComparison.OrdinalIgnoreCase))
+            proc = proc[..^4];
+
+        if (KnownDevelopmentProcesses.Contains(proc))
+            return true;
+
+        var lowerProc = proc.ToLowerInvariant();
+        if (lowerProc.Contains("antigravity") ||
+            lowerProc.Contains("studio") ||
+            lowerProc.Contains("xcode") ||
+            lowerProc.Contains("intellij") ||
+            lowerProc.Contains("pycharm") ||
+            lowerProc.Contains("webstorm") ||
+            lowerProc.Contains("rider") ||
+            lowerProc.Contains("cursor") ||
+            lowerProc.Contains("windsurf") ||
+            lowerProc.Contains("code"))
+        {
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(windowTitle))
+        {
+            var title = windowTitle.Trim();
+            if (title.Contains("Antigravity", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains("Visual Studio", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains("Android Studio", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains("IntelliJ", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains("Xcode", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains("Cursor", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains(".csproj", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains(".sln", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains(".gradle", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

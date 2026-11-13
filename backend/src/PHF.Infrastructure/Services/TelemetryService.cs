@@ -138,6 +138,11 @@ public class TelemetryService : ITelemetryService
                 }
 
                 var (sanitizedProc, sanitizedTitle) = SanitizeProcessAndTitle(logDto.ProcessName, logDto.WindowTitle);
+                var isIdle = logDto.IsIdle;
+                if (isIdle && IsDevelopmentEnvironment(sanitizedProc, sanitizedTitle))
+                {
+                    isIdle = false;
+                }
 
                 var activityLog = new AppActivityLog
                 {
@@ -146,7 +151,7 @@ public class TelemetryService : ITelemetryService
                     ProcessName = sanitizedProc,
                     WindowTitle = sanitizedTitle,
                     DurationSeconds = logDto.DurationSeconds,
-                    IsIdle = logDto.IsIdle,
+                    IsIdle = isIdle,
                     LoggedAt = EnsureUtc(logDto.LoggedAt),
                     CreatedAt = DateTime.UtcNow
                 };
@@ -155,7 +160,7 @@ public class TelemetryService : ITelemetryService
                 count++;
 
                 // Broadcast live focus change only for recent real-time activity (not old historical buffer flushes)
-                if (!logDto.IsIdle && !string.IsNullOrWhiteSpace(sanitizedProc) && activityLog.LoggedAt >= DateTime.UtcNow.AddMinutes(-2))
+                if (!isIdle && !string.IsNullOrWhiteSpace(sanitizedProc) && activityLog.LoggedAt >= DateTime.UtcNow.AddMinutes(-2))
                 {
                     var taskSuffix = !string.IsNullOrWhiteSpace(logDto.TaskCode) ? $" ({logDto.TaskCode})" : "";
                     var liveEvent = new LiveWorkstationEventDto
@@ -237,17 +242,24 @@ public class TelemetryService : ITelemetryService
                 LastSeen = now
             });
 
+            var (sanitizedProc, sanitizedTitle) = SanitizeProcessAndTitle(heartbeat.ActiveProcess, heartbeat.WindowTitle);
+            var effectiveState = heartbeat.State;
+            if (effectiveState == StationState.IDLE.ToString() && IsDevelopmentEnvironment(sanitizedProc, sanitizedTitle))
+            {
+                effectiveState = StationState.ACTIVE.ToString();
+            }
+
             // Calculate seconds elapsed since last heartbeat (typically ~15s, clamped to max 60s)
             if (isExisting && existingState != null)
             {
                 var elapsedSec = Math.Clamp((int)(now - existingState.LastSeen).TotalSeconds, 0, 60);
                 if (elapsedSec > 0)
                 {
-                    if (heartbeat.State == StationState.IDLE.ToString())
+                    if (effectiveState == StationState.IDLE.ToString())
                     {
                         state.IdleMinutesToday += (int)Math.Round((double)elapsedSec / 60);
                     }
-                    else if (heartbeat.State == StationState.ACTIVE.ToString())
+                    else if (effectiveState == StationState.ACTIVE.ToString())
                     {
                         state.ActiveMinutesToday += (int)Math.Round((double)elapsedSec / 60);
                     }
@@ -257,11 +269,11 @@ public class TelemetryService : ITelemetryService
                         .FirstOrDefaultAsync(s => s.UserId == userId && s.Status == ShiftStatus.ACTIVE.ToString(), cancellationToken);
                     if (activeShift != null)
                     {
-                        if (heartbeat.State == StationState.IDLE.ToString())
+                        if (effectiveState == StationState.IDLE.ToString())
                         {
                             activeShift.TotalIdleSeconds += elapsedSec;
                         }
-                        else if (heartbeat.State == StationState.ACTIVE.ToString())
+                        else if (effectiveState == StationState.ACTIVE.ToString())
                         {
                             activeShift.TotalActiveSeconds += elapsedSec;
                         }
@@ -270,16 +282,14 @@ public class TelemetryService : ITelemetryService
                 }
             }
 
-            var (sanitizedProc, sanitizedTitle) = SanitizeProcessAndTitle(heartbeat.ActiveProcess, heartbeat.WindowTitle);
-
             state.StationId = !string.IsNullOrWhiteSpace(heartbeat.StationId) ? heartbeat.StationId : state.StationId;
             state.LastSeen = now;
-            state.State = heartbeat.State;
+            state.State = effectiveState;
             if (!string.IsNullOrWhiteSpace(sanitizedProc) && sanitizedProc != "—")
             {
                 state.FocusedApp = sanitizedProc;
             }
-            else if (heartbeat.State == StationState.ACTIVE.ToString())
+            else if (effectiveState == StationState.ACTIVE.ToString())
             {
                 state.FocusedApp = "Windows Desktop";
             }
@@ -288,7 +298,7 @@ public class TelemetryService : ITelemetryService
             {
                 state.WindowTitle = sanitizedTitle;
             }
-            else if (heartbeat.State == StationState.ACTIVE.ToString())
+            else if (effectiveState == StationState.ACTIVE.ToString())
             {
                 state.WindowTitle = "Windows Desktop";
             }
@@ -540,5 +550,133 @@ public class TelemetryService : ITelemetryService
         }
 
         return (proc, title);
+    }
+
+    private static readonly HashSet<string> KnownDevelopmentProcesses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Antigravity & AI IDEs
+        "antigravity",
+        "antigravity ide",
+        "antigravity-x64",
+        "cursor",
+        "windsurf",
+
+        // Microsoft / .NET
+        "code",
+        "code - insiders",
+        "visual studio code",
+        "devenv",
+        "visual studio",
+
+        // Mobile & Android
+        "studio64",
+        "studio",
+        "android studio",
+        "emulator",
+        "qemu-system-x86_64",
+        "adb",
+
+        // JetBrains Suite
+        "idea64",
+        "idea",
+        "intellij idea",
+        "pycharm64",
+        "pycharm",
+        "webstorm64",
+        "webstorm",
+        "rider64",
+        "rider",
+        "clion64",
+        "clion",
+        "goland64",
+        "goland",
+        "phpstorm64",
+        "phpstorm",
+        "rubymine64",
+        "rubymine",
+        "datagrip64",
+        "datagrip",
+
+        // Other Editors & Tools
+        "sublime_text",
+        "sublime text",
+        "eclipse",
+        "netbeans",
+        "notepad++",
+        "xcode",
+
+        // Terminals & Consoles
+        "terminal",
+        "windowsterminal",
+        "powershell",
+        "pwsh",
+        "cmd",
+        "git-bash",
+        "bash",
+        "zsh",
+        "wsl",
+
+        // Compilers, Runtimes & Mobile/Build Daemons
+        "dotnet",
+        "node",
+        "python",
+        "python3",
+        "gradle",
+        "gradlew",
+        "java",
+        "javaw"
+    };
+
+    public static bool IsDevelopmentEnvironment(string? processName, string? windowTitle = null)
+    {
+        if (string.IsNullOrWhiteSpace(processName) && string.IsNullOrWhiteSpace(windowTitle))
+            return false;
+
+        var proc = (processName ?? "").Trim();
+        if (proc.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || proc.EndsWith(".app", StringComparison.OrdinalIgnoreCase))
+            proc = proc[..^4];
+
+        if (KnownDevelopmentProcesses.Contains(proc))
+            return true;
+
+        var lowerProc = proc.ToLowerInvariant();
+        if (lowerProc.Contains("antigravity") ||
+            lowerProc.Contains("studio") ||
+            lowerProc.Contains("devenv") ||
+            lowerProc.Contains("intellij") ||
+            lowerProc.Contains("pycharm") ||
+            lowerProc.Contains("webstorm") ||
+            lowerProc.Contains("rider") ||
+            lowerProc.Contains("cursor") ||
+            lowerProc.Contains("windsurf") ||
+            lowerProc.Contains("emulator") ||
+            lowerProc.Contains("code"))
+        {
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(windowTitle))
+        {
+            var title = windowTitle.Trim();
+            if (title.Contains("Antigravity", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains("Visual Studio", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains("Android Studio", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains("IntelliJ", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains("PyCharm", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains("WebStorm", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains("Rider", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains("CLion", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains("Cursor", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains("Windsurf", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains("Xcode", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains(".csproj", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains(".sln", StringComparison.OrdinalIgnoreCase) ||
+                title.Contains(".gradle", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -49,7 +49,7 @@ public class ShiftsController : ControllerBase
         var shift = await _shiftService.GetCurrentShiftAsync(userId, cancellationToken);
         if (shift == null)
         {
-            return Ok(new { status = "NOT_CLOCKED_IN", totalHoursToday = 0.0 });
+            return Ok(new { status = "NOT_CLOCKED_IN", totalHoursToday = 0.0, totalSecondsToday = 0, priorSecondsToday = 0, totalTimeFormatted = "0h 0m" });
         }
 
         return Ok(shift);
