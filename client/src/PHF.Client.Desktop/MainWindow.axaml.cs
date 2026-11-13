@@ -152,6 +152,7 @@ public partial class MainWindow : Window
         _realtimeClient.OnConnectionStateChanged += OnRealtimeConnectionChanged;
 
         Opened += MainWindow_Opened;
+        Activated += MainWindow_Activated;
         Closing += MainWindow_Closing;
         AppDomain.CurrentDomain.ProcessExit += (_, _) => PerformFullAppShutdown();
 
@@ -216,6 +217,25 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Debug.WriteLine($"[MainWindow_Opened] Error: {ex.Message}");
+        }
+    }
+
+    private async void MainWindow_Activated(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (_apiClient.IsAuthenticated)
+            {
+                if (!_realtimeClient.IsConnected)
+                {
+                    _ = _realtimeClient.StartAsync(_stationId, _currentUser?.Id.ToString());
+                }
+                await CheckForAppUpdatesAsync(showNoUpdateToast: false);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[MainWindow_Activated] Error: {ex.Message}");
         }
     }
 
@@ -300,7 +320,7 @@ public partial class MainWindow : Window
 
         try
         {
-            await _realtimeClient.StartAsync();
+            await _realtimeClient.StartAsync(_stationId, _currentUser?.Id.ToString());
         }
         catch (Exception ex)
         {
@@ -352,19 +372,33 @@ public partial class MainWindow : Window
         _autoRefreshTimer.Tick += async (_, _) =>
         {
             _autoRefreshTicks++;
-            if (_currentTab == "MY_DESK")
+            try
             {
-                await LoadAssignedTasksAsync(silent: true);
+                if (_currentTab == "MY_DESK")
+                {
+                    await LoadAssignedTasksAsync(silent: true);
+                }
+                else if (_currentTab == "WORKFORCE")
+                {
+                    await LoadWorkforceFleetAsync(silent: true);
+                }
             }
-            else if (_currentTab == "WORKFORCE")
+            catch (Exception ex)
             {
-                await LoadWorkforceFleetAsync(silent: true);
+                Debug.WriteLine($"[AutoRefresh] Task refresh error: {ex.Message}");
             }
 
-            // Periodic background check for updates (every 5 minutes / 15 ticks)
-            if (_autoRefreshTicks % 15 == 0)
+            // Periodic background check for updates (every 1 minute / 3 ticks)
+            if (_autoRefreshTicks % 3 == 0)
             {
-                await CheckForAppUpdatesAsync(showNoUpdateToast: false);
+                try
+                {
+                    await CheckForAppUpdatesAsync(showNoUpdateToast: false);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[AutoRefresh] Update check error: {ex.Message}");
+                }
             }
         };
         _autoRefreshTimer.Start();
@@ -3263,11 +3297,12 @@ public partial class MainWindow : Window
                 BtnPerformUpdate.IsEnabled = true;
                 BtnDismissUpdate.IsEnabled = true;
 
-                // Make sure window is visible, restored, activated and focused
+                // Make sure window is visible, restored, activated and FORCIBLY brought to foreground
                 if (WindowState == WindowState.Minimized)
                 {
                     WindowState = WindowState.Normal;
                 }
+                Topmost = true;
                 Show();
                 Activate();
                 Focus();
@@ -3340,10 +3375,12 @@ public partial class MainWindow : Window
     private void BtnDismissUpdateModal_Click(object? sender, RoutedEventArgs e)
     {
         AppUpdateModal.IsVisible = false;
+        Topmost = false;
     }
 
     private async void BtnPerformUpdate_Click(object? sender, RoutedEventArgs e)
     {
+        Topmost = false;
         if (_availableUpdate == null) return;
 
         BtnPerformUpdate.IsEnabled = false;

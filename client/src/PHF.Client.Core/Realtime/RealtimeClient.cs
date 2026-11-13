@@ -3,11 +3,27 @@ using PHF.Core.DTOs;
 
 namespace PHF.Client.Core.Realtime;
 
+public class InfiniteRetryPolicy : IRetryPolicy
+{
+    public TimeSpan? NextRetryDelay(RetryContext retryContext)
+    {
+        var count = retryContext.PreviousRetryCount;
+        if (count == 0) return TimeSpan.Zero;
+        if (count < 3) return TimeSpan.FromSeconds(2);
+        if (count < 6) return TimeSpan.FromSeconds(5);
+        if (count < 10) return TimeSpan.FromSeconds(10);
+        return TimeSpan.FromSeconds(15);
+    }
+}
+
 public class RealtimeClient : IAsyncDisposable, IDisposable
 {
     private HubConnection? _hubConnection;
     private string _hubUrl;
     private Func<string?>? _tokenProvider;
+    private bool _isDisposed = false;
+    private string? _lastStationId;
+    private string? _lastUserId;
 
     public event Action<TaskResponseDto>? OnTaskAssigned;
     public event Action<Guid, string, string?>? OnTaskStatusChanged;
@@ -40,6 +56,9 @@ public class RealtimeClient : IAsyncDisposable, IDisposable
 
     public async Task StartAsync(string? stationId = null, string? userId = null, CancellationToken ct = default)
     {
+        _lastStationId = stationId ?? _lastStationId;
+        _lastUserId = userId ?? _lastUserId;
+
         if (_hubConnection != null)
         {
             await StopAsync();
@@ -50,7 +69,7 @@ public class RealtimeClient : IAsyncDisposable, IDisposable
             {
                 options.AccessTokenProvider = () => Task.FromResult(_tokenProvider?.Invoke());
             })
-            .WithAutomaticReconnect(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30) })
+            .WithAutomaticReconnect(new InfiniteRetryPolicy())
             .Build();
 
         _hubConnection.On<TaskResponseDto>("TaskAssigned", task =>
@@ -92,13 +111,13 @@ public class RealtimeClient : IAsyncDisposable, IDisposable
             OnConnectionStateChanged?.Invoke(true);
             try
             {
-                if (!string.IsNullOrWhiteSpace(stationId))
+                if (!string.IsNullOrWhiteSpace(_lastStationId))
                 {
-                    await _hubConnection.InvokeAsync("JoinStation", stationId);
+                    await _hubConnection.InvokeAsync("JoinStation", _lastStationId);
                 }
-                if (!string.IsNullOrWhiteSpace(userId))
+                if (!string.IsNullOrWhiteSpace(_lastUserId))
                 {
-                    await _hubConnection.InvokeAsync("JoinUserGroup", userId);
+                    await _hubConnection.InvokeAsync("JoinUserGroup", _lastUserId);
                 }
                 // Automatically notify client to reload assignments upon reconnection
                 OnTaskAssigned?.Invoke(null!);
@@ -106,10 +125,37 @@ public class RealtimeClient : IAsyncDisposable, IDisposable
             catch { }
         };
 
-        _hubConnection.Closed += _ =>
+        _hubConnection.Closed += async (error) =>
         {
             OnConnectionStateChanged?.Invoke(false);
-            return Task.CompletedTask;
+            // Persistent background auto-reconnect loop: keep retrying forever until reconnected or disposed
+            while (!_isDisposed && (_hubConnection?.State == HubConnectionState.Disconnected))
+            {
+                try
+                {
+                    await Task.Delay(5000);
+                    if (_isDisposed) break;
+                    if (_hubConnection != null)
+                    {
+                        await _hubConnection.StartAsync();
+                        OnConnectionStateChanged?.Invoke(true);
+                        if (!string.IsNullOrWhiteSpace(_lastStationId))
+                        {
+                            await _hubConnection.InvokeAsync("JoinStation", _lastStationId);
+                        }
+                        if (!string.IsNullOrWhiteSpace(_lastUserId))
+                        {
+                            await _hubConnection.InvokeAsync("JoinUserGroup", _lastUserId);
+                        }
+                        OnTaskAssigned?.Invoke(null!);
+                        break;
+                    }
+                }
+                catch
+                {
+                    // Continue retrying indefinitely
+                }
+            }
         };
 
         try
@@ -156,12 +202,14 @@ public class RealtimeClient : IAsyncDisposable, IDisposable
 
     public async ValueTask DisposeAsync()
     {
+        _isDisposed = true;
         await StopAsync();
         GC.SuppressFinalize(this);
     }
 
     public void Dispose()
     {
+        _isDisposed = true;
         try
         {
             Task.Run(async () => await StopAsync()).Wait(TimeSpan.FromMilliseconds(500));
